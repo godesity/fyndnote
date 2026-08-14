@@ -12,7 +12,6 @@ interface Project {
   template_id: string;
   created_at: string;
   role?: string;
-  num_rows?: number;
 }
 
 export default function ProjectListView() {
@@ -35,9 +34,12 @@ export default function ProjectListView() {
 
   const startLabeling = async (p: Project) => {
     setActiveProject(p);
-    const t = await api.getTemplate(p.template_id);
+    const [t, projectDetail] = await Promise.all([
+      api.getTemplate(p.template_id),
+      api.getProject(p.id, user!.user_id),
+    ]);
     setTemplateSource(t.source);
-    setNumRows(p.num_rows || 0);
+    setNumRows(projectDetail.num_rows || 0);
     setView('label');
   };
 
