@@ -27,6 +27,25 @@ def test_load_http_csv():
     assert meta["source_format"] == "csv"
     assert meta["num_rows"] == 2
 
+def test_upload_csv():
+    from fastapi.testclient import TestClient
+    from main import app
+    client = TestClient(app)
+    content = b"text,label\nhello,0\nworld,1\n"
+    resp = client.post("/api/v1/datasets/upload", files={"file": ("test.csv", content, "text/csv")})
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data["num_rows"] == 2
+    assert data["source_type"] == "file"
+
+def test_upload_unsupported_format():
+    from fastapi.testclient import TestClient
+    from main import app
+    client = TestClient(app)
+    content = b"test"
+    resp = client.post("/api/v1/datasets/upload", files={"file": ("test.xlsx", content, "application/octet-stream")})
+    assert resp.status_code == 400
+
 def test_load_file_csv(tmp_path):
     f = tmp_path / "test.csv"
     f.write_text("text,label\nhello,0\nworld,1\n")

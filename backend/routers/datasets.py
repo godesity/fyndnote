@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 from services.dataset_service import DatasetService
 
 router = APIRouter()
@@ -22,6 +22,15 @@ def get_row(ds_id: str, index: int):
         return {"index": index, "row": row}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+@router.post("/datasets/upload", status_code=201)
+async def upload_dataset(file: UploadFile = File(...)):
+    content = await file.read()
+    try:
+        meta = DatasetService.load_upload(file.filename, content)
+        return meta
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/datasets/{ds_id}/rows/{index}/columns/{column}")
 def get_binary_column(ds_id: str, index: int, column: str):

@@ -6,7 +6,7 @@ from io import BytesIO
 from datetime import datetime
 from pathlib import Path
 from datasets import load_dataset, Dataset, Image as HfImage, Audio
-from config import DATASETS_DIR
+from config import DATASETS_DIR, DATASETS_UPLOAD_DIR
 
 DATASET_SOURCE_TYPES = {
     "csv": "csv",
@@ -184,3 +184,16 @@ class DatasetService:
             content_type = "audio/wav"
             return raw, content_type
         return str(val).encode(), content_type
+
+    @classmethod
+    def load_upload(cls, filename: str, content: bytes) -> dict:
+        ext = Path(filename).suffix.lower().lstrip(".")
+        if ext not in DATASET_SOURCE_TYPES:
+            raise ValueError(
+                f"Unsupported format: .{ext}. Supported: .csv, .json, .jsonl, .parquet"
+            )
+        fmt = DATASET_SOURCE_TYPES[ext]
+        DATASETS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        dest = DATASETS_UPLOAD_DIR / f"{uuid.uuid4()}.{ext}"
+        dest.write_bytes(content)
+        return cls.load(f"file://{dest}")
