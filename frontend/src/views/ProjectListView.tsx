@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
+import SetupView from './SetupView';
 
 interface Project {
   id: string;
@@ -58,7 +59,3 @@ export default function ProjectListView() {
   );
 }
 
-// Stub — will be implemented in Task 9
-function SetupView({ onDone }: { onDone: () => void }) {
-  return <div>Setup View (admin only) <button onClick={onDone}>Back</button></div>;
-}
