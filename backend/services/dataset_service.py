@@ -1,5 +1,7 @@
 import uuid
 import json
+import requests
+import tempfile
 from io import BytesIO
 from datetime import datetime
 from pathlib import Path
@@ -39,18 +41,67 @@ def _detect_source(source: str) -> tuple[str, str, str]:
         return ("huggingface", None, source)
 
 
+def _load_from_format(path: str, fmt: str) -> Dataset:
+    format_map = {
+        "csv": lambda p: load_dataset("csv", data_files=p, split="train"),
+        "json": lambda p: load_dataset("json", data_files=p, split="train"),
+        "jsonl": lambda p: load_dataset("json", data_files=p, split="train"),
+        "parquet": lambda p: load_dataset("parquet", data_files=p, split="train"),
+    }
+    loader = format_map.get(fmt)
+    if not loader:
+        raise ValueError(f"Unsupported format: {fmt}")
+    return loader(path)
+
+
+def _load_file(path: str, fmt: str) -> Dataset:
+    if not Path(path).exists():
+        raise FileNotFoundError(f"File not found: {path}")
+    return _load_from_format(path, fmt)
+
+
+def _load_http(url: str, fmt: str) -> Dataset:
+    resp = requests.get(url, stream=True, timeout=60)
+    resp.raise_for_status()
+    suffix = f".{fmt}"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        for chunk in resp.iter_content(chunk_size=8192):
+            tmp.write(chunk)
+        tmp_path = tmp.name
+    try:
+        ds = _load_from_format(tmp_path, fmt)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+    return ds
+
+
 class DatasetService:
     _instances: dict[str, Dataset] = {}
 
     @classmethod
     def load(cls, source: str, split: str = "train", name: str = None) -> dict:
-        ds = load_dataset(source, name, split=split)
+        source_type, source_format, clean_source = _detect_source(source)
         ds_id = str(uuid.uuid4())
-        cls._instances[ds_id] = ds
 
+        if source_type == "huggingface":
+            ds = load_dataset(clean_source, name, split=split)
+        elif source_type == "http":
+            ds = _load_http(clean_source, source_format)
+            split = None
+            name = None
+        elif source_type == "file":
+            ds = _load_file(clean_source, source_format)
+            split = None
+            name = None
+        else:
+            raise ValueError(f"Unknown source type: {source_type}")
+
+        cls._instances[ds_id] = ds
         meta = {
             "id": ds_id,
             "source": source,
+            "source_type": source_type,
+            "source_format": source_format,
             "name": name,
             "split": split,
             "num_rows": len(ds),
@@ -85,7 +136,19 @@ class DatasetService:
             raise ValueError("Dataset not found")
         with open(meta_path) as f:
             meta = json.load(f)
-        ds = load_dataset(meta["source"], meta["name"], split=meta["split"])
+        source_type = meta.get("source_type", "huggingface")
+        source = meta["source"]
+        if source_type == "huggingface":
+            ds = load_dataset(meta.get("source"), meta.get("name"), split=meta.get("split", "train"))
+        elif source_type == "http":
+            fmt = meta.get("source_format", "csv")
+            ds = _load_http(source, fmt)
+        elif source_type == "file":
+            clean = source[7:] if source.startswith("file://") else source
+            fmt = meta.get("source_format", "csv")
+            ds = _load_file(clean, fmt)
+        else:
+            raise ValueError(f"Unknown source type: {source_type}")
         cls._instances[ds_id] = ds
         return ds
 
