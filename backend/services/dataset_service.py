@@ -6,6 +6,39 @@ from pathlib import Path
 from datasets import load_dataset, Dataset, Image as HfImage, Audio
 from config import DATASETS_DIR
 
+DATASET_SOURCE_TYPES = {
+    "csv": "csv",
+    "json": "json",
+    "jsonl": "json",
+    "parquet": "parquet",
+}
+
+
+def _extract_extension(path: str) -> str:
+    return Path(path.split("?")[0]).suffix.lower().lstrip(".")
+
+
+def _detect_source(source: str) -> tuple[str, str, str]:
+    """Returns (source_type, format, clean_source)."""
+    if source.startswith("http://") or source.startswith("https://"):
+        ext = _extract_extension(source)
+        if ext not in DATASET_SOURCE_TYPES:
+            raise ValueError(
+                f"Unsupported format: .{ext}. Supported: .csv, .json, .jsonl, .parquet"
+            )
+        return ("http", DATASET_SOURCE_TYPES[ext], source)
+    elif source.startswith("file://"):
+        path = source[7:]
+        ext = _extract_extension(path)
+        if ext not in DATASET_SOURCE_TYPES:
+            raise ValueError(
+                f"Unsupported format: .{ext}. Supported: .csv, .json, .jsonl, .parquet"
+            )
+        return ("file", DATASET_SOURCE_TYPES[ext], path)
+    else:
+        return ("huggingface", None, source)
+
+
 class DatasetService:
     _instances: dict[str, Dataset] = {}
 
