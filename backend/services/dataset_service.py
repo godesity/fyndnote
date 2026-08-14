@@ -1,5 +1,7 @@
 import uuid
 import json
+from io import BytesIO
+from datetime import datetime
 from pathlib import Path
 from datasets import load_dataset, Dataset, Image as HfImage, Audio
 from config import DATASETS_DIR
@@ -20,7 +22,7 @@ class DatasetService:
             "split": split,
             "num_rows": len(ds),
             "columns": [{"name": col, "type": str(ds.features[col])} for col in ds.column_names],
-            "created_at": str(ds_id),
+            "created_at": datetime.utcnow().isoformat(),
         }
         meta_dir = DATASETS_DIR / ds_id
         meta_dir.mkdir(parents=True, exist_ok=True)
@@ -41,16 +43,22 @@ class DatasetService:
         return result
 
     @classmethod
-    def get_row(cls, ds_id: str, index: int) -> dict:
+    def _load_ds(cls, ds_id: str) -> Dataset:
         ds = cls._instances.get(ds_id)
-        if ds is None:
-            meta_path = DATASETS_DIR / ds_id / "meta.json"
-            if not meta_path.exists():
-                raise ValueError("Dataset not found")
-            with open(meta_path) as f:
-                meta = json.load(f)
-            ds = load_dataset(meta["source"], meta["name"], split=meta["split"])
-            cls._instances[ds_id] = ds
+        if ds is not None:
+            return ds
+        meta_path = DATASETS_DIR / ds_id / "meta.json"
+        if not meta_path.exists():
+            raise ValueError("Dataset not found")
+        with open(meta_path) as f:
+            meta = json.load(f)
+        ds = load_dataset(meta["source"], meta["name"], split=meta["split"])
+        cls._instances[ds_id] = ds
+        return ds
+
+    @classmethod
+    def get_row(cls, ds_id: str, index: int) -> dict:
+        ds = cls._load_ds(ds_id)
         row = ds[index]
         serialized = {}
         for col, val in row.items():
@@ -66,13 +74,10 @@ class DatasetService:
 
     @classmethod
     def get_binary_column(cls, ds_id: str, index: int, column: str) -> tuple[bytes, str]:
-        ds = cls._instances.get(ds_id)
-        if ds is None:
-            raise ValueError("Dataset not loaded")
+        ds = cls._load_ds(ds_id)
         val = ds[index][column]
         content_type = "application/octet-stream"
         if isinstance(val, HfImage):
-            from io import BytesIO
             buf = BytesIO()
             val.save(buf, format="JPEG")
             buf.seek(0)
