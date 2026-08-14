@@ -1,0 +1,55 @@
+const BASE = 'http://localhost:8000/api/v1';
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, body.detail || res.statusText);
+  }
+  return res.json();
+}
+
+export const api = {
+  login: (userId: string) =>
+    request<{ user_id: string; name: string; global_role: string; project_roles: Record<string, string> | null }>(
+      '/auth/login', { method: 'POST', body: JSON.stringify({ user_id: userId }) }
+    ),
+  listDatasets: () =>
+    request<{ datasets: any[] }>('/datasets'),
+  loadDataset: (source: string, split = 'train') =>
+    request<any>('/datasets/load', { method: 'POST', body: JSON.stringify({ source, split }) }),
+  getRow: (dsId: string, index: number) =>
+    request<{ index: number; row: Record<string, any> }>(`/datasets/${dsId}/rows/${index}`),
+  listTemplates: () =>
+    request<{ templates: any[] }>('/templates'),
+  createTemplate: (name: string, source: string) =>
+    request<any>('/templates', { method: 'POST', body: JSON.stringify({ name, source }) }),
+  updateTemplate: (id: string, source: string, validated?: boolean) =>
+    request<any>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify({ source, validated }) }),
+  listProjects: (userId: string) =>
+    request<{ projects: any[] }>(`/projects?user_id=${userId}`),
+  createProject: (name: string, datasetId: string, templateId: string) =>
+    request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId }) }),
+  getProject: (id: string, userId: string) =>
+    request<any>(`/projects/${id}?user_id=${userId}`),
+  nextRow: (projectId: string, userId: string) =>
+    request<{ index: number | null; row: Record<string, any> | null }>(`/projects/${projectId}/next-row?user_id=${userId}`),
+  submitAnnotation: (projectId: string, rowIndex: number, userId: string, data: any) =>
+    request<any>(`/projects/${projectId}/annotate`, {
+      method: 'POST',
+      body: JSON.stringify({ row_index: rowIndex, user_id: userId, data }),
+    }),
+  getAnnotation: (projectId: string, rowIndex: number, userId: string) =>
+    request<any>(`/projects/${projectId}/annotations/${rowIndex}?user_id=${userId}`),
+  browseRows: (projectId: string, userId: string, page = 1, status = 'all', includeAnnotations = 0) =>
+    request<any>(`/projects/${projectId}/rows?user_id=${userId}&page=${page}&status=${status}&include_annotations=${includeAnnotations}`),
+};
