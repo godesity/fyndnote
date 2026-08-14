@@ -31,6 +31,8 @@ export const api = {
     request<{ index: number; row: Record<string, any> }>(`/datasets/${dsId}/rows/${index}`),
   listTemplates: () =>
     request<{ templates: any[] }>('/templates'),
+  getTemplate: (id: string) =>
+    request<any>(`/templates/${id}`),
   createTemplate: (name: string, source: string) =>
     request<any>('/templates', { method: 'POST', body: JSON.stringify({ name, source }) }),
   updateTemplate: (id: string, source: string, validated?: boolean) =>
