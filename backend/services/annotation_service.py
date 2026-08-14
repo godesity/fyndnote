@@ -56,7 +56,7 @@ class AnnotationService:
             "SELECT COUNT(*) FROM annotations WHERE project_id = ?", (pid,)
         ).fetchone()[0]
         db.close()
-        return {"any_annotation": any_ann, "annotated_by_me": by_me, "total_annotations": total}
+        return {"annotated_rows": any_ann, "annotated_by_me": by_me, "total_annotations": total}
 
     @staticmethod
     def next_row(pid: str, user_id: str, num_rows: int) -> int | None:
@@ -111,6 +111,7 @@ class AnnotationService:
             "user_id": row["user_id"],
             "data": json.loads(row["data"]),
             "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
         }
 
     @staticmethod
@@ -124,7 +125,9 @@ class AnnotationService:
         return [], 0
 
     @staticmethod
-    def export_annotations(pid: str):
+    def export_annotations(pid: str, format: str = "parquet"):
+        if format != "parquet":
+            raise ValueError(f"Unsupported export format: {format}")
         db = get_db()
         rows = db.execute(
             "SELECT row_index, user_id, data, created_at, updated_at FROM annotations WHERE project_id = ?",

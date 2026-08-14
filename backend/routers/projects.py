@@ -70,7 +70,7 @@ def get_annotation(pid: str, row_index: int, user_id: str):
 
 @router.get("/projects/{pid}/annotations/export")
 def export_annotations(pid: str, format: str = "parquet"):
-    data = AnnotationService.export_annotations(pid)
+    data = AnnotationService.export_annotations(pid, format=format)
     return Response(content=data, media_type="application/octet-stream",
                     headers={"Content-Disposition": f"attachment; filename=annotations.{format}"})
 
