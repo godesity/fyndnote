@@ -55,6 +55,7 @@ def seed_from_json():
     if existing > 0:
         db.close()
         return
+    db.execute("PRAGMA foreign_keys=OFF")
     with open(seed_file) as f:
         data = json.load(f)
     for user in data["users"]:
@@ -67,5 +68,6 @@ def seed_from_json():
                 "INSERT OR IGNORE INTO project_permissions (user_id, project_id, role) VALUES (?, ?, ?)",
                 (user["id"], project_id, role)
             )
+    db.execute("PRAGMA foreign_keys=ON")
     db.commit()
     db.close()

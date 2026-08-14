@@ -1,0 +1,6 @@
+{
+  "users": [
+    { "id": "alice", "name": "Alice", "global_role": "system_admin" },
+    { "id": "bob", "name": "Bob", "global_role": "annotator", "project_roles": { "proj-1": "project_admin", "proj-2": "annotator" } }
+  ]
+}
