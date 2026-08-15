@@ -28,7 +28,7 @@ export default function RowGrid({ rows, onSelect, page, total, onPageChange }: P
             <div style={{ fontSize: 13, marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {JSON.stringify(r.preview).slice(0, 100)}
             </div>
-            <AnnotationStatusBadge {...r.annotation_status} />
+            <AnnotationStatusBadge byMe={r.annotation_status.by_me} byAny={r.annotation_status.by_any} annotators={r.annotation_status.annotators} />
           </div>
         ))}
       </div>
