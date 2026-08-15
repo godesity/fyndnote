@@ -116,13 +116,53 @@ class AnnotationService:
 
     @staticmethod
     def browse_rows(pid: str, user_id: str, page: int, per_page: int, status: str, include_annotations: bool) -> tuple:
+        from services.dataset_service import DatasetService
         db = get_db()
         project = db.execute("SELECT dataset_id FROM projects WHERE id = ?", (pid,)).fetchone()
         if not project:
             db.close()
             return [], 0
+
+        ds_id = project["dataset_id"]
+        total_rows = len(DatasetService._load_ds(ds_id))
+
+        annotated = {
+            r[0] for r in db.execute(
+                "SELECT row_index FROM annotations WHERE project_id = ? AND user_id = ?",
+                (pid, user_id)
+            ).fetchall()
+        }
+
         db.close()
-        return [], 0
+
+        all_indices = list(range(total_rows))
+
+        if status == "annotated_by_me":
+            indices = sorted(i for i in all_indices if i in annotated)
+        elif status == "unannotated":
+            indices = sorted(i for i in all_indices if i not in annotated)
+        else:
+            indices = all_indices
+
+        total = len(indices)
+        start = (page - 1) * per_page
+        page_indices = indices[start:start + per_page]
+
+        rows_data = []
+        for idx in page_indices:
+            entry = {"index": idx}
+            if include_annotations and idx in annotated:
+                db2 = get_db()
+                ann = db2.execute(
+                    "SELECT data FROM annotations WHERE project_id = ? AND row_index = ? AND user_id = ?",
+                    (pid, idx, user_id)
+                ).fetchone()
+                db2.close()
+                if ann:
+                    entry["annotation"] = json.loads(ann["data"])
+            rows_data.append(entry)
+
+        return rows_data, total
 
     @staticmethod
     def export_annotations(pid: str, format: str = "parquet"):
