@@ -54,6 +54,11 @@ def test_browse_rows_all(client):
     assert data["page"] == 1
     assert data["per_page"] == 5
     assert "index" in data["rows"][0]
+    assert "preview" in data["rows"][0]
+    assert "annotation_status" in data["rows"][0]
+    assert "text" in data["rows"][0]["preview"]
+    assert data["rows"][0]["annotation_status"]["by_me"] == False
+    assert data["rows"][0]["annotation_status"]["by_any"] == False
 
 
 def test_browse_rows_annotated_filter(client):
@@ -73,6 +78,8 @@ def test_browse_rows_annotated_filter(client):
     data = resp.json()
     assert data["total"] == 1
     assert data["rows"][0]["index"] == 0
+    assert data["rows"][0]["annotation_status"]["by_me"] == True
+    assert data["rows"][0]["annotation_status"]["by_any"] == True
 
     # Filter unannotated
     resp = client.get(f"/api/v1/projects/{pid}/rows?user_id=alice&page=1&status=unannotated")

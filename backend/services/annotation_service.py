@@ -126,21 +126,32 @@ class AnnotationService:
         ds_id = project["dataset_id"]
         total_rows = len(DatasetService._load_ds(ds_id))
 
-        annotated = {
+        # Annotations by current user
+        annotated_by_me = {
             r[0] for r in db.execute(
                 "SELECT row_index FROM annotations WHERE project_id = ? AND user_id = ?",
                 (pid, user_id)
             ).fetchall()
         }
 
+        # Annotations by any user
+        all_annotations = db.execute(
+            "SELECT row_index, user_id FROM annotations WHERE project_id = ?",
+            (pid,)
+        ).fetchall()
+
+        any_annotated: dict[int, set[str]] = {}
+        for r in all_annotations:
+            any_annotated.setdefault(r["row_index"], set()).add(r["user_id"])
+
         db.close()
 
         all_indices = list(range(total_rows))
 
         if status == "annotated_by_me":
-            indices = sorted(i for i in all_indices if i in annotated)
+            indices = sorted(i for i in all_indices if i in annotated_by_me)
         elif status == "unannotated":
-            indices = sorted(i for i in all_indices if i not in annotated)
+            indices = sorted(i for i in all_indices if i not in any_annotated)
         else:
             indices = all_indices
 
@@ -150,8 +161,18 @@ class AnnotationService:
 
         rows_data = []
         for idx in page_indices:
-            entry = {"index": idx}
-            if include_annotations and idx in annotated:
+            row = DatasetService.get_row(ds_id, idx)
+            annotators = list(any_annotated.get(idx, []))
+            entry = {
+                "index": idx,
+                "preview": row,
+                "annotation_status": {
+                    "by_me": idx in annotated_by_me,
+                    "by_any": idx in any_annotated,
+                    "annotators": annotators,
+                },
+            }
+            if include_annotations and idx in annotated_by_me:
                 db2 = get_db()
                 ann = db2.execute(
                     "SELECT data FROM annotations WHERE project_id = ? AND row_index = ? AND user_id = ?",
