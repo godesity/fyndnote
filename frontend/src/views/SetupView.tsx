@@ -24,6 +24,10 @@ export default function SetupView({ onDone }: { onDone: () => void }) {
   const [projectName, setProjectName] = useState("");
   const [sampleRow, setSampleRow] = useState<any>(null);
   const [validated, setValidated] = useState(false);
+  const [loadInput, setLoadInput] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showLoadDialog, setShowLoadDialog] = useState(false);
 
   useEffect(() => {
     api.listDatasets().then((res) => setDatasets(res.datasets));
@@ -50,6 +54,39 @@ export default function SetupView({ onDone }: { onDone: () => void }) {
     onDone();
   };
 
+  const handleLoad = async () => {
+    if (!loadInput.trim()) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      await api.loadDataset(loadInput.trim());
+      setLoadInput("");
+      setShowLoadDialog(false);
+      const res = await api.listDatasets();
+      setDatasets(res.datasets);
+    } catch (err: any) {
+      setLoadError(err.message || "Failed to load dataset");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      await api.uploadDataset(file);
+      const res = await api.listDatasets();
+      setDatasets(res.datasets);
+    } catch (err: any) {
+      setLoadError(err.message || "Failed to upload dataset");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h2>Setup Project</h2>
@@ -68,14 +105,29 @@ export default function SetupView({ onDone }: { onDone: () => void }) {
             </option>
           ))}
         </select>
-        <button
-          onClick={() => {
-            /* open load dialog */
-          }}
-          style={{ marginLeft: 8 }}
-        >
+        <button onClick={() => setShowLoadDialog(!showLoadDialog)} style={{ marginLeft: 8 }}>
           Load New
         </button>
+
+        {showLoadDialog && (
+          <div style={{ marginTop: 8, padding: 12, border: '1px solid #ccc', borderRadius: 4 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <input
+                value={loadInput}
+                onChange={(e) => setLoadInput(e.target.value)}
+                placeholder="HF dataset ID, HTTP URL, or file:// path"
+                style={{ flex: 1, padding: 8 }}
+              />
+              <button onClick={handleLoad} disabled={loading || !loadInput.trim()}>
+                {loading ? "Loading..." : "Load"}
+              </button>
+            </div>
+            <div>
+              <input type="file" accept=".csv,.json,.jsonl,.parquet" onChange={handleFileUpload} />
+            </div>
+            {loadError && <p style={{ color: 'red', fontSize: 13, marginTop: 4 }}>{loadError}</p>}
+          </div>
+        )}
       </div>
 
       <div style={{ marginBottom: 20 }}>
