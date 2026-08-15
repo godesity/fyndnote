@@ -58,8 +58,8 @@ export default function LabelView({ projectId, templateSource, numRows, onBack }
         <button onClick={onBack} style={{ marginBottom: 16 }}>&larr; Back</button>
         <RowNavigator currentIndex={currentRow.index} numRows={numRows} />
         <div style={{ border: '1px solid #ccc', padding: 16, borderRadius: 4, marginTop: 16, minHeight: 300 }}>
-          <LiveProvider code={templateSource} scope={scope}
-                        {...{ row: currentRow.row, annotations } as any}>
+          <LiveProvider code={templateSource}
+                        scope={{ ...scope, data: currentRow.row, annotations }}>
             <LivePreview />
           </LiveProvider>
         </div>
