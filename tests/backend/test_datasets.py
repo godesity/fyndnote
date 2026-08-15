@@ -53,3 +53,19 @@ def test_load_file_csv(tmp_path):
     meta = DatasetService.load(f"file://{f}")
     assert meta["source_type"] == "file"
     assert meta["num_rows"] == 2
+
+
+def test_load_dataset_workflow(client):
+    import tempfile, pathlib
+    f = pathlib.Path(tempfile.mktemp(suffix=".csv"))
+    f.write_text("text,label\nhello,0\nworld,1\n")
+    resp = client.post("/api/v1/datasets/load", json={"source": f"file://{f}"})
+    f.unlink()
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["num_rows"] == 2
+
+    # Verify re-list
+    list_resp = client.get("/api/v1/datasets")
+    ids = [d["id"] for d in list_resp.json()["datasets"]]
+    assert data["id"] in ids
