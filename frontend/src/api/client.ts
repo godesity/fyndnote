@@ -25,6 +25,20 @@ export const api = {
     ),
   listDatasets: () =>
     request<{ datasets: any[] }>('/datasets'),
+  uploadDataset: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return fetch(`${BASE}/datasets/upload`, {
+      method: 'POST',
+      body: formData,
+    }).then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new ApiError(res.status, body.detail || res.statusText);
+      }
+      return res.json();
+    });
+  },
   loadDataset: (source: string, split = 'train') =>
     request<any>('/datasets/load', { method: 'POST', body: JSON.stringify({ source, split }) }),
   getRow: (dsId: string, index: number) =>
