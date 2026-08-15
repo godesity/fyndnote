@@ -127,22 +127,38 @@ For `system_admin`, all projects are returned (no permission check).
 ## Dataset Storage
 
 Datasets are loaded via HF `datasets` and are **read-only**. The original data is
-never modified. Metadata is cached in `data/datasets/{id}/meta.json`.
+never modified. Metadata is cached in `data/datasets/{id}/meta.json`. Source files
+downloaded via HTTP or uploaded are cached in subdirectories.
+
+```
+data/
+  datasets/
+    {dataset_id}/
+      meta.json          # dataset metadata + source info
+    cache/               # HTTP-downloaded files
+    uploads/             # browser-uploaded files
+```
 
 ```json
 {
   "id": "ds-uuid",
-  "source": "imdb",
+  "source": "https://example.com/reviews.csv",
+  "source_type": "http",
+  "source_format": "csv",
   "name": null,
-  "split": "train",
+  "split": null,
   "num_rows": 50000,
   "columns": [
     {"name": "text", "type": "Value('string')"},
-    {"name": "label", "type": "ClassLabel(names=['neg','pos'])"}
+    {"name": "label", "type": "ClassLabel(names=['pos','neg'])"}
   ],
-  "created_at": "2026-08-13T00:00:00Z"
+  "original_file": "data/datasets/cache/abc123.csv",
+  "created_at": "2026-08-14T00:00:00Z"
 }
 ```
+
+Supported source types: `huggingface`, `http`, `file`, `upload`.
+Supported formats: CSV, JSON, JSONL, Parquet.
 
 ## Template Storage
 

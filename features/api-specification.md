@@ -83,16 +83,57 @@ Returns datasets loaded in the backend.
 POST /api/v1/datasets/load
 ```
 
+Auto-detects source type from prefix:
+
+| Input | Type | Example |
+|---|---|---|
+| `http://*` / `https://*` | Remote file | `https://example.com/data.csv` |
+| `file://*` | Local path | `file:///home/user/data.parquet` |
+| `group/name` | HuggingFace | `stanfordnlp/imdb` |
+
 ```json
+// Request
+{ "source": "https://example.com/reviews.csv" }
+
+// Response (200 OK)
 {
-  "source": "imdb",
-  "split": "train",
-  "name": null
+  "id": "ds-uuid",
+  "source": "https://example.com/reviews.csv",
+  "source_type": "http",
+  "source_format": "csv",
+  "name": null,
+  "split": null,
+  "num_rows": 50000,
+  "columns": [
+    { "name": "text", "type": "Value('string')" },
+    { "name": "label", "type": "ClassLabel(names=['pos','neg'])" }
+  ],
+  "created_at": "2026-08-14T00:00:00Z"
 }
+
+// Response (400 — unsupported format)
+{ "detail": "Unsupported format: .xlsx. Supported: .csv, .json, .jsonl, .parquet" }
 ```
 
-Supports any source HF `datasets` supports: Hugging Face hub ID, local path,
-CSV/JSONL/Parquet file path, etc.
+Supported formats: CSV, JSON, JSONL, Parquet.
+
+### Upload a dataset file
+
+```
+POST /api/v1/datasets/upload
+```
+
+Multipart form upload. Accepts `.csv`, `.json`, `.jsonl`, `.parquet` files.
+
+```json
+// Response (200 OK)
+{
+  "id": "ds-uuid",
+  "source": "reviews.csv",
+  "source_type": "upload",
+  "source_format": "csv",
+  ...
+}
 
 ### Get dataset row
 
@@ -233,25 +274,16 @@ GET /api/v1/projects/:id
 GET /api/v1/projects/:id/rows?page=1&per_page=50&status=all&user_id=user-1&include_annotations=1
 ```
 
-Status options: `all`, `annotated_by_me`, `annotated_by_any`, `unannotated`
+Status options: `all`, `annotated_by_me`, `unannotated`
 
-`annotation_status` is always present. `annotations` is only included when
-`include_annotations=1` — otherwise it's `null`.
+`annotations` is only included when `include_annotations=1` — otherwise it's `null`.
 
 ```json
 {
   "rows": [
     {
       "index": 42,
-      "preview": { "text": "This movie was..." },
-      "annotations": [
-        {"author_id": "user-1", "created_at": "2026-08-13T00:00:00Z" , "data": {"sentiment": "negative"}}
-      ],
-      "annotation_status": {
-        "by_me": true,
-        "by_any": true,
-        "annotators": ["user-1"]
-      }
+      "annotations": { "sentiment": "positive" }
     }
   ],
   "total": 50000,
