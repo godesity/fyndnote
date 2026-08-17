@@ -70,6 +70,9 @@ export const api = {
     }),
   getAnnotation: (projectId: string, rowIndex: number, userId: string) =>
     request<any>(`/projects/${projectId}/annotations/${rowIndex}?user_id=${userId}`),
-  browseRows: (projectId: string, userId: string, page = 1, status = 'all', includeAnnotations = 0) =>
-    request<any>(`/projects/${projectId}/rows?user_id=${userId}&page=${page}&status=${status}&include_annotations=${includeAnnotations}`),
+  browseRows: (projectId: string, userId: string, page = 1, filter: any[] = []) =>
+    request<any>(`/projects/${projectId}/rows`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, page, filter }),
+    }),
 };

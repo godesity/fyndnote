@@ -33,7 +33,10 @@ export default function BrowseView({ projectId }: Props) {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    api.browseRows(projectId, user.user_id, page, statusFilter, 1).then((res) => {
+    const filter = statusFilter === 'all' ? [] : statusFilter === 'annotated_by_me'
+      ? [{ field: 'annotations.annotated_by', operator: '=', value: user.user_id }]
+      : [{ field: 'annotations.count', operator: '=', value: '0' }];
+    api.browseRows(projectId, user.user_id, page, filter).then((res) => {
       setRows(res.rows);
       setTotal(res.total);
       setLoading(false);
