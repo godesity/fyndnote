@@ -5,6 +5,7 @@ import BreadcrumbNav from '../components/BreadcrumbNav';
 import { SkeletonBar } from '../components/SkeletonLoader';
 import RowGrid from '../components/RowGrid';
 import RowDetail from '../components/RowDetail';
+import FilterBar from '../components/FilterBar';
 
 interface Props {
   projectId: string;
@@ -19,7 +20,9 @@ export default function BrowseView({ projectId }: Props) {
   const [page, setPage] = useState(1);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedRow, setSelectedRow] = useState<any>(null);
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [filter, setFilter] = useState<any[]>([]);
+  const [datasetColumns, setDatasetColumns] = useState<{ name: string; type: string }[]>([]);
+  const [annotationFields, setAnnotationFields] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,21 +30,23 @@ export default function BrowseView({ projectId }: Props) {
     api.getProject(projectId, user.user_id).then((p) => {
       setProjectColor(p.color || '#F97316');
       setProjectName(p.name || '');
+      setAnnotationFields(p.annotation_fields || []);
+      api.listDatasets().then((res) => {
+        const ds = res.datasets.find((d: any) => d.id === p.dataset_id);
+        if (ds) setDatasetColumns(ds.columns || []);
+      });
     });
   }, [projectId, user]);
 
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    const filter = statusFilter === 'all' ? [] : statusFilter === 'annotated_by_me'
-      ? [{ field: 'annotations.annotated_by', operator: '=', value: user.user_id }]
-      : [{ field: 'annotations.count', operator: '=', value: '0' }];
     api.browseRows(projectId, user.user_id, page, filter).then((res) => {
       setRows(res.rows);
       setTotal(res.total);
       setLoading(false);
     });
-  }, [projectId, page, statusFilter]);
+  }, [projectId, page, filter]);
 
   const handleSelect = async (idx: number) => {
     setSelectedIndex(idx);
@@ -63,17 +68,12 @@ export default function BrowseView({ projectId }: Props) {
       <div className="max-w-5xl mx-auto px-6 py-6 animate-fade-in">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-[var(--color-text-heading)]">Browse Data</h2>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-[var(--color-text-muted)]">Status:</label>
-            <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-              className="px-3 py-1.5 border border-[var(--color-border)] rounded-lg text-sm bg-white focus:outline-none focus:border-sunset-400"
-            >
-              <option value="all">All</option>
-              <option value="annotated_by_me">Annotated by me</option>
-              <option value="unannotated">Unannotated</option>
-            </select>
+          <div className="w-full max-w-xl ml-8">
+            <FilterBar
+              datasetColumns={datasetColumns}
+              annotationFields={annotationFields}
+              onFilterChange={(f) => { setFilter(f); setPage(1); }}
+            />
           </div>
         </div>
 
