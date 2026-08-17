@@ -11,6 +11,7 @@ export default function LoginView() {
     try {
       setError('');
       await login(userId);
+      window.location.hash = '#/projects';
     } catch {
       setError('Unknown user ID');
     }

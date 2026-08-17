@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import useHashLocation from './hooks/useHashLocation';
 import LoginView from './views/LoginView';
@@ -28,13 +27,7 @@ function matchRoute(parts: string[]): { component: JSX.Element; id?: string } {
 
 function AppContent() {
   const { user } = useAuth();
-  const { parts, navigate } = useHashLocation();
-
-  useEffect(() => {
-    if (parts.length === 0) {
-      navigate(user ? '/projects' : '/login');
-    }
-  }, []);
+  const { parts } = useHashLocation();
 
   if (!user) return <LoginView />;
 
