@@ -21,6 +21,15 @@ class AnnotationService:
         return dict(proj)
 
     @staticmethod
+    def update_project(pid: str, name: str) -> dict | None:
+        db = get_db()
+        db.execute("UPDATE projects SET name = ? WHERE id = ?", (name, pid))
+        db.commit()
+        p = db.execute("SELECT * FROM projects WHERE id = ?", (pid,)).fetchone()
+        db.close()
+        return dict(p) if p else None
+
+    @staticmethod
     def get_project(pid: str) -> dict | None:
         db = get_db()
         p = db.execute("SELECT * FROM projects WHERE id = ?", (pid,)).fetchone()

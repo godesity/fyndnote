@@ -5,6 +5,7 @@ import tempfile
 from io import BytesIO
 from datetime import datetime
 from pathlib import Path
+from PIL import Image as PILImage
 from datasets import load_dataset, Dataset, Image as HfImage, Audio
 from config import DATASETS_DIR, DATASETS_UPLOAD_DIR
 
@@ -124,6 +125,7 @@ class DatasetService:
             if meta_file.exists():
                 with open(meta_file) as f:
                     result.append(json.load(f))
+        result.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return result
 
     @classmethod
@@ -158,32 +160,45 @@ class DatasetService:
         row = ds[index]
         serialized = {}
         for col, val in row.items():
-            if isinstance(val, HfImage):
+            if isinstance(val, PILImage.Image):
                 serialized[col] = f"/api/v1/datasets/{ds_id}/rows/{index}/columns/{col}"
             elif isinstance(val, Audio):
                 serialized[col] = f"/api/v1/datasets/{ds_id}/rows/{index}/columns/{col}"
-            elif isinstance(val, dict) or isinstance(val, list):
+            elif isinstance(val, dict):
                 serialized[col] = val
+            elif isinstance(val, list):
+                serialized[col] = [cls._json_safe(v) for v in val]
             else:
-                serialized[col] = val
+                serialized[col] = cls._json_safe(val)
         return serialized
+
+    @staticmethod
+    def _json_safe(val):
+        if isinstance(val, (str, int, float, bool, type(None))):
+            return val
+        if isinstance(val, dict):
+            return {k: DatasetService._json_safe(v) for k, v in val.items()}
+        if isinstance(val, list):
+            return [DatasetService._json_safe(v) for v in val]
+        try:
+            json.dumps(val)
+            return val
+        except (TypeError, ValueError):
+            return str(val)
 
     @classmethod
     def get_binary_column(cls, ds_id: str, index: int, column: str) -> tuple[bytes, str]:
         ds = cls._load_ds(ds_id)
         val = ds[index][column]
-        content_type = "application/octet-stream"
-        if isinstance(val, HfImage):
+        if isinstance(val, (PILImage.Image, HfImage)):
             buf = BytesIO()
             val.save(buf, format="JPEG")
             buf.seek(0)
-            content_type = "image/jpeg"
-            return buf.read(), content_type
+            return buf.read(), "image/jpeg"
         if isinstance(val, Audio):
             raw = val["array"].tobytes()
-            content_type = "audio/wav"
-            return raw, content_type
-        return str(val).encode(), content_type
+            return raw, "audio/wav"
+        return str(val).encode(), "application/octet-stream"
 
     @classmethod
     def load_upload(cls, filename: str, content: bytes) -> dict:

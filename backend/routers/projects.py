@@ -19,6 +19,16 @@ def create_project(body: dict):
     )
     return p
 
+@router.put("/projects/{pid}")
+def update_project(pid: str, body: dict):
+    name = body.get("name")
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    p = AnnotationService.update_project(pid, name)
+    if not p:
+        raise HTTPException(status_code=404, detail="project not found")
+    return p
+
 @router.get("/projects/{pid}")
 def get_project(pid: str, user_id: str):
     p = AnnotationService.get_project(pid)
