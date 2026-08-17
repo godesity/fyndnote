@@ -188,14 +188,11 @@ export default function ProjectListView() {
           </div>
         ) : (
           /* ---- List view ---- */
-          <div className="space-y-1">
+          <div className="divide-y divide-[var(--color-border)]">
             {filtered.map((p) => {
               const isOpen = expanded[p.id] || false;
               return (
-                <div
-                  key={p.id}
-                  className="bg-white border border-[var(--color-border)] rounded-lg shadow-sm overflow-hidden transition-all"
-                >
+                <div key={p.id}>
                   <div className="flex items-center gap-3 px-4 py-3">
                     <span
                       className="w-3 h-3 rounded-full flex-shrink-0"
@@ -229,8 +226,7 @@ export default function ProjectListView() {
                     </button>
                   </div>
                   {isOpen && (
-                    <div className="flex gap-2 px-4 pb-3 pt-0 border-t border-[var(--color-border)] mt-0">
-                      <div className="h-2" /> {/* spacer */}
+                    <div className="flex gap-2 px-4 pb-3">
                       <div className="flex gap-2 pt-2">
                         <button
                           onClick={() => window.location.hash = `#/projects/${p.id}/label`}

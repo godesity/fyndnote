@@ -84,7 +84,7 @@ export default function BrowseView({ projectId }: Props) {
             ))}
           </div>
         ) : (
-          <RowGrid rows={rows} onSelect={handleSelect} page={page} total={total} onPageChange={setPage} />
+          <RowGrid rows={rows} onSelect={handleSelect} page={page} total={total} onPageChange={setPage} color={projectColor} />
         )}
 
         {selectedIndex !== null && selectedRow && (
