@@ -28,6 +28,15 @@ def _apply_annotation_meta_filter(db, project_indices: list[int], expr, user_id:
         op = expr.operator
         val = int(expr.value)
         placeholders = ",".join("?" * len(project_indices))
+        # For = 0, < 1, <= 0: find rows NOT in annotations table
+        if (op == "=" and val == 0) or (op == "<" and val == 1) or (op == "<=" and val == 0):
+            sql_annotated = f"""
+                SELECT DISTINCT row_index FROM annotations
+                WHERE project_id = ? AND row_index IN ({placeholders})
+            """
+            annotated = {r[0] for r in db.execute(sql_annotated, [pid] + project_indices).fetchall()}
+            return [i for i in project_indices if i not in annotated]
+        # For > 0, >= 1: find rows IN annotations with the given count condition
         sql = f"""
             SELECT row_index FROM annotations
             WHERE project_id = ?
