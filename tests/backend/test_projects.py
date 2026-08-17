@@ -46,7 +46,9 @@ def test_browse_rows_all(client):
     p_resp = client.post("/api/v1/projects", json={"name": "browse-test", "dataset_id": ds_id, "template_id": t_id})
     pid = p_resp.json()["id"]
 
-    resp = client.get(f"/api/v1/projects/{pid}/rows?user_id=alice&page=1&per_page=5&status=all")
+    resp = client.post(f"/api/v1/projects/{pid}/rows", json={
+        "user_id": "alice", "page": 1, "per_page": 5, "filter": []
+    })
     assert resp.status_code == 200
     data = resp.json()
     assert len(data["rows"]) == 5
@@ -73,7 +75,11 @@ def test_browse_rows_annotated_filter(client):
     client.post(f"/api/v1/projects/{pid}/annotate", json={"row_index": 0, "user_id": "alice", "data": {"sentiment": "positive"}})
 
     # Filter annotated
-    resp = client.get(f"/api/v1/projects/{pid}/rows?user_id=alice&page=1&status=annotated_by_me")
+    resp = client.post(f"/api/v1/projects/{pid}/rows", json={
+        "user_id": "alice", "page": 1, "filter": [
+            {"field": "annotations.annotated_by", "operator": "=", "value": "me", "conjunction": "AND"}
+        ]
+    })
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 1
@@ -82,7 +88,11 @@ def test_browse_rows_annotated_filter(client):
     assert data["rows"][0]["annotation_status"]["by_any"] == True
 
     # Filter unannotated
-    resp = client.get(f"/api/v1/projects/{pid}/rows?user_id=alice&page=1&status=unannotated")
+    resp = client.post(f"/api/v1/projects/{pid}/rows", json={
+        "user_id": "alice", "page": 1, "filter": [
+            {"field": "annotations.count", "operator": "=", "value": "0", "conjunction": "AND"}
+        ]
+    })
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] == 24999
