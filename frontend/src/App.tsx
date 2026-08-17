@@ -5,6 +5,7 @@ import ProjectListView from './views/ProjectListView';
 import SetupView from './views/SetupView';
 import LabelView from './views/LabelView';
 import BrowseView from './views/BrowseView';
+import EditProjectView from './views/EditProjectView';
 
 function NotFound() {
   return <div style={{ padding: 20 }}><h2>404 Not Found</h2></div>;
@@ -21,6 +22,7 @@ function matchRoute(parts: string[]): { component: JSX.Element; id?: string } {
     const id = parts[1];
     if (parts[2] === 'label') return { component: <LabelView projectId={id} />, id };
     if (parts[2] === 'browse') return { component: <BrowseView projectId={id} />, id };
+    if (parts[2] === 'edit') return { component: <EditProjectView projectId={id} />, id };
   }
   return { component: <NotFound /> };
 }

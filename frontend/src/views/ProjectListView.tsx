@@ -43,7 +43,8 @@ export default function ProjectListView() {
           {p.role && <span style={{ marginLeft: 12, color: '#666' }}>({p.role})</span>}
           <div style={{ marginTop: 8 }}>
             <button onClick={() => window.location.hash = `#/projects/${p.id}/label`} style={{ marginRight: 8 }}>Label</button>
-            <button onClick={() => window.location.hash = `#/projects/${p.id}/browse`}>Browse</button>
+            <button onClick={() => window.location.hash = `#/projects/${p.id}/browse`} style={{ marginRight: 8 }}>Browse</button>
+            {isAdmin && <button onClick={() => window.location.hash = `#/projects/${p.id}/edit`}>Settings</button>}
           </div>
         </div>
       ))}

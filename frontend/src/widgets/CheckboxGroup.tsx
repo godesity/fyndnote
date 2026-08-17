@@ -3,11 +3,11 @@ import { useAnnotationContext } from '../context/AnnotationContext';
 
 interface Props {
   name: string;
-  options: string[];
+  labels: string[];
   defaultValue?: string[];
 }
 
-export default function CheckboxGroup({ name, options, defaultValue }: Props) {
+export default function CheckboxGroup({ name, labels, defaultValue }: Props) {
   const [checked, setChecked] = useState<Set<string>>(new Set(defaultValue || []));
   const { registerField, unregisterField } = useAnnotationContext();
 
@@ -24,7 +24,7 @@ export default function CheckboxGroup({ name, options, defaultValue }: Props) {
 
   return (
     <div>
-      {options.map((opt) => (
+      {labels.map((opt) => (
         <label key={opt} style={{ display: 'block', marginBottom: 4 }}>
           <input type="checkbox" checked={checked.has(opt)} onChange={() => toggle(opt)} />
           {' '}{opt}

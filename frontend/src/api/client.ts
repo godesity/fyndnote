@@ -57,6 +57,8 @@ export const api = {
     request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId }) }),
   getProject: (id: string, userId: string) =>
     request<any>(`/projects/${id}?user_id=${userId}`),
+  updateProject: (id: string, name: string) =>
+    request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name }) }),
   nextRow: (projectId: string, userId: string) =>
     request<{ index: number | null; row: Record<string, any> | null }>(`/projects/${projectId}/next-row?user_id=${userId}`),
   submitAnnotation: (projectId: string, rowIndex: number, userId: string, data: any) =>

@@ -3,6 +3,7 @@ import { LiveProvider, LiveEditor, LivePreview, LiveError } from "react-live";
 import { api } from "../api/client";
 import * as widgets from "../widgets";
 import { AnnotationProvider } from "../context/AnnotationContext";
+import LoadTemplateDialog from "../components/LoadTemplateDialog";
 
 const scope = { ...widgets, useState, useCallback };
 
@@ -28,6 +29,8 @@ export default function SetupView() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showLoadDialog, setShowLoadDialog] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [datasetSearch, setDatasetSearch] = useState("");
 
   useEffect(() => {
     api.listDatasets().then((res) => setDatasets(res.datasets));
@@ -59,11 +62,12 @@ export default function SetupView() {
     setLoading(true);
     setLoadError(null);
     try {
-      await api.loadDataset(loadInput.trim());
+      const meta = await api.loadDataset(loadInput.trim());
       setLoadInput("");
       setShowLoadDialog(false);
       const res = await api.listDatasets();
       setDatasets(res.datasets);
+      await loadSample(meta.id);
     } catch (err: any) {
       setLoadError(err.message || "Failed to load dataset");
     } finally {
@@ -77,14 +81,19 @@ export default function SetupView() {
     setLoading(true);
     setLoadError(null);
     try {
-      await api.uploadDataset(file);
+      const meta = await api.uploadDataset(file);
       const res = await api.listDatasets();
       setDatasets(res.datasets);
+      await loadSample(meta.id);
     } catch (err: any) {
       setLoadError(err.message || "Failed to upload dataset");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectTemplate = (tpl: { source: string }) => {
+    setTemplateSource(tpl.source);
   };
 
   return (
@@ -93,13 +102,24 @@ export default function SetupView() {
 
       <div style={{ marginBottom: 20 }}>
         <h3>1. Select Dataset</h3>
+        <input
+          value={datasetSearch}
+          onChange={(e) => setDatasetSearch(e.target.value)}
+          placeholder="Filter datasets..."
+          style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+        />
         <select
           value={selectedDataset}
           onChange={(e) => loadSample(e.target.value)}
           style={{ width: "100%", padding: 8 }}
         >
           <option value="">-- Select --</option>
-          {datasets.map((d) => (
+          {datasets
+            .filter((d) => {
+              const q = datasetSearch.toLowerCase();
+              return !q || (d.name && d.name.toLowerCase().includes(q)) || d.source.toLowerCase().includes(q);
+            })
+            .map((d) => (
             <option key={d.id} value={d.id}>
               {d.name || d.source} ({d.num_rows} rows)
             </option>
@@ -171,6 +191,12 @@ export default function SetupView() {
         <button onClick={saveTemplate} style={{ marginTop: 8 }}>
           {templateId ? "Update Template" : "Save Template"}
         </button>
+        <button onClick={() => setShowTemplateDialog(true)} style={{ marginTop: 8, marginLeft: 8 }}>
+          Load Template
+        </button>
+        {showTemplateDialog && (
+          <LoadTemplateDialog onSelect={handleSelectTemplate} onClose={() => setShowTemplateDialog(false)} />
+        )}
       </div>
 
       <div>
