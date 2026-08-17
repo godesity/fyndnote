@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Response
 from database import get_db
-from schemas import AnnotateRequest
+from schemas import AnnotateRequest, BrowseRowsRequest
 from services.annotation_service import AnnotationService
 from services.template_service import TemplateService
 from services.dataset_service import DatasetService
@@ -53,11 +53,12 @@ def get_project(pid: str, user_id: str):
         "progress": progress,
     }
 
-@router.get("/projects/{pid}/rows")
-def browse_rows(pid: str, user_id: str, page: int = 1, per_page: int = 50,
-                status: str = "all", include_annotations: int = 0):
-    rows, total = AnnotationService.browse_rows(pid, user_id, page, per_page, status, bool(include_annotations))
-    return {"rows": rows, "total": total, "page": page, "per_page": per_page}
+@router.post("/projects/{pid}/rows")
+def browse_rows(pid: str, body: BrowseRowsRequest):
+    rows, total = AnnotationService.browse_rows(
+        pid, body.user_id, body.page, body.per_page, body.filter
+    )
+    return {"rows": rows, "total": total, "page": body.page, "per_page": body.per_page}
 
 @router.get("/projects/{pid}/next-row")
 def next_row(pid: str, user_id: str):
