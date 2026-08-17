@@ -67,6 +67,11 @@ export default function RowGrid({ rows, onSelect, page, total, onPageChange, col
         </button>
       </div>
 
+      {/* Result count */}
+      <div className="mb-3 text-sm text-[var(--color-text-muted)]">
+        {total.toLocaleString()} {total === 1 ? 'result' : 'results'}
+      </div>
+
       {viewMode === 'grid' ? (
         /* ---- Grid view ---- */
         <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
