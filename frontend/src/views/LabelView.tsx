@@ -1,12 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import { LiveProvider, LivePreview } from 'react-live';
+import { themes } from 'prism-react-renderer';
 import { useAuth } from '../context/AuthContext';
 import { AnnotationProvider } from '../context/AnnotationContext';
 import { api } from '../api/client';
+import BreadcrumbNav from '../components/BreadcrumbNav';
+import { RenderInstructions } from '../components/InstructionsEditor';
+import { SkeletonLabelView } from '../components/SkeletonLoader';
 import SubmitButton from '../components/SubmitButton';
 import * as widgets from '../widgets';
 
 const scope = { ...widgets, useState, useCallback };
+const editorTheme = themes.oneLight;
 
 interface Props {
   projectId: string;
@@ -16,21 +21,25 @@ export default function LabelView({ projectId }: Props) {
   const { user } = useAuth();
   const [templateSource, setTemplateSource] = useState('');
   const [numRows, setNumRows] = useState(0);
-  const [projectColor, setProjectColor] = useState('#1976d2');
+  const [projectColor, setProjectColor] = useState('#F97316');
   const [projectName, setProjectName] = useState('');
+  const [projectInstructions, setProjectInstructions] = useState('');
   const [progressAnnotated, setProgressAnnotated] = useState(0);
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [currentRow, setCurrentRow] = useState<{ index: number; row: Record<string, any> } | null>(null);
   const [annotations, setAnnotations] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     api.getProject(projectId, user.user_id).then((projectDetail) => {
       setNumRows(projectDetail.num_rows || 0);
       setTemplateSource(projectDetail.template_source || '');
-      setProjectColor(projectDetail.color || '#1976d2');
+      setProjectColor(projectDetail.color || '#F97316');
       setProjectName(projectDetail.name || '');
+      setProjectInstructions(projectDetail.instructions || '');
       setProgressAnnotated(projectDetail.progress?.annotated_rows || 0);
       setLoadingMeta(false);
     });
@@ -40,8 +49,8 @@ export default function LabelView({ projectId }: Props) {
     if (!user) return;
     setLoading(true);
     const next = await api.nextRow(projectId, user.user_id);
-    if (next.index !== null) {
-      setCurrentRow(next);
+    if (next.index !== null && next.row !== null) {
+      setCurrentRow(next as { index: number; row: Record<string, any> });
       try {
         const ann = await api.getAnnotation(projectId, next.index, user.user_id);
         setAnnotations(ann.data);
@@ -58,43 +67,144 @@ export default function LabelView({ projectId }: Props) {
     fetchNext();
   }, [projectId]);
 
-  if (loadingMeta) return <div>Loading...</div>;
-  if (loading) return <div>Loading next row...</div>;
+  if (loadingMeta) return <SkeletonLabelView />;
+  if (loading) return <SkeletonLabelView />;
   if (!currentRow) return (
-    <div>
-      <p>All rows annotated!</p>
-      <button onClick={() => window.location.hash = '#/projects'}>Back to Projects</button>
+    <div className="min-h-screen bg-[var(--color-surface-secondary)]">
+      <BreadcrumbNav crumbs={[
+        { label: 'Projects', href: '#/projects' },
+        { label: projectName },
+      ]} />
+      <div className="max-w-xl mx-auto px-6 py-20 text-center animate-fade-in">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-sunset-100 to-coral-100 flex items-center justify-center mx-auto mb-4">
+          <span className="text-2xl">🎉</span>
+        </div>
+        <h2 className="text-xl font-bold text-[var(--color-text-heading)] mb-2">All rows annotated!</h2>
+        <p className="text-sm text-[var(--color-text-muted)] mb-6">Great work — no more rows to label.</p>
+        <button
+          onClick={() => window.location.hash = '#/projects'}
+          className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white font-medium text-sm hover:from-sunset-600 hover:to-coral-600 transition-all shadow-sm"
+        >
+          Back to Projects
+        </button>
+      </div>
     </div>
   );
 
+  const pct = numRows > 0 ? Math.round((progressAnnotated / numRows) * 100) : 0;
+
   return (
     <AnnotationProvider>
-      <div style={{ padding: 20 }}>
-        <div style={{ height: 3, background: projectColor, marginBottom: 8, borderRadius: 2 }} />
-        <button onClick={() => window.location.hash = '#/projects'} style={{ marginBottom: 16 }}>&larr; Back</button>
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#666', marginBottom: 4 }}>
-            <span>Progress: {progressAnnotated} / {numRows} rows</span>
-            <span>{numRows > 0 ? Math.round((progressAnnotated / numRows) * 100) : 0}%</span>
+      <div className="min-h-screen bg-[var(--color-surface-secondary)]">
+        <BreadcrumbNav crumbs={[
+          { label: 'Projects', href: '#/projects' },
+          { label: projectName },
+        ]} />
+
+        {/* Color indicator */}
+        <div className="h-1" style={{ background: projectColor }} />
+
+        <div className="max-w-4xl mx-auto px-6 py-4 animate-fade-in">
+          {/* Progress bar */}
+          <div className="mb-4">
+            <div className="flex justify-between text-sm text-[var(--color-text-muted)] mb-1.5">
+              <span>Progress: {progressAnnotated} / {numRows} rows</span>
+              <span>{pct}%</span>
+            </div>
+            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${pct}%`, background: projectColor }}
+              />
+            </div>
           </div>
-          <div style={{ width: '100%', height: 8, background: '#e0e0e0', borderRadius: 4, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: numRows > 0 ? `${(progressAnnotated / numRows) * 100}%` : '0%',
-              background: projectColor,
-              borderRadius: 4,
-              transition: 'width 0.3s ease',
-            }} />
+
+          <div className="flex gap-0">
+            {/* Content area */}
+            <div className="flex-1 min-w-0">
+              {/* Labeling card */}
+              <div className="bg-white border border-[var(--color-border)] rounded-s-xl shadow-sm">
+                <div className="p-5 min-h-[300px]">
+                  <LiveProvider
+                    code={templateSource}
+                    scope={{ ...scope, data: currentRow.row, annotations }}
+                    theme={editorTheme}
+                  >
+                    <LivePreview />
+                  </LiveProvider>
+                </div>
+
+                {/* Bottom bar: submit + tip */}
+                <div className="flex items-center gap-3 px-5 py-3 border-t border-[var(--color-border)]">
+                  <SubmitButton projectId={projectId} rowIndex={currentRow.index} onSubmitted={fetchNext} />
+
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-sunset-50 border border-sunset-200 rounded-lg text-sm text-sunset-700 flex-1 min-w-0">
+                    <span className="text-xs truncate">
+                      <kbd className="px-1 py-0.5 rounded bg-white border border-sunset-200 text-xs font-mono">1-9</kbd> select,
+                      <kbd className="px-1 py-0.5 rounded bg-white border border-sunset-200 text-xs font-mono ml-1">Enter</kbd> submit,
+                      <kbd className="px-1 py-0.5 rounded bg-white border border-sunset-200 text-xs font-mono ml-1">←</kbd>
+                      <kbd className="px-1 py-0.5 rounded bg-white border border-sunset-200 text-xs font-mono">→</kbd> nav
+                    </span>
+                    <button
+                      onClick={() => setShowShortcuts(true)}
+                      className="text-sunset-600 font-semibold hover:text-sunset-700 transition-colors text-xs whitespace-nowrap flex-shrink-0"
+                    >
+                      More shortcuts →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Guidelines vertical tab */}
+            <button
+              onClick={() => setShowGuide(!showGuide)}
+              className="w-8 rounded-r-xl rounded-l-none bg-gradient-to-b from-sunset-500 to-coral-500 flex items-center justify-center cursor-pointer hover:from-sunset-600 hover:to-coral-600 transition-all flex-shrink-0 shadow-sm border border-l-0 border-[var(--color-border)]"
+              title="Annotation guidelines"
+            >
+              <span className="text-white text-xs whitespace-nowrap [writing-mode:vertical-rl] tracking-widest">
+                📋 Guidelines
+              </span>
+            </button>
           </div>
         </div>
-        <div style={{ border: '1px solid #ccc', padding: 16, borderRadius: 4, marginTop: 16, minHeight: 300 }}>
-          <LiveProvider code={templateSource}
-                        scope={{ ...scope, data: currentRow.row, annotations }}>
-            <LivePreview />
-          </LiveProvider>
-        </div>
-        <SubmitButton projectId={projectId} rowIndex={currentRow.index}
-                      onSubmitted={fetchNext} />
+
+        {/* Guidelines drawer */}
+        {showGuide && (
+          <div className="fixed inset-y-0 right-0 w-80 bg-white shadow-xl border-l border-[var(--color-border)] z-50 animate-slide-in">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
+              <h3 className="font-semibold text-[var(--color-text-heading)] text-sm">Annotation Guidelines</h3>
+              <button onClick={() => setShowGuide(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-lg leading-none">&times;</button>
+            </div>
+            <div className="p-5 text-sm text-[var(--color-text)] overflow-y-auto max-h-[calc(100vh-60px)]">
+              {projectInstructions ? (
+                <RenderInstructions html={projectInstructions} />
+              ) : (
+                <p className="text-[var(--color-text-muted)] italic">No guidelines set for this project. Edit the project to add instructions.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Shortcuts modal */}
+        {showShortcuts && (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 animate-fade-in" onClick={() => setShowShortcuts(false)}>
+            <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-[var(--color-text-heading)]">Keyboard Shortcuts</h3>
+                <button onClick={() => setShowShortcuts(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-lg leading-none">&times;</button>
+              </div>
+              <div className="space-y-2.5 text-sm">
+                <div className="flex justify-between"><span>Select option 1-9</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">1-9</kbd></div>
+                <div className="flex justify-between"><span>Submit annotation</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">Enter</kbd></div>
+                <div className="flex justify-between"><span>Previous row</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">←</kbd></div>
+                <div className="flex justify-between"><span>Next row</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">→</kbd></div>
+                <div className="flex justify-between"><span>Toggle guidelines</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">G</kbd></div>
+                <div className="flex justify-between"><span>Back to projects</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">Esc</kbd></div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </AnnotationProvider>
   );

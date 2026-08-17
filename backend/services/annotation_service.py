@@ -7,13 +7,13 @@ from database import get_db
 
 class AnnotationService:
     @staticmethod
-    def create_project(name: str, dataset_id: str, template_id: str, color: str = '#1976d2', tags: str = '') -> dict:
+    def create_project(name: str, dataset_id: str, template_id: str, color: str = '#1976d2', tags: str = '', instructions: str = '') -> dict:
         db = get_db()
         pid = str(uuid.uuid4())
         salt = hashlib.sha256(f"{pid}:{name}".encode()).hexdigest()[:16]
         db.execute(
-            "INSERT INTO projects (id, name, dataset_id, template_id, salt, color, tags) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (pid, name, dataset_id, template_id, salt, color, tags)
+            "INSERT INTO projects (id, name, dataset_id, template_id, salt, color, tags, instructions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (pid, name, dataset_id, template_id, salt, color, tags, instructions)
         )
         db.commit()
         proj = db.execute("SELECT * FROM projects WHERE id = ?", (pid,)).fetchone()
@@ -21,7 +21,7 @@ class AnnotationService:
         return dict(proj)
 
     @staticmethod
-    def update_project(pid: str, name: str, color: str = None, tags: str = None) -> dict | None:
+    def update_project(pid: str, name: str, color: str = None, tags: str = None, instructions: str = None) -> dict | None:
         db = get_db()
         sets = "name = ?"
         params = [name]
@@ -31,6 +31,9 @@ class AnnotationService:
         if tags is not None:
             sets += ", tags = ?"
             params.append(tags)
+        if instructions is not None:
+            sets += ", instructions = ?"
+            params.append(instructions)
         params.append(pid)
         db.execute(f"UPDATE projects SET {sets} WHERE id = ?", tuple(params))
         db.commit()

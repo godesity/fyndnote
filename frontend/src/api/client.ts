@@ -1,8 +1,10 @@
 const BASE = 'http://localhost:8000/api/v1';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  status: number;
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
   }
 }
 
@@ -53,12 +55,12 @@ export const api = {
     request<any>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify({ source, validated }) }),
   listProjects: (userId: string) =>
     request<{ projects: any[] }>(`/projects?user_id=${userId}`),
-  createProject: (name: string, datasetId: string, templateId: string, color?: string, tags?: string) =>
-    request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId, color, tags }) }),
+  createProject: (name: string, datasetId: string, templateId: string, color?: string, tags?: string, instructions?: string) =>
+    request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId, color, tags, instructions }) }),
   getProject: (id: string, userId: string) =>
     request<any>(`/projects/${id}?user_id=${userId}`),
-  updateProject: (id: string, name: string, color?: string, tags?: string) =>
-    request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name, color, tags }) }),
+  updateProject: (id: string, name: string, color?: string, tags?: string, instructions?: string) =>
+    request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name, color, tags, instructions }) }),
   nextRow: (projectId: string, userId: string) =>
     request<{ index: number | null; row: Record<string, any> | null }>(`/projects/${projectId}/next-row?user_id=${userId}`),
   submitAnnotation: (projectId: string, rowIndex: number, userId: string, data: any) =>

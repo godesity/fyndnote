@@ -25,6 +25,7 @@ def init_db():
             salt        TEXT NOT NULL,
             color       TEXT DEFAULT '#1976d2',
             tags        TEXT DEFAULT '',
+            instructions TEXT DEFAULT '',
             created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         CREATE TABLE IF NOT EXISTS project_permissions (
@@ -44,8 +45,8 @@ def init_db():
             UNIQUE(project_id, row_index, user_id)
         );
     """)
-    # Migration for existing databases that lack color/tags columns
-    for col in [("color", "TEXT DEFAULT '#1976d2'"), ("tags", "TEXT DEFAULT ''")]:
+    # Migration for existing databases that lack color/tags/instructions columns
+    for col in [("color", "TEXT DEFAULT '#1976d2'"), ("tags", "TEXT DEFAULT ''"), ("instructions", "TEXT DEFAULT ''")]:
         try:
             db.execute(f"ALTER TABLE projects ADD COLUMN {col[0]} {col[1]}")
         except sqlite3.OperationalError:

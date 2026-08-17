@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { type JSX, useEffect, useState, useRef, useCallback } from 'react';
 import { useAnnotationContext } from '../context/AnnotationContext';
 
 interface Entity {

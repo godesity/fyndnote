@@ -18,6 +18,7 @@ def create_project(body: dict):
         body["name"], body["dataset_id"], body["template_id"],
         color=body.get("color", "#1976d2"),
         tags=body.get("tags", ""),
+        instructions=body.get("instructions", ""),
     )
     return p
 
@@ -30,6 +31,7 @@ def update_project(pid: str, body: dict):
         pid, name,
         color=body.get("color"),
         tags=body.get("tags"),
+        instructions=body.get("instructions"),
     )
     if not p:
         raise HTTPException(status_code=404, detail="project not found")

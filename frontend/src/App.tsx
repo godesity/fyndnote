@@ -1,3 +1,4 @@
+import { type JSX } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import useHashLocation from './hooks/useHashLocation';
 import LoginView from './views/LoginView';

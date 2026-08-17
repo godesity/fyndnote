@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useRef, ReactNode } from 'react';
+import { createContext, useContext, useCallback, useRef, type ReactNode } from 'react';
 
 interface FieldRegistration {
   name: string;

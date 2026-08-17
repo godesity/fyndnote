@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@rolldown/binding-linux-x64-gnu": "^1.2.4",
+    "@tailwindcss/vite": "^4.3.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-live": "^4.1.8"
+    "react-live": "^4.1.8",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
