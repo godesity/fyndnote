@@ -17,6 +17,8 @@ export default function LabelView({ projectId }: Props) {
   const { user } = useAuth();
   const [templateSource, setTemplateSource] = useState('');
   const [numRows, setNumRows] = useState(0);
+  const [projectColor, setProjectColor] = useState('#1976d2');
+  const [projectName, setProjectName] = useState('');
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [currentRow, setCurrentRow] = useState<{ index: number; row: Record<string, any> } | null>(null);
   const [annotations, setAnnotations] = useState<Record<string, any>>({});
@@ -27,6 +29,8 @@ export default function LabelView({ projectId }: Props) {
     api.getProject(projectId, user.user_id).then((projectDetail) => {
       setNumRows(projectDetail.num_rows || 0);
       setTemplateSource(projectDetail.template_source || '');
+      setProjectColor(projectDetail.color || '#1976d2');
+      setProjectName(projectDetail.name || '');
       setLoadingMeta(false);
     });
   }, [projectId, user]);
@@ -65,6 +69,7 @@ export default function LabelView({ projectId }: Props) {
   return (
     <AnnotationProvider>
       <div style={{ padding: 20 }}>
+        <div style={{ height: 3, background: projectColor, marginBottom: 8, borderRadius: 2 }} />
         <button onClick={() => window.location.hash = '#/projects'} style={{ marginBottom: 16 }}>&larr; Back</button>
         <RowNavigator currentIndex={currentRow.index} numRows={numRows} />
         <div style={{ border: '1px solid #ccc', padding: 16, borderRadius: 4, marginTop: 16, minHeight: 300 }}>

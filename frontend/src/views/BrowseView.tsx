@@ -10,12 +10,22 @@ interface Props {
 
 export default function BrowseView({ projectId }: Props) {
   const { user } = useAuth();
+  const [projectColor, setProjectColor] = useState('#1976d2');
+  const [projectName, setProjectName] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedRow, setSelectedRow] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState('all');
+
+  useEffect(() => {
+    if (!user) return;
+    api.getProject(projectId, user.user_id).then((p) => {
+      setProjectColor(p.color || '#1976d2');
+      setProjectName(p.name || '');
+    });
+  }, [projectId, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -35,6 +45,7 @@ export default function BrowseView({ projectId }: Props) {
 
   return (
     <div style={{ padding: 20 }}>
+      <div style={{ height: 3, background: projectColor, marginBottom: 8, borderRadius: 2 }} />
       <button onClick={() => window.location.hash = '#/projects'} style={{ marginBottom: 16 }}>&larr; Back</button>
       <h2>Browse Data</h2>
 

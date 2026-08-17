@@ -37,6 +37,8 @@ class ProjectOut(BaseModel):
     name: str
     dataset_id: str
     template_id: str
+    color: str = '#1976d2'
+    tags: str = ''
     created_at: str
 
 class ProjectDetail(BaseModel):
@@ -47,6 +49,8 @@ class ProjectDetail(BaseModel):
     template_source: str
     num_rows: int
     progress: dict
+    color: str = '#1976d2'
+    tags: str = ''
 
 class RowOut(BaseModel):
     index: int

@@ -15,7 +15,9 @@ def list_projects(user_id: str):
 @router.post("/projects", status_code=201)
 def create_project(body: dict):
     p = AnnotationService.create_project(
-        body["name"], body["dataset_id"], body["template_id"]
+        body["name"], body["dataset_id"], body["template_id"],
+        color=body.get("color", "#1976d2"),
+        tags=body.get("tags", ""),
     )
     return p
 
@@ -24,7 +26,11 @@ def update_project(pid: str, body: dict):
     name = body.get("name")
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
-    p = AnnotationService.update_project(pid, name)
+    p = AnnotationService.update_project(
+        pid, name,
+        color=body.get("color"),
+        tags=body.get("tags"),
+    )
     if not p:
         raise HTTPException(status_code=404, detail="project not found")
     return p

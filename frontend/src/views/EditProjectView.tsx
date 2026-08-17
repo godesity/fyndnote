@@ -22,6 +22,8 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
   const [originalSource, setOriginalSource] = useState("");
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [projectName, setProjectName] = useState("");
+  const [projectColor, setProjectColor] = useState("#1976d2");
+  const [projectTags, setProjectTags] = useState("");
   const [sampleRow, setSampleRow] = useState<any>(null);
   const [datasetLoaded, setDatasetLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -32,6 +34,8 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
       const user = JSON.parse(sessionStorage.getItem("auth_user") || "{}");
       const project = await api.getProject(projectId, user.user_id);
       setProjectName(project.name);
+      setProjectColor(project.color || "#1976d2");
+      setProjectTags(project.tags || "");
       setTemplateSource(project.template_source || "");
       setOriginalSource(project.template_source || "");
       setTemplateId(project.template_id);
@@ -61,7 +65,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
     }
 
     if (proceed) {
-      await api.updateProject(projectId, projectName);
+      await api.updateProject(projectId, projectName, projectColor, projectTags);
       await api.updateTemplate(templateId, templateSource);
       window.location.hash = "#/projects";
     }
@@ -74,6 +78,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
 
   return (
     <div style={{ padding: 20 }}>
+      <div style={{ height: 3, background: projectColor, marginBottom: 8, borderRadius: 2 }} />
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <h2>Settings: {projectName}</h2>
         <button onClick={() => (window.location.hash = "#/projects")}>
@@ -88,6 +93,25 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
           onChange={(e) => setProjectName(e.target.value)}
           style={{ padding: 8, width: 300 }}
         />
+      </div>
+
+      <div style={{ marginBottom: 20, display: 'flex', gap: 24 }}>
+        <div>
+          <h3>Color</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input type="color" value={projectColor}
+                   onChange={(e) => setProjectColor(e.target.value)}
+                   style={{ width: 40, height: 32, padding: 0, border: 'none', cursor: 'pointer' }} />
+            <span style={{ fontSize: 13, color: '#666' }}>{projectColor}</span>
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3>Tags</h3>
+          <input value={projectTags} placeholder="e.g. image, nlp, production"
+                 onChange={(e) => setProjectTags(e.target.value)}
+                 style={{ padding: 8, width: '100%', boxSizing: 'border-box' }} />
+          <p style={{ fontSize: 11, color: '#999', margin: '2px 0 0' }}>Comma-separated</p>
+        </div>
       </div>
 
       <div style={{ marginBottom: 20 }}>

@@ -53,7 +53,9 @@ export default function SetupView() {
 
   const createProject = async () => {
     if (!projectName || !selectedDataset || !templateId) return;
-    await api.createProject(projectName, selectedDataset, templateId);
+    const color = (document.getElementById('new-color') as HTMLInputElement)?.value || '#1976d2';
+    const tags = (document.getElementById('new-tags') as HTMLInputElement)?.value || '';
+    await api.createProject(projectName, selectedDataset, templateId, color, tags);
     window.location.hash = '#/projects';
   };
 
@@ -201,19 +203,21 @@ export default function SetupView() {
 
       <div>
         <h3>3. Create Project</h3>
-        <input
-          value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
-          placeholder="Project name"
-          style={{ padding: 8, width: 300 }}
-        />
-        <button
-          onClick={createProject}
-          disabled={!projectName || !selectedDataset || !templateId}
-          style={{ marginLeft: 8, padding: "8px 16px" }}
-        >
-          Create Project
-        </button>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <input value={projectName} onChange={(e) => setProjectName(e.target.value)}
+                 placeholder="Project name" style={{ padding: 8, width: 200 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input type="color" id="new-color" defaultValue="#1976d2"
+                   style={{ width: 36, height: 28, padding: 0, border: 'none', cursor: 'pointer' }} />
+          </div>
+          <input id="new-tags" placeholder="Tags (comma-separated)"
+                 style={{ padding: 8, width: 180 }} />
+          <button onClick={createProject}
+                  disabled={!projectName || !selectedDataset || !templateId}
+                  style={{ padding: '8px 16px' }}>
+            Create Project
+          </button>
+        </div>
       </div>
     </div>
   );
