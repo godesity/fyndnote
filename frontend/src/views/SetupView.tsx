@@ -16,7 +16,7 @@ const DEFAULT_TEMPLATE = `<div style={{ padding: 20 }}>
   />
 </div>`;
 
-export default function SetupView({ onDone }: { onDone: () => void }) {
+export default function SetupView() {
   const [datasets, setDatasets] = useState<any[]>([]);
   const [selectedDataset, setSelectedDataset] = useState("");
   const [templateSource, setTemplateSource] = useState(DEFAULT_TEMPLATE);
@@ -51,7 +51,7 @@ export default function SetupView({ onDone }: { onDone: () => void }) {
   const createProject = async () => {
     if (!projectName || !selectedDataset || !templateId) return;
     await api.createProject(projectName, selectedDataset, templateId);
-    onDone();
+    window.location.hash = '#/projects';
   };
 
   const handleLoad = async () => {

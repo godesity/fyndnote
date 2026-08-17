@@ -6,10 +6,9 @@ import RowDetail from '../components/RowDetail';
 
 interface Props {
   projectId: string;
-  onBack: () => void;
 }
 
-export default function BrowseView({ projectId, onBack }: Props) {
+export default function BrowseView({ projectId }: Props) {
   const { user } = useAuth();
   const [rows, setRows] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
@@ -36,7 +35,7 @@ export default function BrowseView({ projectId, onBack }: Props) {
 
   return (
     <div style={{ padding: 20 }}>
-      <button onClick={onBack} style={{ marginBottom: 16 }}>&larr; Back</button>
+      <button onClick={() => window.location.hash = '#/projects'} style={{ marginBottom: 16 }}>&larr; Back</button>
       <h2>Browse Data</h2>
 
       <div style={{ marginBottom: 16 }}>

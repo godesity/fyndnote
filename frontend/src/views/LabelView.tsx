@@ -11,16 +11,25 @@ const scope = { ...widgets, useState, useCallback };
 
 interface Props {
   projectId: string;
-  templateSource: string;
-  numRows: number;
-  onBack: () => void;
 }
 
-export default function LabelView({ projectId, templateSource, numRows, onBack }: Props) {
+export default function LabelView({ projectId }: Props) {
   const { user } = useAuth();
+  const [templateSource, setTemplateSource] = useState('');
+  const [numRows, setNumRows] = useState(0);
+  const [loadingMeta, setLoadingMeta] = useState(true);
   const [currentRow, setCurrentRow] = useState<{ index: number; row: Record<string, any> } | null>(null);
   const [annotations, setAnnotations] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    api.getProject(projectId, user.user_id).then((projectDetail) => {
+      setNumRows(projectDetail.num_rows || 0);
+      setTemplateSource(projectDetail.template_source || '');
+      setLoadingMeta(false);
+    });
+  }, [projectId, user]);
 
   const fetchNext = async () => {
     if (!user) return;
@@ -44,18 +53,19 @@ export default function LabelView({ projectId, templateSource, numRows, onBack }
     fetchNext();
   }, [projectId]);
 
-  if (loading) return <div>Loading...</div>;
+  if (loadingMeta) return <div>Loading...</div>;
+  if (loading) return <div>Loading next row...</div>;
   if (!currentRow) return (
     <div>
       <p>All rows annotated!</p>
-      <button onClick={onBack}>Back to Projects</button>
+      <button onClick={() => window.location.hash = '#/projects'}>Back to Projects</button>
     </div>
   );
 
   return (
     <AnnotationProvider>
       <div style={{ padding: 20 }}>
-        <button onClick={onBack} style={{ marginBottom: 16 }}>&larr; Back</button>
+        <button onClick={() => window.location.hash = '#/projects'} style={{ marginBottom: 16 }}>&larr; Back</button>
         <RowNavigator currentIndex={currentRow.index} numRows={numRows} />
         <div style={{ border: '1px solid #ccc', padding: 16, borderRadius: 4, marginTop: 16, minHeight: 300 }}>
           <LiveProvider code={templateSource}
