@@ -3,7 +3,6 @@ import { LiveProvider, LivePreview } from 'react-live';
 import { useAuth } from '../context/AuthContext';
 import { AnnotationProvider } from '../context/AnnotationContext';
 import { api } from '../api/client';
-import RowNavigator from '../components/RowNavigator';
 import SubmitButton from '../components/SubmitButton';
 import * as widgets from '../widgets';
 
@@ -19,6 +18,7 @@ export default function LabelView({ projectId }: Props) {
   const [numRows, setNumRows] = useState(0);
   const [projectColor, setProjectColor] = useState('#1976d2');
   const [projectName, setProjectName] = useState('');
+  const [progressAnnotated, setProgressAnnotated] = useState(0);
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [currentRow, setCurrentRow] = useState<{ index: number; row: Record<string, any> } | null>(null);
   const [annotations, setAnnotations] = useState<Record<string, any>>({});
@@ -31,6 +31,7 @@ export default function LabelView({ projectId }: Props) {
       setTemplateSource(projectDetail.template_source || '');
       setProjectColor(projectDetail.color || '#1976d2');
       setProjectName(projectDetail.name || '');
+      setProgressAnnotated(projectDetail.progress?.annotated_rows || 0);
       setLoadingMeta(false);
     });
   }, [projectId, user]);
@@ -71,7 +72,21 @@ export default function LabelView({ projectId }: Props) {
       <div style={{ padding: 20 }}>
         <div style={{ height: 3, background: projectColor, marginBottom: 8, borderRadius: 2 }} />
         <button onClick={() => window.location.hash = '#/projects'} style={{ marginBottom: 16 }}>&larr; Back</button>
-        <RowNavigator currentIndex={currentRow.index} numRows={numRows} />
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#666', marginBottom: 4 }}>
+            <span>Progress: {progressAnnotated} / {numRows} rows</span>
+            <span>{numRows > 0 ? Math.round((progressAnnotated / numRows) * 100) : 0}%</span>
+          </div>
+          <div style={{ width: '100%', height: 8, background: '#e0e0e0', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: numRows > 0 ? `${(progressAnnotated / numRows) * 100}%` : '0%',
+              background: projectColor,
+              borderRadius: 4,
+              transition: 'width 0.3s ease',
+            }} />
+          </div>
+        </div>
         <div style={{ border: '1px solid #ccc', padding: 16, borderRadius: 4, marginTop: 16, minHeight: 300 }}>
           <LiveProvider code={templateSource}
                         scope={{ ...scope, data: currentRow.row, annotations }}>

@@ -16,6 +16,8 @@ interface Project {
 export default function ProjectListView() {
   const { user, logout } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [nameFilter, setNameFilter] = useState('');
+  const [tagsFilter, setTagsFilter] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -26,6 +28,12 @@ export default function ProjectListView() {
   if (!user) return null;
 
   const isAdmin = user.global_role === 'system_admin';
+
+  const filtered = projects.filter((p) => {
+    if (nameFilter && !p.name.toLowerCase().includes(nameFilter.toLowerCase())) return false;
+    if (tagsFilter && !p.tags.toLowerCase().includes(tagsFilter.toLowerCase())) return false;
+    return true;
+  });
 
   return (
     <div style={{ padding: 20 }}>
@@ -38,8 +46,15 @@ export default function ProjectListView() {
         </div>
       </div>
 
-      {projects.length === 0 && <p>No projects available.</p>}
-      {projects.map((p) => (
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <input value={nameFilter} onChange={(e) => setNameFilter(e.target.value)}
+               placeholder="Filter by name..." style={{ padding: '6px 8px', flex: 1 }} />
+        <input value={tagsFilter} onChange={(e) => setTagsFilter(e.target.value)}
+               placeholder="Filter by tag..." style={{ padding: '6px 8px', flex: 1 }} />
+      </div>
+
+      {filtered.length === 0 && <p>No projects available.</p>}
+      {filtered.map((p) => (
         <div key={p.id} style={{ border: '1px solid #ccc', padding: 12, marginBottom: 8, borderRadius: 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ width: 14, height: 14, borderRadius: '50%', background: p.color || '#1976d2', display: 'inline-block', flexShrink: 0 }} />
