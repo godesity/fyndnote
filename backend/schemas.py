@@ -74,3 +74,15 @@ class BrowseRow(BaseModel):
     preview: dict
     annotations: list | None = None
     annotation_status: dict
+
+class FilterExpression(BaseModel):
+    field: str       # e.g. "data.text", "annotation.sentiment", "annotations.count"
+    operator: str    # =, !=, ~=, >, >=, <, <=
+    value: str       # the raw value as a string
+    conjunction: str = "AND"  # AND or OR
+
+class BrowseRowsRequest(BaseModel):
+    user_id: str
+    page: int = 1
+    per_page: int = 50
+    filter: list[FilterExpression] = []
