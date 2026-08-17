@@ -46,9 +46,11 @@ def get_project(pid: str, user_id: str):
     ds_list = DatasetService.list_datasets()
     ds_meta = next((d for d in ds_list if d["id"] == p["dataset_id"]), None)
     progress = AnnotationService.get_progress(pid, user_id)
+    annotation_fields = AnnotationService.extract_annotation_fields(template["source"]) if template else []
     return {
         **p,
         "template_source": template["source"] if template else None,
+        "annotation_fields": annotation_fields,
         "num_rows": ds_meta["num_rows"] if ds_meta else 0,
         "progress": progress,
     }

@@ -2,6 +2,7 @@ import uuid
 import hashlib
 import random
 import json
+import re
 from datetime import datetime
 from database import get_db
 import pyarrow.compute as pc
@@ -391,6 +392,17 @@ class AnnotationService:
             rows_data.append(entry)
 
         return rows_data, total
+
+    @staticmethod
+    def extract_annotation_fields(template_source: str | None) -> list[str]:
+        if not template_source:
+            return []
+        names = re.findall(
+            r'<(?:SelectField|TextField|CheckboxGroup|RatingField|NERField|BBoxField)'
+            r'\s[^>]*?name="([^"]+)"',
+            template_source
+        )
+        return names
 
     @staticmethod
     def export_annotations(pid: str, format: str = "parquet"):
