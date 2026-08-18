@@ -44,6 +44,15 @@ def init_db():
             updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(project_id, row_index, user_id)
         );
+        CREATE TABLE IF NOT EXISTS ml_annotations (
+            project_id  TEXT NOT NULL REFERENCES projects(id),
+            row_index   INTEGER NOT NULL,
+            annotator   TEXT NOT NULL,
+            data        TEXT NOT NULL,
+            created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(project_id, row_index)
+        );
     """)
     # Migration for existing databases that lack color/tags/instructions columns
     for col in [("color", "TEXT DEFAULT '#1976d2'"), ("tags", "TEXT DEFAULT ''"), ("instructions", "TEXT DEFAULT ''")]:
@@ -51,6 +60,12 @@ def init_db():
             db.execute(f"ALTER TABLE projects ADD COLUMN {col[0]} {col[1]}")
         except sqlite3.OperationalError:
             pass  # column already exists
+    # Migration for ML backend columns
+    for col in [("ml_enabled", "INTEGER DEFAULT 0"), ("ml_url", "TEXT DEFAULT ''"), ("ml_annotator", "TEXT DEFAULT ''"), ("ml_mode", "TEXT DEFAULT 'on_navigate'")]:
+        try:
+            db.execute(f"ALTER TABLE projects ADD COLUMN {col[0]} {col[1]}")
+        except sqlite3.OperationalError:
+            pass
     db.commit()
     db.close()
 

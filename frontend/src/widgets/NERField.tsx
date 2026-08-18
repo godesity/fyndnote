@@ -61,6 +61,10 @@ export default function NERField({ name, text, entityTypes, defaultValue, colors
   const { registerField, unregisterField } = useAnnotationContext();
 
   useEffect(() => {
+    if (defaultValue !== undefined) setEntities(defaultValue);
+  }, [defaultValue]);
+
+  useEffect(() => {
     registerField({ name, getValue: () => entities });
     return () => unregisterField(name);
   }, [name, entities]);

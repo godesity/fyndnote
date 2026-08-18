@@ -47,6 +47,10 @@ export default function BBoxField({ name, imageUrl, categories, defaultValue, co
   const { registerField, unregisterField } = useAnnotationContext();
 
   useEffect(() => {
+    if (defaultValue !== undefined) setBoxes(defaultValue);
+  }, [defaultValue]);
+
+  useEffect(() => {
     registerField({ name, getValue: () => boxes });
     return () => unregisterField(name);
   }, [name, boxes]);

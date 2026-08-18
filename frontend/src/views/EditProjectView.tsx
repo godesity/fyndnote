@@ -34,6 +34,10 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
   const [datasetLoaded, setDatasetLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [mlEnabled, setMlEnabled] = useState(false);
+  const [mlUrl, setMlUrl] = useState("");
+  const [mlAnnotator, setMlAnnotator] = useState("");
+  const [mlMode, setMlMode] = useState("on_navigate");
 
   useEffect(() => {
     const load = async () => {
@@ -43,6 +47,10 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
       setProjectColor(project.color || "#F97316");
       setProjectTags(project.tags || "");
       setProjectInstructions(project.instructions || "");
+      setMlEnabled(!!project.ml_enabled);
+      setMlUrl(project.ml_url || "");
+      setMlAnnotator(project.ml_annotator || "");
+      setMlMode(project.ml_mode || "on_navigate");
       setTemplateSource(project.template_source || "");
       setOriginalSource(project.template_source || "");
       setTemplateId(project.template_id);
@@ -72,7 +80,8 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
     }
 
     if (proceed) {
-      await api.updateProject(projectId, projectName, projectColor, projectTags, projectInstructions);
+      await api.updateProject(projectId, projectName, projectColor, projectTags, projectInstructions,
+        mlEnabled, mlUrl, mlAnnotator, mlMode);
       await api.updateTemplate(templateId, templateSource);
       window.location.hash = "#/projects";
     }
@@ -191,6 +200,54 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
             </div>
             {showTemplateDialog && (
               <LoadTemplateDialog onSelect={handleSelectTemplate} onClose={() => setShowTemplateDialog(false)} />
+            )}
+          </div>
+        </section>
+
+        {/* ML Backend */}
+        <section className="mb-6">
+          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-[var(--color-text-heading)] mb-2">ML Backend</h3>
+            <div className="flex items-center gap-3 mb-4">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" checked={mlEnabled} onChange={(e) => setMlEnabled(e.target.checked)} className="sr-only peer" />
+                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-sunset-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
+              </label>
+              <span className="text-sm text-[var(--color-text)]">Enable ML auto-prefill</span>
+            </div>
+            {mlEnabled && (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-[var(--color-text-muted)] block mb-1">ML Backend URL</label>
+                  <input value={mlUrl} onChange={(e) => setMlUrl(e.target.value)}
+                         placeholder="https://your-model.example.com/predict"
+                         className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:border-sunset-400" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--color-text-muted)] block mb-1">Annotator Name</label>
+                  <input value={mlAnnotator} onChange={(e) => setMlAnnotator(e.target.value)}
+                         placeholder="e.g. gpt-4o, my-model-v1"
+                         className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:border-sunset-400" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-[var(--color-text-muted)] block mb-1">Prefill Mode</label>
+                  <div className="flex gap-4">
+                    {[
+                      { value: "on_navigate", label: "Auto-prefill on navigate" },
+                      { value: "batch", label: "Batch only" },
+                      { value: "both", label: "Both" },
+                    ].map((opt) => (
+                      <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="ml-mode" value={opt.value}
+                               checked={mlMode === opt.value}
+                               onChange={(e) => setMlMode(e.target.value)}
+                               className="text-sunset-500 focus:ring-sunset-400" />
+                        <span className="text-sm text-[var(--color-text)]">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </section>

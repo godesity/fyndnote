@@ -12,6 +12,10 @@ export default function CheckboxGroup({ name, labels, defaultValue }: Props) {
   const { registerField, unregisterField } = useAnnotationContext();
 
   useEffect(() => {
+    if (defaultValue !== undefined) setChecked(new Set(defaultValue));
+  }, [defaultValue]);
+
+  useEffect(() => {
     registerField({ name, getValue: () => Array.from(checked) });
     return () => unregisterField(name);
   }, [name, checked]);

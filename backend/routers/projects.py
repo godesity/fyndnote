@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Response
 from database import get_db
-from schemas import AnnotateRequest, BrowseRowsRequest
+from schemas import AnnotateRequest, BrowseRowsRequest, MLPrefillRequest, MLBatchRequest
 from services.annotation_service import AnnotationService
 from services.template_service import TemplateService
 from services.dataset_service import DatasetService
+from services.ml_service import prefill_row, batch_prefill, get_ml_annotation
 import json
 
 router = APIRouter()
@@ -19,6 +20,10 @@ def create_project(body: dict):
         color=body.get("color", "#1976d2"),
         tags=body.get("tags", ""),
         instructions=body.get("instructions", ""),
+        ml_enabled=body.get("ml_enabled", False),
+        ml_url=body.get("ml_url", ""),
+        ml_annotator=body.get("ml_annotator", ""),
+        ml_mode=body.get("ml_mode", "on_navigate"),
     )
     return p
 
@@ -32,6 +37,10 @@ def update_project(pid: str, body: dict):
         color=body.get("color"),
         tags=body.get("tags"),
         instructions=body.get("instructions"),
+        ml_enabled=body.get("ml_enabled"),
+        ml_url=body.get("ml_url"),
+        ml_annotator=body.get("ml_annotator"),
+        ml_mode=body.get("ml_mode"),
     )
     if not p:
         raise HTTPException(status_code=404, detail="project not found")
@@ -70,11 +79,14 @@ def next_row(pid: str, user_id: str):
     ds_meta = DatasetService.list_datasets()
     meta = next((d for d in ds_meta if d["id"] == p["dataset_id"]), None)
     if not meta:
-        raise HTTPException(status_code=404, detail="dataset not found")
+        raise HTTPException(status_code=404, detail="dataset not found for project")
     idx = AnnotationService.next_row(pid, user_id, meta["num_rows"])
     if idx is None:
         return {"index": None, "row": None, "message": "all rows annotated"}
-    row = DatasetService.get_row(p["dataset_id"], idx)
+    try:
+        row = DatasetService.get_row(p["dataset_id"], idx)
+    except Exception:
+        raise HTTPException(status_code=404, detail="dataset source no longer available")
     return {"index": idx, "row": row}
 
 @router.get("/projects/{pid}/rows/{row_index}")
@@ -120,8 +132,28 @@ def export_annotations(pid: str, format: str = "parquet"):
 def delete_project(pid: str):
     db = get_db()
     db.execute("DELETE FROM annotations WHERE project_id = ?", (pid,))
+    db.execute("DELETE FROM ml_annotations WHERE project_id = ?", (pid,))
     db.execute("DELETE FROM project_permissions WHERE project_id = ?", (pid,))
     db.execute("DELETE FROM projects WHERE id = ?", (pid,))
     db.commit()
     db.close()
     return {"status": "deleted"}
+
+# ---- ML Backend endpoints ----
+
+@router.post("/projects/{pid}/ml-prefill")
+def ml_prefill(pid: str, body: MLPrefillRequest):
+    result = prefill_row(pid, body.row_index)
+    return result
+
+@router.post("/projects/{pid}/ml-batch")
+def ml_batch(pid: str, body: MLBatchRequest):
+    result = batch_prefill(pid, body.row_indices)
+    return result
+
+@router.get("/projects/{pid}/ml-annotations/{row_index}")
+def ml_annotation(pid: str, row_index: int):
+    ann = get_ml_annotation(pid, row_index)
+    if not ann:
+        raise HTTPException(status_code=404, detail="ML annotation not found")
+    return ann

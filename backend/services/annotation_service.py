@@ -230,13 +230,14 @@ def _pyarrow_fallback(py_val, op: str, search_val: str) -> bool:
 
 class AnnotationService:
     @staticmethod
-    def create_project(name: str, dataset_id: str, template_id: str, color: str = '#1976d2', tags: str = '', instructions: str = '') -> dict:
+    def create_project(name: str, dataset_id: str, template_id: str, color: str = '#1976d2', tags: str = '', instructions: str = '',
+                       ml_enabled: bool = False, ml_url: str = '', ml_annotator: str = '', ml_mode: str = 'on_navigate') -> dict:
         db = get_db()
         pid = str(uuid.uuid4())
         salt = hashlib.sha256(f"{pid}:{name}".encode()).hexdigest()[:16]
         db.execute(
-            "INSERT INTO projects (id, name, dataset_id, template_id, salt, color, tags, instructions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (pid, name, dataset_id, template_id, salt, color, tags, instructions)
+            "INSERT INTO projects (id, name, dataset_id, template_id, salt, color, tags, instructions, ml_enabled, ml_url, ml_annotator, ml_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (pid, name, dataset_id, template_id, salt, color, tags, instructions, int(ml_enabled), ml_url, ml_annotator, ml_mode)
         )
         db.commit()
         proj = db.execute("SELECT * FROM projects WHERE id = ?", (pid,)).fetchone()
@@ -244,7 +245,8 @@ class AnnotationService:
         return dict(proj)
 
     @staticmethod
-    def update_project(pid: str, name: str, color: str = None, tags: str = None, instructions: str = None) -> dict | None:
+    def update_project(pid: str, name: str, color: str = None, tags: str = None, instructions: str = None,
+                       ml_enabled: bool = None, ml_url: str = None, ml_annotator: str = None, ml_mode: str = None) -> dict | None:
         db = get_db()
         sets = "name = ?"
         params = [name]
@@ -257,6 +259,18 @@ class AnnotationService:
         if instructions is not None:
             sets += ", instructions = ?"
             params.append(instructions)
+        if ml_enabled is not None:
+            sets += ", ml_enabled = ?"
+            params.append(int(ml_enabled))
+        if ml_url is not None:
+            sets += ", ml_url = ?"
+            params.append(ml_url)
+        if ml_annotator is not None:
+            sets += ", ml_annotator = ?"
+            params.append(ml_annotator)
+        if ml_mode is not None:
+            sets += ", ml_mode = ?"
+            params.append(ml_mode)
         params.append(pid)
         db.execute(f"UPDATE projects SET {sets} WHERE id = ?", tuple(params))
         db.commit()

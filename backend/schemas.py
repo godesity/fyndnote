@@ -86,3 +86,25 @@ class BrowseRowsRequest(BaseModel):
     page: int = 1
     per_page: int = 50
     filter: list[FilterExpression] = []
+
+class MLPrefillRequest(BaseModel):
+    row_index: int
+
+class MLPrefillResponse(BaseModel):
+    row_index: int
+    annotation: dict[str, Any] | None = None
+    annotator: str | None = None
+
+class MLBatchRequest(BaseModel):
+    row_indices: list[int] | None = None
+
+class MLBatchResponse(BaseModel):
+    total: int
+    succeeded: int
+    failed: int
+
+class MLAnnotationOut(BaseModel):
+    row_index: int
+    annotator: str
+    data: dict[str, Any]
+    created_at: str

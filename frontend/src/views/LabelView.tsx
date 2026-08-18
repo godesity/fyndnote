@@ -36,6 +36,11 @@ export default function LabelView({ projectId }: Props) {
   const [showGuide, setShowGuide] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [isAnnotated, setIsAnnotated] = useState(false);
+  const isAnnotatedRef = useRef(false);
+  const [mlPrefilling, setMlPrefilling] = useState(false);
+  const [mlAnnotator, setMlAnnotator] = useState<string | null>(null);
+  const mlSettingsRef = useRef<{ enabled: boolean; mode: string }>({ enabled: false, mode: 'on_navigate' });
+  const prefilledRowsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -46,6 +51,10 @@ export default function LabelView({ projectId }: Props) {
       setProjectName(projectDetail.name || '');
       setProjectInstructions(projectDetail.instructions || '');
       setProgressAnnotated(projectDetail.progress?.annotated_rows || 0);
+      mlSettingsRef.current = {
+        enabled: !!projectDetail.ml_enabled,
+        mode: projectDetail.ml_mode || 'on_navigate',
+      };
       setLoadingMeta(false);
     });
   }, [projectId, user]);
@@ -61,15 +70,54 @@ export default function LabelView({ projectId }: Props) {
         const ann = await api.getAnnotation(projectId, next.index, user.user_id);
         setAnnotations(ann.data);
         setIsAnnotated(true);
+        isAnnotatedRef.current = true;
       } catch {
         setAnnotations({});
         setIsAnnotated(false);
+        isAnnotatedRef.current = false;
+      }
+      if (!isAnnotatedRef.current) {
+        tryMlPrefill(next.index);
       }
     } else {
       setCurrentRow(null);
       currentRowRef.current = null;
     }
     setLoading(false);
+  };
+
+  const tryMlPrefill = async (rowIndex: number) => {
+    const ml = mlSettingsRef.current;
+    if (!ml.enabled || (ml.mode !== 'on_navigate' && ml.mode !== 'both')) return;
+    if (prefilledRowsRef.current.has(rowIndex)) return;
+    prefilledRowsRef.current.add(rowIndex);
+    setMlPrefilling(true);
+    try {
+      const result = await api.mlPrefill(projectId, rowIndex);
+      if (result.annotation) {
+        setAnnotations(result.annotation);
+        setMlAnnotator(result.annotator);
+      }
+    } catch {
+      // silent fail
+    }
+    setMlPrefilling(false);
+  };
+
+  const fillFromHumanAnnotation = async () => {
+    if (!user || !currentRow) return;
+    try {
+      const ann = await api.getAnnotation(projectId, currentRow.index, user.user_id);
+      setAnnotations(ann.data);
+    } catch { /* silent */ }
+  };
+
+  const fillFromMLAnnotation = async () => {
+    if (!currentRow) return;
+    try {
+      const ann = await api.getMLAnnotation(projectId, currentRow.index);
+      setAnnotations(ann.data);
+    } catch { /* silent */ }
   };
 
   const navigateTo = async (rowIndex: number) => {
@@ -81,11 +129,15 @@ export default function LabelView({ projectId }: Props) {
       setCurrentRow(row);
       currentRowRef.current = row;
       setIsAnnotated(result.annotation_status.by_me);
+      isAnnotatedRef.current = result.annotation_status.by_me;
       if (result.annotation_status.by_me) {
         const ann = await api.getAnnotation(projectId, result.index, user.user_id);
         setAnnotations(ann.data);
       } else {
         setAnnotations({});
+        if (!result.annotation_status.by_me) {
+          tryMlPrefill(result.index);
+        }
       }
     } catch {
       setCurrentRow(null);
@@ -105,11 +157,15 @@ export default function LabelView({ projectId }: Props) {
       setCurrentRow(newRow);
       currentRowRef.current = newRow;
       setIsAnnotated(result.annotation_status.by_me);
+      isAnnotatedRef.current = result.annotation_status.by_me;
       if (result.annotation_status.by_me) {
         const ann = await api.getAnnotation(projectId, result.index, user.user_id);
         setAnnotations(ann.data);
       } else {
         setAnnotations({});
+        if (!result.annotation_status.by_me) {
+          tryMlPrefill(result.index);
+        }
       }
     } catch {
       setLoading(false);
@@ -193,16 +249,19 @@ export default function LabelView({ projectId }: Props) {
       }
 
       e.preventDefault();
+      const sel = previewRef.current.querySelector<HTMLSelectElement>('select');
+      if (sel && idx < sel.options.length) {
+        sel.selectedIndex = idx;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+        return;
+      }
       const els = previewRef.current.querySelectorAll<HTMLElement>(
-        'select, input:not([type="hidden"]), textarea, button, [tabindex]:not([tabindex="-1"])'
+        'input:not([type="hidden"]), textarea, button, [tabindex]:not([tabindex="-1"])'
       );
       const el = els[idx];
       if (!el) return;
 
-      if (el instanceof HTMLSelectElement && idx < el.options.length) {
-        el.selectedIndex = idx;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      } else if (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')) {
+      if (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')) {
         el.checked = !el.checked;
         el.dispatchEvent(new Event('change', { bubbles: true }));
       } else if (el instanceof HTMLButtonElement) {
@@ -284,14 +343,27 @@ export default function LabelView({ projectId }: Props) {
                 <div className="flex items-center gap-3 px-5 py-3 border-t border-[var(--color-border)]">
                   <div className="flex items-center gap-2">
                     <SubmitButton projectId={projectId} rowIndex={currentRow.index} onSubmitted={handleSubmitted} />
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                    <button onClick={fillFromHumanAnnotation}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
                       isAnnotated
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
                         : 'bg-gray-100 text-gray-500 border border-gray-200'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${isAnnotated ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                       {isAnnotated ? 'Annotated' : 'Not annotated'}
-                    </span>
+                    </button>
+                    {mlPrefilling && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                        <span className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-pulse" />
+                        AI prefilling...
+                      </span>
+                    )}
+                    {mlAnnotator && !mlPrefilling && (
+                      <button onClick={fillFromMLAnnotation}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 cursor-pointer transition-colors">
+                        AI: {mlAnnotator}
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-sunset-50 border border-sunset-200 rounded-lg text-sm text-sunset-700 flex-1 min-w-0">

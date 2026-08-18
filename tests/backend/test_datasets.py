@@ -60,12 +60,17 @@ def test_load_dataset_workflow(client):
     f = pathlib.Path(tempfile.mktemp(suffix=".csv"))
     f.write_text("text,label\nhello,0\nworld,1\n")
     resp = client.post("/api/v1/datasets/load", json={"source": f"file://{f}"})
-    f.unlink()
     assert resp.status_code == 200
     data = resp.json()
     assert data["num_rows"] == 2
 
-    # Verify re-list
+    # Row loads successfully while file exists
+    row_resp = client.get(f"/api/v1/datasets/{data['id']}/rows/0")
+    assert row_resp.status_code == 200
+    assert row_resp.json()["row"]["text"] == "hello"
+
+    # After deleting the source file, the dataset is removed from listing
+    f.unlink()
     list_resp = client.get("/api/v1/datasets")
     ids = [d["id"] for d in list_resp.json()["datasets"]]
-    assert data["id"] in ids
+    assert data["id"] not in ids

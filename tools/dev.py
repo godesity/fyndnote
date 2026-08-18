@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Start backend + frontend dev servers with a single command."""
 
+import argparse
 import os
 import sys
 import time
@@ -12,6 +13,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 BACKEND_DIR = os.path.join(ROOT, "backend")
 FRONTEND_DIR = os.path.join(ROOT, "frontend")
+MOCK_ML_DIR = os.path.join(ROOT, "mock-ml-backend")
 
 processes: list[subprocess.Popen] = []
 interrupted = False
@@ -78,42 +80,72 @@ def cleanup():
 def main():
     global interrupted
 
-    ok = run_install("frontend", FRONTEND_DIR, "npm", "install")
-    if not ok:
+    parser = argparse.ArgumentParser(description="Start label-tool dev servers")
+    parser.add_argument("--no-backend", action="store_true", help="Skip backend (port 8000)")
+    parser.add_argument("--no-frontend", action="store_true", help="Skip frontend (port 5173)")
+    parser.add_argument("--no-mock-ml", action="store_true", help="Skip mock ML backend (port 8081)")
+    args = parser.parse_args()
+
+    want_backend = not args.no_backend
+    want_frontend = not args.no_frontend
+    want_mock_ml = not args.no_mock_ml
+
+    if not (want_backend or want_frontend or want_mock_ml):
+        print("[dev] All services disabled — nothing to start.")
         sys.exit(1)
 
-    ok = run_install("backend", BACKEND_DIR, "uv", "sync")
-    if not ok:
-        sys.exit(1)
+    if want_frontend:
+        ok = run_install("frontend", FRONTEND_DIR, "npm", "install")
+        if not ok:
+            sys.exit(1)
 
-    be = start_server("backend", BACKEND_DIR, "uv", "run", "uvicorn", "main:app", "--reload", "--port", "8000")
-    fe = start_server("frontend", FRONTEND_DIR, "npm", "run", "dev")
+    if want_backend:
+        ok = run_install("backend", BACKEND_DIR, "uv", "sync")
+        if not ok:
+            sys.exit(1)
 
-    if not be or not fe:
+    if want_mock_ml:
+        ok = run_install("mock-ml", MOCK_ML_DIR, "uv", "sync")
+        if not ok:
+            sys.exit(1)
+
+    be = start_server("backend", BACKEND_DIR, "uv", "run", "uvicorn", "main:app", "--reload", "--port", "8000") if want_backend else None
+    fe = start_server("frontend", FRONTEND_DIR, "npm", "run", "dev") if want_frontend else None
+    ml = start_server("mock-ml", MOCK_ML_DIR, "uv", "run", "uvicorn", "main:app", "--reload", "--port", "8081") if want_mock_ml else None
+
+    if (want_backend and not be) or (want_frontend and not fe) or (want_mock_ml and not ml):
         cleanup()
         sys.exit(1)
 
-    print("\n  Backend:  http://localhost:8000")
-    print("  Frontend: http://localhost:5173")
-    print("  API docs: http://localhost:8000/docs")
-    print("  Press Ctrl+C to stop both servers\n")
+    print()
+    if want_backend:
+        print("  Backend:  http://localhost:8000")
+    if want_frontend:
+        print("  Frontend: http://localhost:5173")
+    if want_mock_ml:
+        print("  Mock ML:  http://localhost:8081/inference")
+    if want_backend:
+        print("  API docs: http://localhost:8000/docs")
+    print("  Press Ctrl+C to stop all servers\n")
 
     signal.signal(signal.SIGINT, lambda s, f: cleanup())
     signal.signal(signal.SIGTERM, lambda s, f: cleanup())
 
+    running = [p for p in (be, fe, ml) if p is not None]
+
     try:
         while not interrupted:
-            be_ok = be.poll() is None
-            fe_ok = fe.poll() is None
-            if not be_ok or not fe_ok:
-                print("[dev] A server stopped unexpectedly. Shutting down...")
-                break
+            for p in running:
+                if p.poll() is not None:
+                    print("[dev] A server stopped unexpectedly. Shutting down...")
+                    cleanup()
+                    sys.exit(1)
             time.sleep(0.5)
     except KeyboardInterrupt:
         pass
     finally:
         cleanup()
-        print("\n[dev] Both servers stopped")
+        print("\n[dev] Stopped")
 
 
 if __name__ == "__main__":

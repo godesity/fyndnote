@@ -20,7 +20,7 @@ def get_row(ds_id: str, index: int):
     try:
         row = DatasetService.get_row(ds_id, index)
         return {"index": index, "row": row}
-    except ValueError as e:
+    except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.post("/datasets/upload", status_code=201)

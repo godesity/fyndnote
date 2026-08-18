@@ -12,6 +12,10 @@ export default function SelectField({ name, labels, defaultValue }: Props) {
   const { registerField, unregisterField } = useAnnotationContext();
 
   useEffect(() => {
+    if (defaultValue !== undefined) setValue(defaultValue);
+  }, [defaultValue]);
+
+  useEffect(() => {
     registerField({ name, getValue: () => value });
     return () => unregisterField(name);
   }, [name, value]);

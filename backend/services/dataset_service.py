@@ -120,12 +120,21 @@ class DatasetService:
         if not DATASETS_DIR.exists():
             return []
         result = []
-        for d in DATASETS_DIR.iterdir():
+        for d in sorted(DATASETS_DIR.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
             meta_file = d / "meta.json"
-            if meta_file.exists():
-                with open(meta_file) as f:
-                    result.append(json.load(f))
-        result.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+            if not meta_file.exists():
+                continue
+            with open(meta_file) as f:
+                meta = json.load(f)
+            # Skip stale file:// sources whose source file no longer exists
+            source = meta.get("source", "")
+            if source.startswith("file://"):
+                path = source[7:]
+                if not Path(path).exists():
+                    import shutil
+                    shutil.rmtree(d, ignore_errors=True)
+                    continue
+            result.append(meta)
         return result
 
     @classmethod
@@ -140,17 +149,23 @@ class DatasetService:
             meta = json.load(f)
         source_type = meta.get("source_type", "huggingface")
         source = meta["source"]
-        if source_type == "huggingface":
-            ds = load_dataset(meta.get("source"), meta.get("name"), split=meta.get("split", "train"))
-        elif source_type == "http":
-            fmt = meta.get("source_format", "csv")
-            ds = _load_http(source, fmt)
-        elif source_type == "file":
-            clean = source[7:] if source.startswith("file://") else source
-            fmt = meta.get("source_format", "csv")
-            ds = _load_file(clean, fmt)
-        else:
-            raise ValueError(f"Unknown source type: {source_type}")
+        try:
+            if source_type == "huggingface":
+                ds = load_dataset(meta.get("source"), meta.get("name"), split=meta.get("split", "train"))
+            elif source_type == "http":
+                fmt = meta.get("source_format", "csv")
+                ds = _load_http(source, fmt)
+            elif source_type == "file":
+                clean = source[7:] if source.startswith("file://") else source
+                fmt = meta.get("source_format", "csv")
+                ds = _load_file(clean, fmt)
+            else:
+                raise ValueError(f"Unknown source type: {source_type}")
+        except Exception:
+            # Dataset source is stale — clean up and raise
+            import shutil
+            shutil.rmtree(DATASETS_DIR / ds_id, ignore_errors=True)
+            raise ValueError(f"Dataset source no longer available: {source}")
         cls._instances[ds_id] = ds
         return ds
 

@@ -55,12 +55,14 @@ export const api = {
     request<any>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify({ source, validated }) }),
   listProjects: (userId: string) =>
     request<{ projects: any[] }>(`/projects?user_id=${userId}`),
-  createProject: (name: string, datasetId: string, templateId: string, color?: string, tags?: string, instructions?: string) =>
-    request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId, color, tags, instructions }) }),
+  createProject: (name: string, datasetId: string, templateId: string, color?: string, tags?: string, instructions?: string,
+    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string) =>
+    request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode }) }),
   getProject: (id: string, userId: string) =>
     request<any>(`/projects/${id}?user_id=${userId}`),
-  updateProject: (id: string, name: string, color?: string, tags?: string, instructions?: string) =>
-    request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name, color, tags, instructions }) }),
+  updateProject: (id: string, name: string, color?: string, tags?: string, instructions?: string,
+    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string) =>
+    request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode }) }),
   nextRow: (projectId: string, userId: string) =>
     request<{ index: number | null; row: Record<string, any> | null }>(`/projects/${projectId}/next-row?user_id=${userId}`),
   getProjectRow: (projectId: string, rowIndex: number, userId: string) =>
@@ -81,4 +83,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ user_id: userId, page, filter }),
     }),
+  mlPrefill: (projectId: string, rowIndex: number) =>
+    request<{ row_index: number; annotation: Record<string, any> | null; annotator: string | null }>(
+      `/projects/${projectId}/ml-prefill`, { method: 'POST', body: JSON.stringify({ row_index: rowIndex }) }),
+  mlBatch: (projectId: string, rowIndices?: number[]) =>
+    request<{ total: number; succeeded: number; failed: number }>(
+      `/projects/${projectId}/ml-batch`, { method: 'POST', body: JSON.stringify({ row_indices: rowIndices ?? null }) }),
+  getMLAnnotation: (projectId: string, rowIndex: number) =>
+    request<{ row_index: number; annotator: string; data: Record<string, any>; created_at: string }>(
+      `/projects/${projectId}/ml-annotations/${rowIndex}`),
 };
