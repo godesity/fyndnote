@@ -76,7 +76,7 @@ export default function RowGrid({ rows, onSelect, page, total, onPageChange, col
         /* ---- Grid view ---- */
         <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
           {rows.map((r) => (
-            <GradientBorderCard key={r.index}>
+            <GradientBorderCard key={r.index} color={color}>
               <div className="p-4 cursor-pointer" onClick={() => onSelect(r.index)}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-semibold text-[var(--color-text-muted)]">Row {r.index}</span>
@@ -89,31 +89,33 @@ export default function RowGrid({ rows, onSelect, page, total, onPageChange, col
         </div>
       ) : (
         /* ---- List view ---- */
-        <div className="divide-y divide-[var(--color-border)]">
-          {rows.map((r) => (
-            <div
-              key={r.index}
-              className="px-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
-              onClick={() => onSelect(r.index)}
-            >
-              <div className="flex items-center gap-4">
-                <span className="text-xs font-semibold text-[var(--color-text-muted)] w-16 flex-shrink-0">Row {r.index}</span>
-                <div className="flex-1 min-w-0 flex items-center gap-4 overflow-hidden">
-                  {Object.entries(r.preview).slice(0, 4).map(([key, val]) => (
-                    <span key={key} className="text-xs text-[var(--color-text)] truncate min-w-0 flex-shrink">
-                      <span className="font-medium text-[var(--color-text-muted)]">{key}:</span> {truncate(val, 40)}
-                    </span>
-                  ))}
-                  {Object.keys(r.preview).length > 4 && (
-                    <span className="text-xs text-[var(--color-text-muted)] italic flex-shrink-0">
-                      +{Object.keys(r.preview).length - 4}
-                    </span>
-                  )}
+        <div className="bg-white rounded-lg border border-[var(--color-border)] overflow-hidden shadow-sm">
+          <div className="divide-y divide-[var(--color-border)]">
+            {rows.map((r) => (
+              <div
+                key={r.index}
+                className="px-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                onClick={() => onSelect(r.index)}
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-xs font-semibold text-[var(--color-text-muted)] w-16 flex-shrink-0">Row {r.index}</span>
+                  <div className="flex-1 min-w-0 flex items-center gap-4 overflow-hidden">
+                    {Object.entries(r.preview).slice(0, 4).map(([key, val]) => (
+                      <span key={key} className="text-xs text-[var(--color-text)] truncate min-w-0 flex-shrink">
+                        <span className="font-medium text-[var(--color-text-muted)]">{key}:</span> {truncate(val, 40)}
+                      </span>
+                    ))}
+                    {Object.keys(r.preview).length > 4 && (
+                      <span className="text-xs text-[var(--color-text-muted)] italic flex-shrink-0">
+                        +{Object.keys(r.preview).length - 4}
+                      </span>
+                    )}
+                  </div>
+                  <AnnotationStatusBadge byMe={r.annotation_status.by_me} byAny={r.annotation_status.by_any} annotators={r.annotation_status.annotators} />
                 </div>
-                <AnnotationStatusBadge byMe={r.annotation_status.by_me} byAny={r.annotation_status.by_any} annotators={r.annotation_status.annotators} />
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 

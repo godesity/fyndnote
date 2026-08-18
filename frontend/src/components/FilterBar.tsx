@@ -36,6 +36,7 @@ interface ExpressionPill {
 
 export default function FilterBar({ datasetColumns, annotationFields, onFilterChange }: FilterBarProps) {
   const [pills, setPills] = useState<ExpressionPill[]>([]);
+  const [inProgress, setInProgress] = useState<ExpressionPill | null>(null);
   const [draft, setDraft] = useState('');
   const [phase, setPhase] = useState<'field' | 'operator' | 'value'>('field');
   const [showAutocomplete, setShowAutocomplete] = useState(false);
@@ -72,16 +73,19 @@ export default function FilterBar({ datasetColumns, annotationFields, onFilterCh
   };
 
   const acceptField = (field: string) => {
-    setDraft(field);
+    setInProgress({ field, operator: '', value: '', conjunction: 'AND' });
+    setDraft('');
     setPhase('operator');
     setShowAutocomplete(false);
     setShowEmptySuggestions(false);
     setHighlightIdx(0);
+    inputRef.current?.focus();
   };
 
   const acceptSuggestion = (sug: FilterExpression) => {
     const newPills = [...pills, { ...sug }];
     commitPills(newPills);
+    setInProgress(null);
     setShowEmptySuggestions(false);
     setDraft('');
     setPhase('field');
@@ -101,22 +105,25 @@ export default function FilterBar({ datasetColumns, annotationFields, onFilterCh
       }
     }
 
-    if (e.key === 'Enter' && phase === 'value' && draft) {
+    if (e.key === 'Enter' && phase === 'value' && draft && inProgress) {
       e.preventDefault();
-      const newPills = [...pills];
-      const last = newPills[newPills.length - 1];
-      if (last && !last.value) {
-        last.value = draft.replace(/^"|"$/g, '');
-      }
-      commitPills(newPills);
+      commitExpr({ ...inProgress, value: draft.replace(/^"|"$/g, '') });
       setDraft('');
-      setPhase('field');
       return;
     }
 
-    if (e.key === 'Backspace' && !draft && pills.length > 0) {
-      commitPills(pills.slice(0, -1));
-      return;
+    if (e.key === 'Backspace') {
+      if (draft) return;
+      if (inProgress) {
+        setInProgress(null);
+        setPhase('field');
+        setDraft('');
+        return;
+      }
+      if (pills.length > 0) {
+        commitPills(pills.slice(0, -1));
+        return;
+      }
     }
 
     if (e.key === 'ArrowDown') {
@@ -143,6 +150,9 @@ export default function FilterBar({ datasetColumns, annotationFields, onFilterCh
     }
 
     if (phase === 'field') {
+      if (!inProgress) {
+        setInProgress({ field: '', operator: '', value: '', conjunction: 'AND' });
+      }
       setShowAutocomplete(true);
       setShowEmptySuggestions(false);
 
@@ -150,20 +160,32 @@ export default function FilterBar({ datasetColumns, annotationFields, onFilterCh
       if (op) {
         const fieldPart = val.slice(0, -op.length).trim();
         if (fieldPart) {
-          setDraft(fieldPart);
-          setPhase('operator');
+          setInProgress({ field: fieldPart, operator: op, value: '', conjunction: 'AND' });
+          setDraft('');
+          setPhase('value');
         }
       }
       return;
     }
 
     if (phase === 'operator') {
-      if (val.startsWith('"') && val.length > 1) {
+      const op = OPERATORS.find((o) => val === o);
+      if (op) {
+        setInProgress((prev) => prev ? { ...prev, operator: op } : null);
+        setDraft('');
         setPhase('value');
         return;
       }
       return;
     }
+  };
+
+  const commitExpr = (expr: ExpressionPill) => {
+    const newPills = [...pills, expr];
+    commitPills(newPills);
+    setInProgress(null);
+    setPhase('field');
+    inputRef.current?.focus();
   };
 
   const removePill = (idx: number) => {
@@ -214,10 +236,30 @@ export default function FilterBar({ datasetColumns, annotationFields, onFilterCh
         ))}
 
         {/* Active expression being typed */}
-        {pills.length > 0 && pills[pills.length - 1].field === '' && (
+        {inProgress && (
           <span className="inline-flex items-center rounded-md overflow-hidden shadow-sm">
-            {phase === 'field' && (
+            {inProgress.field && (
+              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium">
+                {inProgress.field}
+              </span>
+            )}
+            {!inProgress.field && phase === 'field' && (
               <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium min-w-[40px]">
+                {draft || '\u00A0'}
+              </span>
+            )}
+            {inProgress.operator && (
+              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-mono">
+                {inProgress.operator}
+              </span>
+            )}
+            {phase === 'operator' && inProgress.field && (
+              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 text-xs font-mono min-w-[24px]">
+                {draft || '\u00A0'}
+              </span>
+            )}
+            {phase === 'value' && (
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-xs min-w-[24px]">
                 {draft || '\u00A0'}
               </span>
             )}

@@ -188,7 +188,8 @@ export default function ProjectListView() {
           </div>
         ) : (
           /* ---- List view ---- */
-          <div className="divide-y divide-[var(--color-border)]">
+          <div className="bg-white rounded-lg border border-[var(--color-border)] overflow-hidden shadow-sm">
+            <div className="divide-y divide-[var(--color-border)]">
             {filtered.map((p) => {
               const isOpen = expanded[p.id] || false;
               return (
@@ -254,6 +255,7 @@ export default function ProjectListView() {
                 </div>
               );
             })}
+            </div>
           </div>
         )}
       </div>

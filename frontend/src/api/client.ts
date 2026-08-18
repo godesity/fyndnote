@@ -63,6 +63,12 @@ export const api = {
     request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name, color, tags, instructions }) }),
   nextRow: (projectId: string, userId: string) =>
     request<{ index: number | null; row: Record<string, any> | null }>(`/projects/${projectId}/next-row?user_id=${userId}`),
+  getProjectRow: (projectId: string, rowIndex: number, userId: string) =>
+    request<{ index: number; row: Record<string, any>; annotation_status: { by_me: boolean; by_any: boolean; annotators: string[] } }>(
+      `/projects/${projectId}/rows/${rowIndex}?user_id=${userId}`),
+  navigateRow: (projectId: string, rowIndex: number, userId: string, direction: 1 | -1) =>
+    request<{ index: number; row: Record<string, any>; annotation_status: { by_me: boolean; by_any: boolean; annotators: string[] } }>(
+      `/projects/${projectId}/rows/${rowIndex}/${direction === 1 ? 'next' : 'prev'}?user_id=${userId}`),
   submitAnnotation: (projectId: string, rowIndex: number, userId: string, data: any) =>
     request<any>(`/projects/${projectId}/annotate`, {
       method: 'POST',

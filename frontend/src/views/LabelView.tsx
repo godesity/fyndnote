@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { LiveProvider, LivePreview } from 'react-live';
 import { themes } from 'prism-react-renderer';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +19,10 @@ interface Props {
 
 export default function LabelView({ projectId }: Props) {
   const { user } = useAuth();
+  const previewRef = useRef<HTMLDivElement>(null);
+  const currentRowRef = useRef<{ index: number; row: Record<string, any> } | null>(null);
+  const numRowsRef = useRef(0);
+  const navigateToRef = useRef<(rowIndex: number) => void>(() => {});
   const [templateSource, setTemplateSource] = useState('');
   const [numRows, setNumRows] = useState(0);
   const [projectColor, setProjectColor] = useState('#F97316');
@@ -31,6 +35,7 @@ export default function LabelView({ projectId }: Props) {
   const [loading, setLoading] = useState(true);
   const [showGuide, setShowGuide] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [isAnnotated, setIsAnnotated] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -45,27 +50,168 @@ export default function LabelView({ projectId }: Props) {
     });
   }, [projectId, user]);
 
-  const fetchNext = async () => {
+  const loadFirstRow = async () => {
     if (!user) return;
     setLoading(true);
     const next = await api.nextRow(projectId, user.user_id);
     if (next.index !== null && next.row !== null) {
       setCurrentRow(next as { index: number; row: Record<string, any> });
+      currentRowRef.current = next as { index: number; row: Record<string, any> };
       try {
         const ann = await api.getAnnotation(projectId, next.index, user.user_id);
         setAnnotations(ann.data);
+        setIsAnnotated(true);
       } catch {
         setAnnotations({});
+        setIsAnnotated(false);
       }
     } else {
       setCurrentRow(null);
+      currentRowRef.current = null;
+    }
+    setLoading(false);
+  };
+
+  const navigateTo = async (rowIndex: number) => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const result = await api.getProjectRow(projectId, rowIndex, user.user_id);
+      const row = { index: result.index, row: result.row };
+      setCurrentRow(row);
+      currentRowRef.current = row;
+      setIsAnnotated(result.annotation_status.by_me);
+      if (result.annotation_status.by_me) {
+        const ann = await api.getAnnotation(projectId, result.index, user.user_id);
+        setAnnotations(ann.data);
+      } else {
+        setAnnotations({});
+      }
+    } catch {
+      setCurrentRow(null);
+      currentRowRef.current = null;
+    }
+    setLoading(false);
+  };
+
+  const navigateShuffle = async (direction: 1 | -1) => {
+    if (!user) return;
+    const row = currentRowRef.current;
+    if (!row) return;
+    setLoading(true);
+    try {
+      const result = await api.navigateRow(projectId, row.index, user.user_id, direction);
+      const newRow = { index: result.index, row: result.row };
+      setCurrentRow(newRow);
+      currentRowRef.current = newRow;
+      setIsAnnotated(result.annotation_status.by_me);
+      if (result.annotation_status.by_me) {
+        const ann = await api.getAnnotation(projectId, result.index, user.user_id);
+        setAnnotations(ann.data);
+      } else {
+        setAnnotations({});
+      }
+    } catch {
+      setLoading(false);
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    fetchNext();
+    navigateToRef.current = navigateTo;
+  }, [navigateTo]);
+
+  const navigateShuffleRef = useRef(navigateShuffle);
+  useEffect(() => {
+    navigateShuffleRef.current = navigateShuffle;
+  }, [navigateShuffle]);
+
+  const handleSubmitted = () => {
+    setIsAnnotated(true);
+    navigateShuffleRef.current(1);
+  };
+
+  useEffect(() => {
+    numRowsRef.current = numRows;
+  }, [numRows]);
+
+  useEffect(() => {
+    loadFirstRow();
   }, [projectId]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const row = currentRowRef.current;
+        if (!row) return;
+        const tag = e.target as HTMLElement;
+        if (tag instanceof HTMLTextAreaElement) return;
+        if (tag instanceof HTMLInputElement) {
+          const textInputs = ['text', 'email', 'url', 'search', 'tel', 'number', 'password', 'date', 'datetime-local', 'month', 'week', 'time'];
+          if (textInputs.includes(tag.type)) return;
+        }
+        e.preventDefault();
+        navigateShuffleRef.current(e.key === 'ArrowLeft' ? -1 : 1);
+        return;
+      }
+
+      if (e.key === 'Escape') {
+        window.location.hash = '#/projects';
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        const tag = e.target as HTMLElement;
+        if (tag instanceof HTMLTextAreaElement) return;
+        if (tag instanceof HTMLInputElement) {
+          const textInputs = ['text', 'email', 'url', 'search', 'tel', 'number', 'password', 'date', 'datetime-local', 'month', 'week', 'time'];
+          if (textInputs.includes(tag.type)) return;
+        }
+        const btn = document.querySelector('[data-submit-btn]') as HTMLButtonElement | null;
+        if (btn && !btn.disabled) btn.click();
+        return;
+      }
+
+      if (e.key === 'g' || e.key === 'G') {
+        setShowGuide((prev) => !prev);
+        return;
+      }
+
+      const idx = (() => {
+        if (e.key >= '1' && e.key <= '9') return parseInt(e.key) - 1;
+        if (e.key === '0') return 9;
+        return -1;
+      })();
+      if (idx < 0) return;
+      if (!previewRef.current) return;
+
+      const tag = e.target as HTMLElement;
+      if (tag instanceof HTMLTextAreaElement) return;
+      if (tag instanceof HTMLInputElement) {
+        const textInputs = ['text', 'email', 'url', 'search', 'tel', 'number', 'password', 'date', 'datetime-local', 'month', 'week', 'time'];
+        if (textInputs.includes(tag.type)) return;
+      }
+
+      e.preventDefault();
+      const els = previewRef.current.querySelectorAll<HTMLElement>(
+        'select, input:not([type="hidden"]), textarea, button, [tabindex]:not([tabindex="-1"])'
+      );
+      const el = els[idx];
+      if (!el) return;
+
+      if (el instanceof HTMLSelectElement && idx < el.options.length) {
+        el.selectedIndex = idx;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')) {
+        el.checked = !el.checked;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (el instanceof HTMLButtonElement) {
+        el.click();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   if (loadingMeta) return <SkeletonLabelView />;
   if (loading) return <SkeletonLabelView />;
@@ -124,7 +270,7 @@ export default function LabelView({ projectId }: Props) {
             <div className="flex-1 min-w-0">
               {/* Labeling card */}
               <div className="bg-white border border-[var(--color-border)] rounded-s-xl shadow-sm">
-                <div className="p-5 min-h-[300px]">
+                <div ref={previewRef} className="p-5 min-h-[300px]">
                   <LiveProvider
                     code={templateSource}
                     scope={{ ...scope, data: currentRow.row, annotations }}
@@ -136,7 +282,17 @@ export default function LabelView({ projectId }: Props) {
 
                 {/* Bottom bar: submit + tip */}
                 <div className="flex items-center gap-3 px-5 py-3 border-t border-[var(--color-border)]">
-                  <SubmitButton projectId={projectId} rowIndex={currentRow.index} onSubmitted={fetchNext} />
+                  <div className="flex items-center gap-2">
+                    <SubmitButton projectId={projectId} rowIndex={currentRow.index} onSubmitted={handleSubmitted} />
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                      isAnnotated
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-gray-100 text-gray-500 border border-gray-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${isAnnotated ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                      {isAnnotated ? 'Annotated' : 'Not annotated'}
+                    </span>
+                  </div>
 
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-sunset-50 border border-sunset-200 rounded-lg text-sm text-sunset-700 flex-1 min-w-0">
                     <span className="text-xs truncate">

@@ -77,6 +77,27 @@ def next_row(pid: str, user_id: str):
     row = DatasetService.get_row(p["dataset_id"], idx)
     return {"index": idx, "row": row}
 
+@router.get("/projects/{pid}/rows/{row_index}")
+def get_project_row(pid: str, row_index: int, user_id: str):
+    result = AnnotationService.get_project_row(pid, row_index, user_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="row not found")
+    return result
+
+@router.get("/projects/{pid}/rows/{row_index}/next")
+def next_project_row(pid: str, row_index: int, user_id: str):
+    result = AnnotationService.navigate_row(pid, user_id, row_index, 1)
+    if not result:
+        raise HTTPException(status_code=404, detail="no next row")
+    return result
+
+@router.get("/projects/{pid}/rows/{row_index}/prev")
+def prev_project_row(pid: str, row_index: int, user_id: str):
+    result = AnnotationService.navigate_row(pid, user_id, row_index, -1)
+    if not result:
+        raise HTTPException(status_code=404, detail="no previous row")
+    return result
+
 @router.post("/projects/{pid}/annotate", status_code=201)
 def submit_annotation(pid: str, body: AnnotateRequest):
     AnnotationService.submit_annotation(pid, body.row_index, body.user_id, body.data)
