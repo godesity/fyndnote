@@ -37,9 +37,14 @@ export default function RowDetail({ index, row, annotations, onClose }: Props) {
             <div className="space-y-3">
               {annotations.map((a, i) => (
                 <div key={i} className="border border-[var(--color-border)] rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-2 h-2 rounded-full bg-sunset-400" />
-                    <span className="text-sm font-medium text-[var(--color-text-heading)]">{a.author_id}</span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-sunset-400" />
+                      <span className="text-sm font-medium text-[var(--color-text-heading)]">{a.author_id}</span>
+                    </div>
+                    <span className="text-xs text-[var(--color-text-muted)]">
+                      {new Date(a.created_at).toLocaleString()}
+                    </span>
                   </div>
                   <pre className="bg-[var(--color-surface-secondary)] rounded p-3 text-xs font-mono text-[var(--color-text)] overflow-auto max-h-60 whitespace-pre">
                     {JSON.stringify(a.data, null, 2)}

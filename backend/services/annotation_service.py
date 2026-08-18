@@ -7,6 +7,7 @@ from datetime import datetime
 from database import get_db
 import pyarrow.compute as pc
 import pyarrow as pa
+from services.dataset_service import DatasetService
 
 
 def _apply_row_index_filter(indices: list[int], expr) -> list[int]:
@@ -127,28 +128,29 @@ def _apply_data_field_filter(indices: list[int], expr, ds) -> list[int]:
     if not indices or not expr.field.startswith("data."):
         return indices
     field_name = expr.field[len("data."):]
-    col = ds[field_name]
+    col = ds.data.column(field_name)
+    col_type = ds.features[field_name].pa_type
     op = expr.operator
     val = expr.value
 
     try:
         if op == "~=":
-            if pa.types.is_string(col.type) or pa.types.is_large_string(col.type):
+            if pa.types.is_string(col_type) or pa.types.is_large_string(col_type):
                 mask = pc.match_substring(col, val)
             else:
                 str_col = pc.cast(col, pa.large_string())
                 mask = pc.match_substring(str_col, val)
         elif op == "=":
-            if pa.types.is_integer(col.type):
+            if pa.types.is_integer(col_type):
                 mask = pc.equal(col, int(val))
-            elif pa.types.is_floating(col.type):
+            elif pa.types.is_floating(col_type):
                 mask = pc.equal(col, float(val))
             else:
                 mask = pc.equal(col, val)
         elif op == "!=":
-            if pa.types.is_integer(col.type):
+            if pa.types.is_integer(col_type):
                 mask = pc.not_equal(col, int(val))
-            elif pa.types.is_floating(col.type):
+            elif pa.types.is_floating(col_type):
                 mask = pc.not_equal(col, float(val))
             else:
                 mask = pc.not_equal(col, val)
@@ -319,8 +321,61 @@ class AnnotationService:
         }
 
     @staticmethod
+    def get_row_annotation_status(pid: str, row_index: int, user_id: str) -> dict:
+        db = get_db()
+        rows = db.execute(
+            "SELECT user_id FROM annotations WHERE project_id = ? AND row_index = ?",
+            (pid, row_index)
+        ).fetchall()
+        db.close()
+        annotators = [r[0] for r in rows]
+        return {
+            "by_me": user_id in annotators,
+            "by_any": len(annotators) > 0,
+            "annotators": annotators,
+        }
+
+    @staticmethod
+    def get_project_row(pid: str, row_index: int, user_id: str) -> dict | None:
+        project = AnnotationService.get_project(pid)
+        if not project:
+            return None
+        ds_id = project["dataset_id"]
+        row = DatasetService.get_row(ds_id, row_index)
+        status = AnnotationService.get_row_annotation_status(pid, row_index, user_id)
+        return {"index": row_index, "row": row, "annotation_status": status}
+
+    @staticmethod
+    def navigate_row(pid: str, user_id: str, current_index: int, direction: int) -> dict | None:
+        project = AnnotationService.get_project(pid)
+        if not project:
+            return None
+        ds_id = project["dataset_id"]
+        db = get_db()
+        salt = db.execute("SELECT salt FROM projects WHERE id = ?", (pid,)).fetchone()
+        db.close()
+        if not salt:
+            return None
+        ds = DatasetService._load_ds(ds_id)
+        num_rows = len(ds)
+        indices = list(range(num_rows))
+        seed = hashlib.sha256(f"{user_id}:{salt[0]}".encode()).hexdigest()
+        rng = random.Random(seed)
+        rng.shuffle(indices)
+        try:
+            cur = indices.index(current_index)
+        except ValueError:
+            return None
+        new_pos = cur + direction
+        if new_pos < 0 or new_pos >= len(indices):
+            return None
+        new_idx = indices[new_pos]
+        row = DatasetService.get_row(ds_id, new_idx)
+        status = AnnotationService.get_row_annotation_status(pid, new_idx, user_id)
+        return {"index": new_idx, "row": row, "annotation_status": status}
+
+    @staticmethod
     def browse_rows(pid: str, user_id: str, page: int, per_page: int, filter_exprs: list) -> tuple:
-        from services.dataset_service import DatasetService
         db = get_db()
         project = db.execute("SELECT dataset_id FROM projects WHERE id = ?", (pid,)).fetchone()
         if not project:
@@ -375,14 +430,37 @@ class AnnotationService:
         any_annotated: dict[int, set[str]] = {}
         for r in all_annotations:
             any_annotated.setdefault(r["row_index"], set()).add(r["user_id"])
+
+        # Fetch annotation data for page rows
+        annotation_data_by_row: dict[int, list[dict]] = {}
+        if page_indices:
+            placeholders = ",".join("?" * len(page_indices))
+            ann_rows = db.execute(f"""
+                SELECT row_index, user_id, data, created_at, updated_at FROM annotations
+                WHERE project_id = ? AND row_index IN ({placeholders})
+            """, [pid] + page_indices).fetchall()
+            for ar in ann_rows:
+                annotation_data_by_row.setdefault(ar["row_index"], []).append({
+                    "author_id": ar["user_id"],
+                    "data": json.loads(ar["data"]),
+                    "created_at": ar["created_at"],
+                    "updated_at": ar["updated_at"],
+                })
         db.close()
 
         rows_data = []
         for idx in page_indices:
             row = DatasetService.get_row(ds_id, idx)
+            # Merge annotation data into preview so cards show annotation fields
+            annotated = annotation_data_by_row.get(idx, [])
+            if annotated:
+                for ann in annotated:
+                    for key, val in ann["data"].items():
+                        row[key] = val
             entry = {
                 "index": idx,
                 "preview": row,
+                "annotations": annotated,
                 "annotation_status": {
                     "by_me": idx in annotated_by_me,
                     "by_any": idx in any_annotated,
@@ -414,7 +492,6 @@ class AnnotationService:
             (pid,)
         ).fetchall()
         db.close()
-        import pyarrow as pa
         import pyarrow.parquet as pq
         table = pa.Table.from_pylist([
             {
