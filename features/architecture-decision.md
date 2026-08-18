@@ -1,4 +1,4 @@
-# Architecture Decision Record — Labeling Tool
+# Architecture Decision Record — fyndnot
 
 **Date:** 2026-08-13
 **Status:** Approved

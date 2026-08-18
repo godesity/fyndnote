@@ -1,4 +1,4 @@
-# Labeling Tool
+# fyndnot
 
 A general-purpose ML dataset annotation tool. Define labeling interfaces via restricted React component templates rendered in `react-live`. Supports text, image (bounding box), and audio annotation through reusable widgets.
 

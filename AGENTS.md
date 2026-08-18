@@ -4,7 +4,7 @@
 - Use `uv` for all Python dependency management
 - Run Python scripts with `uv run python <script>` instead of invoking Python directly
 
-# Anchored Summary — Labeling Tool (complete)
+# Anchored Summary — fyndnot (complete)
 
 ## Goal
 Build a general-purpose ML dataset annotation tool with FastAPI backend, React frontend, SQLite storage, and react-live template engine.

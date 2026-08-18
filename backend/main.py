@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from database import init_db, seed_from_json
 
-app = FastAPI(title="Labeling Tool")
+app = FastAPI(title="fyndnot")
 
 app.add_middleware(
     CORSMiddleware,
