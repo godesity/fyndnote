@@ -16,6 +16,8 @@ interface FilterBarProps {
 const BUILTIN_FIELDS = [
   { name: 'annotations.count', type: 'integer' },
   { name: 'annotations.annotated_by', type: 'string' },
+  { name: 'annotations.created_at', type: 'datetime' },
+  { name: 'annotations.updated_at', type: 'datetime' },
   { name: 'row_index', type: 'integer' },
 ];
 

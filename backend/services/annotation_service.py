@@ -3,7 +3,7 @@ import hashlib
 import random
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from database import get_db
 import pyarrow.compute as pc
 import pyarrow as pa
@@ -65,7 +65,45 @@ def _apply_annotation_meta_filter(db, project_indices: list[int], expr, user_id:
         matched = {r[0] for r in db.execute(sql, params).fetchall()}
         return [i for i in project_indices if i in matched]
 
+    elif expr.field in ("annotations.created_at", "annotations.updated_at"):
+        val = _parse_time_value(expr.value)
+        op = expr.operator
+        col = expr.field.split(".")[1]  # created_at or updated_at
+        placeholders = ",".join("?" * len(project_indices))
+        sql = f"""
+            SELECT DISTINCT row_index FROM annotations
+            WHERE project_id = ?
+              AND row_index IN ({placeholders})
+              AND {col} {op} ?
+        """
+        params = [pid] + project_indices + [val]
+        matched = {r[0] for r in db.execute(sql, params).fetchall()}
+        return [i for i in project_indices if i in matched]
+
     return project_indices
+
+
+RELATIVE_TIME_RE = re.compile(r"^(\d+)([mhdMY])$")
+
+
+def _parse_time_value(val: str) -> str:
+    m = RELATIVE_TIME_RE.match(val)
+    if m:
+        amount = int(m.group(1))
+        unit = m.group(2)
+        now = datetime.utcnow()
+        if unit == "m":
+            threshold = now - timedelta(minutes=amount)
+        elif unit == "h":
+            threshold = now - timedelta(hours=amount)
+        elif unit == "d":
+            threshold = now - timedelta(days=amount)
+        elif unit == "M":
+            threshold = now - timedelta(days=amount * 30)
+        elif unit == "Y":
+            threshold = now - timedelta(days=amount * 365)
+        return threshold.isoformat()
+    return val
 
 
 def _apply_annotation_data_filter(db, project_indices: list[int], expr, pid: str) -> list[int]:
