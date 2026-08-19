@@ -63,6 +63,37 @@ const RATING_CHECKBOX = `<div style={{ padding: 20 }}>
   />
 </div>`;
 
+const AUDIO_SEGMENTS = `<div style={{ padding: 20 }}>
+  <h3>Label audio segments</h3>
+  {data.audio_url ? (
+    <AudioSegmentField
+      name="segments"
+      url={data.audio_url}
+      labels={["speech", "music", "noise", "silence"]}
+      defaultValue={annotations?.segments}
+    />
+  ) : (
+    <p>No audio_url field found in this dataset.</p>
+  )}
+</div>`;
+
+const AUDIO_PLAYBACK = `<div style={{ padding: 20 }}>
+  <h3>Listen and classify</h3>
+  {data.audio_url ? (
+    <>
+      <AudioPlayer url={data.audio_url} />
+      <p style={{ marginTop: 12 }}>Overall classification:</p>
+      <SelectField
+        name="classification"
+        labels={["clean", "noisy", "music", "speech"]}
+        defaultValue={annotations?.classification}
+      />
+    </>
+  ) : (
+    <p>No audio_url field found in this dataset.</p>
+  )}
+</div>`;
+
 export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
   {
     name: "Text Classification",
@@ -88,5 +119,15 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
     name: "Rating + Checkbox",
     description: "Star rating with multi-select category checkboxes",
     source: RATING_CHECKBOX,
+  },
+  {
+    name: "Audio Segments",
+    description: "Timeline-based audio segment labeling with labels",
+    source: AUDIO_SEGMENTS,
+  },
+  {
+    name: "Audio Playback",
+    description: "Play audio with an overall classification dropdown",
+    source: AUDIO_PLAYBACK,
   },
 ];
