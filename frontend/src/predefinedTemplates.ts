@@ -1,7 +1,10 @@
 export interface PredefinedTemplate {
   name: string;
   description: string;
+  group: "text" | "image" | "audio";
   source: string;
+  data: Record<string, any>;
+  annotations: Record<string, any>;
 }
 
 const TEXT_CLASSIFICATION = `<div style={{ padding: 20 }}>
@@ -98,36 +101,63 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
   {
     name: "Text Classification",
     description: "Single-label text classification with a dropdown",
+    group: "text",
+    data: { text: "This product is amazing! I love the new design." },
+    annotations: { sentiment: "positive" },
     source: TEXT_CLASSIFICATION,
   },
   {
     name: "Image BBox",
     description: "Bounding box annotation for object detection",
+    group: "image",
+    data: { image_url: "./labeling_template/image-sample.png" },
+    annotations: { objects: [] },
     source: IMAGE_BBOX,
   },
   {
     name: "NER",
     description: "Named entity recognition with token-level tags",
+    group: "text",
+    data: { text: "Apple Inc. is based in Cupertino, California." },
+    annotations: {
+      entities: [
+        { start: 0, end: 9, type: "ORG" },
+        { start: 23, end: 33, type: "LOC" },
+        { start: 36, end: 46, type: "LOC" },
+      ],
+    },
     source: NER,
   },
   {
     name: "Free Text",
     description: "Open-ended text response field",
+    group: "text",
+    data: { text: "A cat sitting on a windowsill watching the rain." },
+    annotations: { response: "The image depicts a domestic cat perched on a windowsill, gazing outward at the rainfall." },
     source: FREE_TEXT,
   },
   {
     name: "Rating + Checkbox",
     description: "Star rating with multi-select category checkboxes",
+    group: "text",
+    data: { text: "This article was very helpful for understanding the topic." },
+    annotations: { rating: 4, tags: ["informative"] },
     source: RATING_CHECKBOX,
   },
   {
     name: "Audio Segments",
     description: "Timeline-based audio segment labeling with labels",
+    group: "audio",
+    data: { audio_url: "./labeling_template/audio-sample.mp3" },
+    annotations: { segments: [] },
     source: AUDIO_SEGMENTS,
   },
   {
     name: "Audio Playback",
     description: "Play audio with an overall classification dropdown",
+    group: "audio",
+    data: { audio_url: "./labeling_template/audio-sample.mp3" },
+    annotations: { classification: "speech" },
     source: AUDIO_PLAYBACK,
   },
 ];
