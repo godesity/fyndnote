@@ -1,3 +1,5 @@
+from database import init_db
+
 def test_list_datasets_empty():
     from fastapi.testclient import TestClient
     from main import app
@@ -16,6 +18,7 @@ def test_load_dataset():
     assert data["num_rows"] > 0
 
 def test_load_http_csv():
+    init_db()
     from unittest.mock import patch, MagicMock
     from services.dataset_service import DatasetService
     mock_resp = MagicMock()
@@ -47,6 +50,7 @@ def test_upload_unsupported_format():
     assert resp.status_code == 400
 
 def test_load_file_csv(tmp_path):
+    init_db()
     f = tmp_path / "test.csv"
     f.write_text("text,label\nhello,0\nworld,1\n")
     from services.dataset_service import DatasetService
@@ -64,13 +68,14 @@ def test_load_dataset_workflow(client):
     data = resp.json()
     assert data["num_rows"] == 2
 
-    # Row loads successfully while file exists
+    # Row loads successfully while cache exists
     row_resp = client.get(f"/api/v1/datasets/{data['id']}/rows/0")
     assert row_resp.status_code == 200
     assert row_resp.json()["row"]["text"] == "hello"
 
-    # After deleting the source file, the dataset is removed from listing
+    # Deleting the source file does NOT remove the dataset from listing
+    # (external source is informational only — dataset is served from cache)
     f.unlink()
     list_resp = client.get("/api/v1/datasets")
     ids = [d["id"] for d in list_resp.json()["datasets"]]
-    assert data["id"] not in ids
+    assert data["id"] in ids

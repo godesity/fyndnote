@@ -53,6 +53,18 @@ def init_db():
             updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(project_id, row_index)
         );
+        CREATE TABLE IF NOT EXISTS datasets (
+            id            TEXT PRIMARY KEY,
+            source        TEXT NOT NULL,
+            source_type   TEXT NOT NULL,
+            source_format TEXT,
+            hf_name       TEXT,
+            hf_split      TEXT,
+            num_rows      INTEGER NOT NULL,
+            columns       TEXT NOT NULL,
+            created_at    TEXT NOT NULL,
+            s3_uploaded   INTEGER DEFAULT 0
+        );
     """)
     # Migration for existing databases that lack color/tags/instructions columns
     for col in [("color", "TEXT DEFAULT '#1976d2'"), ("tags", "TEXT DEFAULT ''"), ("instructions", "TEXT DEFAULT ''")]:

@@ -24,9 +24,9 @@ export default function TextField({ name, placeholder, multiline, defaultValue }
   if (multiline) {
     return <textarea value={value} onChange={(e) => setValue(e.target.value)}
                      placeholder={placeholder} rows={4}
-                     style={{ width: '100%', padding: 8 }} />;
+                     style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />;
   }
   return <input value={value} onChange={(e) => setValue(e.target.value)}
                 placeholder={placeholder}
-                style={{ width: '100%', padding: 8 }} />;
+                style={{ width: '100%', padding: 8, border: '1px solid #e5e7eb', borderRadius: 8 }} />;
 }

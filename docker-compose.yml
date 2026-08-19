@@ -1,0 +1,62 @@
+services:
+  app:
+    build: .
+    network_mode: host
+    #ports:
+    #  - "8000:8000"
+    environment:
+      - S3_CACHE_ENABLED=true
+      - S3_CACHE_BUCKET=label-tool-cache
+      - S3_CACHE_PREFIX=datasets-cache
+      - S3_ENDPOINT_URL=http://localhost:9000
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - MAX_CACHED_DATASETS=1
+      - DISK_USAGE_THRESHOLD=0.1
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    network_mode: host
+    #ports:
+    #  - "9000:9000"
+    #  - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  createbuckets:
+    image: minio/mc:latest
+    network_mode: host
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set myminio http://localhost:9000 minioadmin minioadmin) do
+        echo 'Waiting for minio...';
+        sleep 2;
+      done;
+      /usr/bin/mc mb myminio/label-tool-cache --ignore-existing;
+      echo 'Bucket created';
+      exit 0;
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+
+volumes:
+  minio-data:
