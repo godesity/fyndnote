@@ -121,9 +121,9 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
     data: { text: "Apple Inc. is based in Cupertino, California." },
     annotations: {
       entities: [
-        { start: 0, end: 9, type: "ORG" },
-        { start: 23, end: 33, type: "LOC" },
-        { start: 36, end: 46, type: "LOC" },
+        { start: 0, end: 9, entity: "ORG" },
+        { start: 23, end: 33, entity: "LOC" },
+        { start: 36, end: 46, entity: "LOC" },
       ],
     },
     source: NER,
