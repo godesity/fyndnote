@@ -35,7 +35,7 @@ async function decodeAudio(url: string): Promise<{ duration: number; waveform: n
   const ctx = new AudioContext();
   const audioBuffer = await ctx.decodeAudioData(buffer);
   ctx.close();
-  const { duration, sampleRate } = audioBuffer;
+  const duration = audioBuffer.duration;
   const numBars = 300;
   const waveform: number[] = [];
   const channelData = audioBuffer.getChannelData(0);
