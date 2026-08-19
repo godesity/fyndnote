@@ -72,6 +72,24 @@ const WIDGETS: Widget[] = [
       { name: 'colors', type: 'string[]', desc: 'Override category colors (CSS color strings).' },
     ],
   },
+  {
+    name: 'AudioPlayer',
+    description: 'Simple audio playback — play, pause, seek.',
+    props: [
+      { name: 'url', type: 'string', required: true, desc: 'URL to the audio file.' },
+    ],
+  },
+  {
+    name: 'AudioSegmentField',
+    description: 'Timeline-based segment labeling on audio waveform.',
+    props: [
+      { name: 'name', type: 'string', required: true, desc: 'Field key stored in annotations.' },
+      { name: 'url', type: 'string', required: true, desc: 'URL to the audio file.' },
+      { name: 'labels', type: 'string[]', required: true, desc: 'Category labels, e.g. ["speaker_a","music"].' },
+      { name: 'colors', type: 'string[]', desc: 'Override category colors (CSS color strings).' },
+      { name: 'defaultValue', type: 'Segment[]', desc: 'Pre-existing segments [{start,end,label}].' },
+    ],
+  },
 ];
 
 function CollapsibleWidget({ widget, defaultOpen }: { widget: Widget; defaultOpen?: boolean }) {
