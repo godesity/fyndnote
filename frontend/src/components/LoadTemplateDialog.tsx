@@ -69,6 +69,9 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
               key={g}
               onClick={() => { setGroupFilter(g); setSelected(null); }}
               style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
                 padding: "4px 14px",
                 borderRadius: 20,
                 border: "none",
@@ -79,6 +82,7 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
                 cursor: "pointer",
               }}
             >
+              {g !== "All" && <GroupIcon group={g} />}
               {g === "All" ? "All" : g.charAt(0).toUpperCase() + g.slice(1)}
             </button>
           ))}
@@ -180,6 +184,34 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
       </div>
     </div>
   );
+}
+
+function GroupIcon({ group }: { group: string }) {
+  if (group === "text") {
+    return (
+      <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth={2} strokeLinecap="round"
+           strokeLinejoin="round" style={{ verticalAlign: "middle" }}>
+        <rect x="3" y="3" width="18" height="18" rx="3" />
+        <path d="M6 9h12M12 9v9" />
+      </svg>
+    );
+  }
+  if (group === "image") {
+    return (
+      <svg width={13} height={13} viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" strokeWidth={2} strokeLinecap="round"
+           strokeLinejoin="round" style={{ verticalAlign: "middle" }}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="M21 15l-5-5L5 21" />
+      </svg>
+    );
+  }
+  if (group === "audio") {
+    return <span style={{ fontSize: 15 }}>♪</span>;
+  }
+  return null;
 }
 
 function TemplateCard({

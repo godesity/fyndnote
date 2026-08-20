@@ -18,12 +18,9 @@ const DEFAULT_COLORS = [
   '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b',
 ];
 
-function getColor(category: string, colors: string[]): string {
-  let hash = 0;
-  for (let i = 0; i < category.length; i++) {
-    hash = category.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
+function getColor(category: string, categories: string[], colors: string[]): string {
+  const idx = categories.indexOf(category);
+  return colors[(idx >= 0 ? idx : 0) % colors.length];
 }
 
 type Handle = 'tl' | 'tr' | 'bl' | 'br';
@@ -194,7 +191,7 @@ export default function BBoxField({ name, imageUrl, categories, defaultValue, co
     <div>
       <div style={{ marginBottom: 8 }}>
         {categories.map((cat) => {
-          const c = getColor(cat, colors);
+          const c = getColor(cat, categories, colors);
           return (
             <button key={cat} onClick={() => setActiveCategory(cat)}
                     style={{
@@ -218,7 +215,7 @@ export default function BBoxField({ name, imageUrl, categories, defaultValue, co
              onMouseDown={handleImageMouseDown} onMouseUp={handleImageMouseUp}
              style={{ maxWidth: '100%', cursor: 'crosshair' }} />
         {boxes.map((box, i) => {
-          const c = getColor(box.category, colors);
+          const c = getColor(box.category, categories, colors);
           return (
             <div key={i}
                  onMouseDown={(e) => handleBoxMouseDown(e, i)}

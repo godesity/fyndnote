@@ -13,14 +13,17 @@ interface Props {
   labels: string[];
   colors?: string[];
   defaultValue?: Segment[];
+  modes?: ('range' | 'point')[];
 }
 
-const DEFAULT_COLORS = ['#F97316', '#3b82f6', '#10b981', '#8b5cf6', '#e74c3c', '#f39c12'];
+const DEFAULT_COLORS = [
+  '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6',
+  '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b',
+];
 
-function getColor(label: string, colors: string[]): string {
-  let hash = 0;
-  for (let i = 0; i < label.length; i++) hash = label.charCodeAt(i) + ((hash << 5) - hash);
-  return colors[Math.abs(hash) % colors.length];
+function getColor(label: string, labels: string[], colors: string[]): string {
+  const idx = labels.indexOf(label);
+  return colors[(idx >= 0 ? idx : 0) % colors.length];
 }
 
 function formatTime(seconds: number): string {
@@ -53,7 +56,8 @@ async function decodeAudio(url: string): Promise<{ duration: number; waveform: n
   return { duration, waveform };
 }
 
-export default function AudioSegmentField({ name, url, labels, colors: colorOverride, defaultValue }: Props) {
+export default function AudioSegmentField({ name, url, labels, colors: colorOverride, defaultValue, modes }: Props) {
+  const allowedModes = modes || ['range', 'point'];
   const colors = colorOverride || DEFAULT_COLORS;
   const [segments, setSegments] = useState<Segment[]>(defaultValue || []);
   const [activeLabel, setActiveLabel] = useState(labels[0]);
@@ -63,7 +67,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
   const [playing, setPlaying] = useState(false);
   const [playSegmentOnly, setPlaySegmentOnly] = useState<Segment | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<'range' | 'point'>('range');
+  const [mode, setMode] = useState<'range' | 'point'>(allowedModes.includes('range') ? 'range' : 'point');
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -138,7 +142,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
     for (const seg of segments) {
       const sx = (seg.start / duration) * w;
       const ex = (seg.end / duration) * w;
-      const color = getColor(seg.label, colors);
+      const color = getColor(seg.label, labels, colors);
       ctx.fillStyle = color + '1A';
       ctx.fillRect(sx, 0, ex - sx, h);
       ctx.strokeStyle = color;
@@ -218,6 +222,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
     } else {
       setDrawing(true);
       setDrawStart(t);
+      setSegments(prev => [...prev, { start: t, end: t, label: activeLabel }]);
     }
   };
 
@@ -229,11 +234,13 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
       const t = mouseToTime(e.clientX);
       if (drawing) {
         setSegments(prev => {
-          const filtered = prev.filter(s => s.start !== -1 || s.end !== -1);
-          const start = Math.min(drawStart, t);
-          const end = Math.max(drawStart, t);
-          if (end - start < 0.05) return prev;
-          return [...filtered, { start, end, label: activeLabel }];
+          if (prev.length === 0) return prev;
+          const next = [...prev];
+          const last = { ...next[next.length - 1] };
+          last.start = Math.min(drawStart, t);
+          last.end = Math.max(drawStart, t);
+          next[next.length - 1] = last;
+          return next;
         });
         return;
       }
@@ -265,7 +272,14 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
     };
 
     const handleMouseUp = () => {
-      setSegments(prev => prev.filter(s => s.end - s.start >= 0.05));
+      if (drawing) {
+        setSegments(prev => {
+          if (prev.length === 0) return prev;
+          const last = prev[prev.length - 1];
+          if (last.end - last.start < 0.05) return prev.slice(0, -1);
+          return prev;
+        });
+      }
       setDrawing(false);
       setDragIndex(null);
       setResizeIndex(null);
@@ -300,7 +314,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
       <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
         {labels.map((label) => {
           const active = activeLabel === label;
-          const c = getColor(label, colors);
+          const c = getColor(label, labels, colors);
           return (
             <button key={label} onClick={() => setActiveLabel(label)}
                     style={{
@@ -314,24 +328,30 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
           );
         })}
         {/* Range/Point toggle */}
-        <div style={{ marginLeft: 'auto', display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-          <button onClick={() => setMode('range')}
-                  style={{
-                    padding: '3px 8px', fontSize: 10, border: 'none', cursor: 'pointer',
-                    background: mode === 'range' ? '#F97316' : '#fff',
-                    color: mode === 'range' ? '#fff' : '#374151',
-                  }}>
-            Range
-          </button>
-          <button onClick={() => setMode('point')}
-                  style={{
-                    padding: '3px 8px', fontSize: 10, border: 'none', cursor: 'pointer',
-                    background: mode === 'point' ? '#F97316' : '#fff',
-                    color: mode === 'point' ? '#fff' : '#374151',
-                  }}>
-            Point
-          </button>
-        </div>
+        {allowedModes.length > 1 && (
+          <div style={{ marginLeft: 'auto', display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+            {allowedModes.includes('range') && (
+              <button onClick={() => setMode('range')}
+                      style={{
+                        padding: '3px 8px', fontSize: 10, border: 'none', cursor: 'pointer',
+                        background: mode === 'range' ? '#F97316' : '#fff',
+                        color: mode === 'range' ? '#fff' : '#374151',
+                      }}>
+                Range
+              </button>
+            )}
+            {allowedModes.includes('point') && (
+              <button onClick={() => setMode('point')}
+                      style={{
+                        padding: '3px 8px', fontSize: 10, border: 'none', cursor: 'pointer',
+                        background: mode === 'point' ? '#F97316' : '#fff',
+                        color: mode === 'point' ? '#fff' : '#374151',
+                      }}>
+                Point
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Error state */}
@@ -393,7 +413,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
       {segments.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {segments.map((seg, i) => {
-            const c = getColor(seg.label, colors);
+            const c = getColor(seg.label, labels, colors);
             const isPoint = seg.start === seg.end;
             return (
               <div key={i}
@@ -427,7 +447,11 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
       {/* Empty state */}
       {segments.length === 0 && !error && (
         <div style={{ textAlign: 'center', padding: 12, color: '#9ca3af', fontSize: 12 }}>
-          {mode === 'range' ? 'Click and drag on waveform to create a labeled segment' : 'Click on waveform to place a labeled point'}
+          {allowedModes.length > 1
+            ? `Click and drag on waveform to create a labeled segment (${mode} mode)`
+            : mode === 'range'
+              ? 'Click and drag on waveform to create a labeled segment'
+              : 'Click on waveform to place a labeled point'}
         </div>
       )}
     </div>

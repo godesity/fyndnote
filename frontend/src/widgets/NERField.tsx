@@ -20,12 +20,9 @@ const DEFAULT_COLORS = [
   '#1abc9c', '#e67e22', '#34495e', '#16a085', '#c0392b',
 ];
 
-function getColor(entityType: string, colors: string[]): string {
-  let hash = 0;
-  for (let i = 0; i < entityType.length; i++) {
-    hash = entityType.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
+function getColor(entityType: string, entityTypes: string[], colors: string[]): string {
+  const idx = entityTypes.indexOf(entityType);
+  return colors[(idx >= 0 ? idx : 0) % colors.length];
 }
 
 function absoluteOffset(container: HTMLElement, targetNode: Node, nodeOffset: number): number {
@@ -86,7 +83,7 @@ export default function NERField({ name, text, entityTypes, defaultValue, colors
     if (e.start > pos) {
       parts.push(<span key={`t-${pos}`}>{text.slice(pos, e.start)}</span>);
     }
-    const bg = getColor(e.entity, colors);
+    const bg = getColor(e.entity, entityTypes, colors);
     parts.push(
       <mark key={`e-${e.start}`}
             style={{ background: bg, color: '#fff', cursor: 'pointer', padding: '2px 4px', borderRadius: 3 }}
@@ -105,7 +102,7 @@ export default function NERField({ name, text, entityTypes, defaultValue, colors
     <div>
       <div style={{ marginBottom: 8 }}>
         {entityTypes.map((et) => {
-          const c = getColor(et, colors);
+          const c = getColor(et, entityTypes, colors);
           return (
             <button key={et} onClick={() => setActiveEntity(et)}
                     style={{
