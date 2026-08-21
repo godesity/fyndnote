@@ -27,6 +27,10 @@ RUN pip install --no-cache-dir \
     "python-multipart>=0.0.32" \
     "boto3>=1.34.0"
 
+# Create a non-root user to run the app.
+# UID/GID 1000 matches the host user so the bind-mounted ./data dir stays writable.
+RUN addgroup --gid 1000 app && adduser --uid 1000 --gid 1000 --disabled-password --gecos "" app
+
 # Copy backend source
 COPY backend/ ./
 
@@ -35,6 +39,11 @@ COPY data/users.json /app/data/users.json
 
 # Copy built frontend
 COPY --from=frontend /app/frontend/dist /app/frontend/dist
+
+# Give the app user ownership of the runtime files and data dir
+RUN mkdir -p /app/data && chown -R app:app /app
+
+USER app
 
 EXPOSE 8000
 
