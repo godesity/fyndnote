@@ -33,14 +33,14 @@ def _apply_annotation_meta_filter(db, project_indices: list[int], expr, user_id:
         # For = 0, < 1, <= 0: find rows NOT in annotations table
         if (op == "=" and val == 0) or (op == "<" and val == 1) or (op == "<=" and val == 0):
             sql_annotated = f"""
-                SELECT DISTINCT row_index FROM annotations
+                SELECT DISTINCT row_index FROM fyndnot_annotations
                 WHERE project_id = ? AND row_index IN ({placeholders})
             """
             annotated = {r[0] for r in db.execute(sql_annotated, [pid] + project_indices).fetchall()}
             return [i for i in project_indices if i not in annotated]
         # For > 0, >= 1: find rows IN annotations with the given count condition
         sql = f"""
-            SELECT row_index FROM annotations
+            SELECT row_index FROM fyndnot_annotations
             WHERE project_id = ?
               AND row_index IN ({placeholders})
             GROUP BY row_index
@@ -56,7 +56,7 @@ def _apply_annotation_meta_filter(db, project_indices: list[int], expr, user_id:
             val = user_id
         placeholders = ",".join("?" * len(project_indices))
         sql = f"""
-            SELECT DISTINCT row_index FROM annotations
+            SELECT DISTINCT row_index FROM fyndnot_annotations
             WHERE project_id = ?
               AND user_id = ?
               AND row_index IN ({placeholders})
@@ -71,7 +71,7 @@ def _apply_annotation_meta_filter(db, project_indices: list[int], expr, user_id:
         col = expr.field.split(".")[1]  # created_at or updated_at
         placeholders = ",".join("?" * len(project_indices))
         sql = f"""
-            SELECT DISTINCT row_index FROM annotations
+            SELECT DISTINCT row_index FROM fyndnot_annotations
             WHERE project_id = ?
               AND row_index IN ({placeholders})
               AND {col} {op} ?
@@ -117,7 +117,7 @@ def _apply_annotation_data_filter(db, project_indices: list[int], expr, pid: str
 
     if op == "~=":
         sql = f"""
-            SELECT DISTINCT row_index FROM annotations
+            SELECT DISTINCT row_index FROM fyndnot_annotations
             WHERE project_id = ?
               AND row_index IN ({placeholders})
               AND json_extract(data, ?) LIKE ?
@@ -125,7 +125,7 @@ def _apply_annotation_data_filter(db, project_indices: list[int], expr, pid: str
         params = [pid] + project_indices + [json_path, f"%{val}%"]
     elif op == "=":
         sql = f"""
-            SELECT DISTINCT row_index FROM annotations
+            SELECT DISTINCT row_index FROM fyndnot_annotations
             WHERE project_id = ?
               AND row_index IN ({placeholders})
               AND json_extract(data, ?) = ?
@@ -137,7 +137,7 @@ def _apply_annotation_data_filter(db, project_indices: list[int], expr, pid: str
             params = [pid] + project_indices + [json_path, val]
     elif op == "!=":
         sql = f"""
-            SELECT DISTINCT row_index FROM annotations
+            SELECT DISTINCT row_index FROM fyndnot_annotations
             WHERE project_id = ?
               AND row_index IN ({placeholders})
               AND json_extract(data, ?) != ?
@@ -149,7 +149,7 @@ def _apply_annotation_data_filter(db, project_indices: list[int], expr, pid: str
             params = [pid] + project_indices + [json_path, val]
     elif op in (">", ">=", "<", "<="):
         sql = f"""
-            SELECT DISTINCT row_index FROM annotations
+            SELECT DISTINCT row_index FROM fyndnot_annotations
             WHERE project_id = ?
               AND row_index IN ({placeholders})
               AND CAST(json_extract(data, ?) AS REAL) {op} ?
@@ -236,11 +236,11 @@ class AnnotationService:
         pid = str(uuid.uuid4())
         salt = hashlib.sha256(f"{pid}:{name}".encode()).hexdigest()[:16]
         db.execute(
-            "INSERT INTO projects (id, name, dataset_id, template_id, salt, color, tags, instructions, ml_enabled, ml_url, ml_annotator, ml_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO fyndnot_projects (id, name, dataset_id, template_id, salt, color, tags, instructions, ml_enabled, ml_url, ml_annotator, ml_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (pid, name, dataset_id, template_id, salt, color, tags, instructions, int(ml_enabled), ml_url, ml_annotator, ml_mode)
         )
         db.commit()
-        proj = db.execute("SELECT * FROM projects WHERE id = ?", (pid,)).fetchone()
+        proj = db.execute("SELECT * FROM fyndnot_projects WHERE id = ?", (pid,)).fetchone()
         db.close()
         return dict(proj)
 
@@ -272,29 +272,29 @@ class AnnotationService:
             sets += ", ml_mode = ?"
             params.append(ml_mode)
         params.append(pid)
-        db.execute(f"UPDATE projects SET {sets} WHERE id = ?", tuple(params))
+        db.execute(f"UPDATE fyndnot_projects SET {sets} WHERE id = ?", tuple(params))
         db.commit()
-        p = db.execute("SELECT * FROM projects WHERE id = ?", (pid,)).fetchone()
+        p = db.execute("SELECT * FROM fyndnot_projects WHERE id = ?", (pid,)).fetchone()
         db.close()
         return dict(p) if p else None
 
     @staticmethod
     def get_project(pid: str) -> dict | None:
         db = get_db()
-        p = db.execute("SELECT * FROM projects WHERE id = ?", (pid,)).fetchone()
+        p = db.execute("SELECT * FROM fyndnot_projects WHERE id = ?", (pid,)).fetchone()
         db.close()
         return dict(p) if p else None
 
     @staticmethod
     def list_projects(user_id: str) -> list[dict]:
         db = get_db()
-        user = db.execute("SELECT global_role FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute("SELECT global_role FROM fyndnot_users WHERE id = ?", (user_id,)).fetchone()
         if user and user["global_role"] == "system_admin":
-            rows = db.execute("SELECT * FROM projects").fetchall()
+            rows = db.execute("SELECT * FROM fyndnot_projects").fetchall()
         else:
             rows = db.execute("""
-                SELECT p.*, pp.role FROM projects p
-                JOIN project_permissions pp ON pp.project_id = p.id
+                SELECT p.*, pp.role FROM fyndnot_projects p
+                JOIN fyndnot_project_permissions pp ON pp.project_id = p.id
                 WHERE pp.user_id = ?
             """, (user_id,)).fetchall()
         db.close()
@@ -304,14 +304,14 @@ class AnnotationService:
     def get_progress(pid: str, user_id: str) -> dict:
         db = get_db()
         any_ann = db.execute(
-            "SELECT COUNT(DISTINCT row_index) FROM annotations WHERE project_id = ?", (pid,)
+            "SELECT COUNT(DISTINCT row_index) FROM fyndnot_annotations WHERE project_id = ?", (pid,)
         ).fetchone()[0]
         by_me = db.execute(
-            "SELECT COUNT(DISTINCT row_index) FROM annotations WHERE project_id = ? AND user_id = ?",
+            "SELECT COUNT(DISTINCT row_index) FROM fyndnot_annotations WHERE project_id = ? AND user_id = ?",
             (pid, user_id)
         ).fetchone()[0]
         total = db.execute(
-            "SELECT COUNT(*) FROM annotations WHERE project_id = ?", (pid,)
+            "SELECT COUNT(*) FROM fyndnot_annotations WHERE project_id = ?", (pid,)
         ).fetchone()[0]
         db.close()
         return {"annotated_rows": any_ann, "annotated_by_me": by_me, "total_annotations": total}
@@ -319,7 +319,7 @@ class AnnotationService:
     @staticmethod
     def next_row(pid: str, user_id: str, num_rows: int) -> int | None:
         db = get_db()
-        salt = db.execute("SELECT salt FROM projects WHERE id = ?", (pid,)).fetchone()
+        salt = db.execute("SELECT salt FROM fyndnot_projects WHERE id = ?", (pid,)).fetchone()
         if not salt:
             db.close()
             return None
@@ -331,7 +331,7 @@ class AnnotationService:
 
         annotated = {
             r[0] for r in db.execute(
-                "SELECT row_index FROM annotations WHERE project_id = ? AND user_id = ?",
+                "SELECT row_index FROM fyndnot_annotations WHERE project_id = ? AND user_id = ?",
                 (pid, user_id)
             ).fetchall()
         }
@@ -346,7 +346,7 @@ class AnnotationService:
         db = get_db()
         now = datetime.utcnow().isoformat()
         db.execute("""
-            INSERT INTO annotations (project_id, row_index, user_id, data, created_at, updated_at)
+            INSERT INTO fyndnot_annotations (project_id, row_index, user_id, data, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(project_id, row_index, user_id)
             DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at
@@ -358,7 +358,7 @@ class AnnotationService:
     def get_annotation(pid: str, row_index: int, user_id: str) -> dict | None:
         db = get_db()
         row = db.execute(
-            "SELECT * FROM annotations WHERE project_id = ? AND row_index = ? AND user_id = ?",
+            "SELECT * FROM fyndnot_annotations WHERE project_id = ? AND row_index = ? AND user_id = ?",
             (pid, row_index, user_id)
         ).fetchone()
         db.close()
@@ -376,7 +376,7 @@ class AnnotationService:
     def get_row_annotation_status(pid: str, row_index: int, user_id: str) -> dict:
         db = get_db()
         rows = db.execute(
-            "SELECT user_id FROM annotations WHERE project_id = ? AND row_index = ?",
+            "SELECT user_id FROM fyndnot_annotations WHERE project_id = ? AND row_index = ?",
             (pid, row_index)
         ).fetchall()
         db.close()
@@ -404,7 +404,7 @@ class AnnotationService:
             return None
         ds_id = project["dataset_id"]
         db = get_db()
-        salt = db.execute("SELECT salt FROM projects WHERE id = ?", (pid,)).fetchone()
+        salt = db.execute("SELECT salt FROM fyndnot_projects WHERE id = ?", (pid,)).fetchone()
         db.close()
         if not salt:
             return None
@@ -429,7 +429,7 @@ class AnnotationService:
     @staticmethod
     def browse_rows(pid: str, user_id: str, page: int, per_page: int, filter_exprs: list) -> tuple:
         db = get_db()
-        project = db.execute("SELECT dataset_id FROM projects WHERE id = ?", (pid,)).fetchone()
+        project = db.execute("SELECT dataset_id FROM fyndnot_projects WHERE id = ?", (pid,)).fetchone()
         if not project:
             db.close()
             return [], 0
@@ -471,12 +471,12 @@ class AnnotationService:
         # ---- BUILD RESPONSE ----
         annotated_by_me = {
             r[0] for r in db.execute(
-                "SELECT row_index FROM annotations WHERE project_id = ? AND user_id = ?",
+                "SELECT row_index FROM fyndnot_annotations WHERE project_id = ? AND user_id = ?",
                 (pid, user_id)
             ).fetchall()
         }
         all_annotations = db.execute(
-            "SELECT row_index, user_id FROM annotations WHERE project_id = ?",
+            "SELECT row_index, user_id FROM fyndnot_annotations WHERE project_id = ?",
             (pid,)
         ).fetchall()
         any_annotated: dict[int, set[str]] = {}
@@ -488,7 +488,7 @@ class AnnotationService:
         if page_indices:
             placeholders = ",".join("?" * len(page_indices))
             ann_rows = db.execute(f"""
-                SELECT row_index, user_id, data, created_at, updated_at FROM annotations
+                SELECT row_index, user_id, data, created_at, updated_at FROM fyndnot_annotations
                 WHERE project_id = ? AND row_index IN ({placeholders})
             """, [pid] + page_indices).fetchall()
             for ar in ann_rows:
@@ -540,7 +540,7 @@ class AnnotationService:
             raise ValueError(f"Unsupported export format: {format}")
         db = get_db()
         rows = db.execute(
-            "SELECT row_index, user_id, data, created_at, updated_at FROM annotations WHERE project_id = ?",
+            "SELECT row_index, user_id, data, created_at, updated_at FROM fyndnot_annotations WHERE project_id = ?",
             (pid,)
         ).fetchall()
         db.close()

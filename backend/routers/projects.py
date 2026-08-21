@@ -131,10 +131,10 @@ def export_annotations(pid: str, format: str = "parquet"):
 @router.delete("/projects/{pid}")
 def delete_project(pid: str):
     db = get_db()
-    db.execute("DELETE FROM annotations WHERE project_id = ?", (pid,))
-    db.execute("DELETE FROM ml_annotations WHERE project_id = ?", (pid,))
-    db.execute("DELETE FROM project_permissions WHERE project_id = ?", (pid,))
-    db.execute("DELETE FROM projects WHERE id = ?", (pid,))
+    db.execute("DELETE FROM fyndnot_annotations WHERE project_id = ?", (pid,))
+    db.execute("DELETE FROM fyndnot_ml_annotations WHERE project_id = ?", (pid,))
+    db.execute("DELETE FROM fyndnot_project_permissions WHERE project_id = ?", (pid,))
+    db.execute("DELETE FROM fyndnot_projects WHERE id = ?", (pid,))
     db.commit()
     db.close()
     return {"status": "deleted"}

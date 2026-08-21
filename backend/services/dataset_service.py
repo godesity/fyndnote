@@ -166,7 +166,7 @@ class DatasetService:
         logger.info("Disk usage %.1f%% exceeds threshold %.1f%%", ratio * 100, DISK_USAGE_THRESHOLD * 100)
         db = get_db()
         rows = db.execute(
-            "SELECT id FROM datasets WHERE s3_uploaded = 1 ORDER BY created_at ASC"
+            "SELECT id FROM fyndnot_datasets WHERE s3_uploaded = 1 ORDER BY created_at ASC"
         ).fetchall()
         db.close()
         for (ds_id,) in rows:
@@ -227,7 +227,7 @@ class DatasetService:
         s3_uploaded = 1 if s3 is not None else 0
         db = get_db()
         db.execute(
-            """INSERT INTO datasets (id, source, source_type, source_format, hf_name, hf_split, num_rows, columns, created_at, s3_uploaded)
+            """INSERT INTO fyndnot_datasets (id, source, source_type, source_format, hf_name, hf_split, num_rows, columns, created_at, s3_uploaded)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (ds_id, source, source_type, source_format, name, split, len(ds),
              json.dumps(meta["columns"]), meta["created_at"], s3_uploaded),
@@ -242,7 +242,7 @@ class DatasetService:
     @classmethod
     def list_datasets(cls) -> list[dict]:
         db = get_db()
-        rows = db.execute("SELECT * FROM datasets ORDER BY created_at DESC").fetchall()
+        rows = db.execute("SELECT * FROM fyndnot_datasets ORDER BY created_at DESC").fetchall()
         db.close()
         result = []
         for row in rows:
@@ -272,7 +272,7 @@ class DatasetService:
 
         # Read metadata from database
         db = get_db()
-        row = db.execute("SELECT * FROM datasets WHERE id = ?", (ds_id,)).fetchone()
+        row = db.execute("SELECT * FROM fyndnot_datasets WHERE id = ?", (ds_id,)).fetchone()
         db.close()
         if not row:
             raise ValueError("Dataset not found")

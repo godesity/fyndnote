@@ -11,13 +11,13 @@ def get_db() -> sqlite3.Connection:
 def init_db():
     db = get_db()
     db.executescript("""
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE IF NOT EXISTS fyndnot_users (
             id          TEXT PRIMARY KEY,
             name        TEXT NOT NULL,
             global_role TEXT NOT NULL CHECK(global_role IN ('system_admin','annotator')),
             created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        CREATE TABLE IF NOT EXISTS projects (
+        CREATE TABLE IF NOT EXISTS fyndnot_projects (
             id          TEXT PRIMARY KEY,
             name        TEXT NOT NULL,
             dataset_id  TEXT NOT NULL,
@@ -28,24 +28,24 @@ def init_db():
             instructions TEXT DEFAULT '',
             created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        CREATE TABLE IF NOT EXISTS project_permissions (
-            user_id    TEXT NOT NULL REFERENCES users(id),
-            project_id TEXT NOT NULL REFERENCES projects(id),
+        CREATE TABLE IF NOT EXISTS fyndnot_project_permissions (
+            user_id    TEXT NOT NULL REFERENCES fyndnot_users(id),
+            project_id TEXT NOT NULL REFERENCES fyndnot_projects(id),
             role       TEXT NOT NULL CHECK(role IN ('project_admin','annotator')),
             PRIMARY KEY (user_id, project_id)
         );
-        CREATE TABLE IF NOT EXISTS annotations (
+        CREATE TABLE IF NOT EXISTS fyndnot_annotations (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            project_id  TEXT NOT NULL REFERENCES projects(id),
+            project_id  TEXT NOT NULL REFERENCES fyndnot_projects(id),
             row_index   INTEGER NOT NULL,
-            user_id     TEXT NOT NULL REFERENCES users(id),
+            user_id     TEXT NOT NULL REFERENCES fyndnot_users(id),
             data        TEXT NOT NULL,
             created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(project_id, row_index, user_id)
         );
-        CREATE TABLE IF NOT EXISTS ml_annotations (
-            project_id  TEXT NOT NULL REFERENCES projects(id),
+        CREATE TABLE IF NOT EXISTS fyndnot_ml_annotations (
+            project_id  TEXT NOT NULL REFERENCES fyndnot_projects(id),
             row_index   INTEGER NOT NULL,
             annotator   TEXT NOT NULL,
             data        TEXT NOT NULL,
@@ -53,7 +53,7 @@ def init_db():
             updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(project_id, row_index)
         );
-        CREATE TABLE IF NOT EXISTS datasets (
+        CREATE TABLE IF NOT EXISTS fyndnot_datasets (
             id            TEXT PRIMARY KEY,
             source        TEXT NOT NULL,
             source_type   TEXT NOT NULL,
@@ -69,13 +69,13 @@ def init_db():
     # Migration for existing databases that lack color/tags/instructions columns
     for col in [("color", "TEXT DEFAULT '#1976d2'"), ("tags", "TEXT DEFAULT ''"), ("instructions", "TEXT DEFAULT ''")]:
         try:
-            db.execute(f"ALTER TABLE projects ADD COLUMN {col[0]} {col[1]}")
+            db.execute(f"ALTER TABLE fyndnot_projects ADD COLUMN {col[0]} {col[1]}")
         except sqlite3.OperationalError:
             pass  # column already exists
     # Migration for ML backend columns
     for col in [("ml_enabled", "INTEGER DEFAULT 0"), ("ml_url", "TEXT DEFAULT ''"), ("ml_annotator", "TEXT DEFAULT ''"), ("ml_mode", "TEXT DEFAULT 'on_navigate'")]:
         try:
-            db.execute(f"ALTER TABLE projects ADD COLUMN {col[0]} {col[1]}")
+            db.execute(f"ALTER TABLE fyndnot_projects ADD COLUMN {col[0]} {col[1]}")
         except sqlite3.OperationalError:
             pass
     db.commit()
@@ -87,7 +87,7 @@ def seed_from_json():
     if not seed_file.exists():
         return
     db = get_db()
-    existing = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+    existing = db.execute("SELECT COUNT(*) FROM fyndnot_users").fetchone()[0]
     if existing > 0:
         db.close()
         return
@@ -96,12 +96,12 @@ def seed_from_json():
         data = json.load(f)
     for user in data["users"]:
         db.execute(
-            "INSERT OR IGNORE INTO users (id, name, global_role) VALUES (?, ?, ?)",
+            "INSERT OR IGNORE INTO fyndnot_users (id, name, global_role) VALUES (?, ?, ?)",
             (user["id"], user["name"], user["global_role"])
         )
         for project_id, role in user.get("project_roles", {}).items():
             db.execute(
-                "INSERT OR IGNORE INTO project_permissions (user_id, project_id, role) VALUES (?, ?, ?)",
+                "INSERT OR IGNORE INTO fyndnot_project_permissions (user_id, project_id, role) VALUES (?, ?, ?)",
                 (user["id"], project_id, role)
             )
     db.execute("PRAGMA foreign_keys=ON")

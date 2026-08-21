@@ -14,10 +14,10 @@ from services.template_service import TemplateService
 # 1. Reset DB
 db = get_db()
 db.executescript("""
-    DELETE FROM annotations;
-    DELETE FROM project_permissions;
-    DELETE FROM projects;
-    DELETE FROM users;
+    DELETE FROM fyndnot_annotations;
+    DELETE FROM fyndnot_project_permissions;
+    DELETE FROM fyndnot_projects;
+    DELETE FROM fyndnot_users;
 """)
 db.commit()
 db.close()
@@ -53,7 +53,7 @@ for name, color, tags, instructions in projects:
     pid = str(uuid.uuid4())
     pids.append(pid)
     db.execute(
-        "INSERT INTO projects (id, name, dataset_id, template_id, salt, color, tags, instructions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO fyndnot_projects (id, name, dataset_id, template_id, salt, color, tags, instructions) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (pid, name, ds_id, tid, f"seed-{pid[:8]}", color, tags, instructions),
     )
 
@@ -63,7 +63,7 @@ for pid in pids:
     perms.append(("alice", pid, "project_admin"))
 perms.append(("bob", pids[0], "annotator"))
 db.executemany(
-    "INSERT INTO project_permissions (user_id, project_id, role) VALUES (?, ?, ?)",
+    "INSERT INTO fyndnot_project_permissions (user_id, project_id, role) VALUES (?, ?, ?)",
     perms,
 )
 db.commit()
