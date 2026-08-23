@@ -5,6 +5,7 @@ import json
 import re
 from datetime import datetime, timedelta
 from database import get_db
+from config import DATABASE_TYPE
 import pyarrow.compute as pc
 import pyarrow as pa
 from services.dataset_service import DatasetService
@@ -114,6 +115,67 @@ def _apply_annotation_data_filter(db, project_indices: list[int], expr, pid: str
     op = expr.operator
     val = expr.value
     placeholders = ",".join("?" * len(project_indices))
+    pg_path = "{" + field_name.replace(".", ",") + "}"
+
+    # SQLite: json_extract returns the typed JSON value. PG: #>> returns text, so numeric
+    # comparisons need an explicit cast to match SQLite's implicit affinity coercion.
+    if DATABASE_TYPE == "postgres":
+        if op == "~=":
+            sql = f"""
+                SELECT DISTINCT row_index FROM fyndnot_annotations
+                WHERE project_id = ?
+                  AND row_index IN ({placeholders})
+                  AND data::jsonb #>> ? LIKE ?
+            """
+            params = [pid] + project_indices + [pg_path, f"%{val}%"]
+        elif op == "=":
+            try:
+                num_val = float(val) if "." in val else int(val)
+                sql = f"""
+                    SELECT DISTINCT row_index FROM fyndnot_annotations
+                    WHERE project_id = ?
+                      AND row_index IN ({placeholders})
+                      AND CAST(data::jsonb #>> ? AS NUMERIC) = ?
+                """
+                params = [pid] + project_indices + [pg_path, num_val]
+            except (ValueError, TypeError):
+                sql = f"""
+                    SELECT DISTINCT row_index FROM fyndnot_annotations
+                    WHERE project_id = ?
+                      AND row_index IN ({placeholders})
+                      AND data::jsonb #>> ? = ?
+                """
+                params = [pid] + project_indices + [pg_path, val]
+        elif op == "!=":
+            try:
+                num_val = float(val) if "." in val else int(val)
+                sql = f"""
+                    SELECT DISTINCT row_index FROM fyndnot_annotations
+                    WHERE project_id = ?
+                      AND row_index IN ({placeholders})
+                      AND CAST(data::jsonb #>> ? AS NUMERIC) != ?
+                """
+                params = [pid] + project_indices + [pg_path, num_val]
+            except (ValueError, TypeError):
+                sql = f"""
+                    SELECT DISTINCT row_index FROM fyndnot_annotations
+                    WHERE project_id = ?
+                      AND row_index IN ({placeholders})
+                      AND data::jsonb #>> ? != ?
+                """
+                params = [pid] + project_indices + [pg_path, val]
+        elif op in (">", ">=", "<", "<="):
+            sql = f"""
+                SELECT DISTINCT row_index FROM fyndnot_annotations
+                WHERE project_id = ?
+                  AND row_index IN ({placeholders})
+                  AND CAST(data::jsonb #>> ? AS NUMERIC) {op} ?
+            """
+            params = [pid] + project_indices + [pg_path, float(val)]
+        else:
+            return project_indices
+        matched = {r[0] for r in db.execute(sql, params).fetchall()}
+        return [i for i in project_indices if i in matched]
 
     if op == "~=":
         sql = f"""
@@ -160,7 +222,6 @@ def _apply_annotation_data_filter(db, project_indices: list[int], expr, pid: str
 
     matched = {r[0] for r in db.execute(sql, params).fetchall()}
     return [i for i in project_indices if i in matched]
-
 
 def _apply_data_field_filter(indices: list[int], expr, ds) -> list[int]:
     if not indices or not expr.field.startswith("data."):

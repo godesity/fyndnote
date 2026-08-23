@@ -13,14 +13,33 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - MAX_CACHED_DATASETS=1
       - DISK_USAGE_THRESHOLD=0.1
+      # Empty = SQLite (default). For the pg profile use:
+      #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/fyndnot docker compose --profile pg up
+      - DATABASE_URL=${DATABASE_URL:-}
     volumes:
       - ./data:/app/data
     depends_on:
       minio:
         condition: service_healthy
-      createbuckets:
-        condition: service_completed_successfully
     restart: unless-stopped
+
+  pg:
+    image: postgres:16-alpine
+    profiles: ["pg"]
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=fyndnot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   minio:
     image: minio/minio:latest
@@ -60,3 +79,4 @@ services:
 
 volumes:
   minio-data:
+  pg-data:

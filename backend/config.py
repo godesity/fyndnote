@@ -4,6 +4,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 DATABASE_PATH = DATA_DIR / "labeling.db"
+
+# Set DATABASE_URL to use PostgreSQL instead of SQLite, e.g.:
+#   DATABASE_URL=postgresql://user:pass@localhost:5432/fyndnot
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+DATABASE_TYPE = "postgres" if DATABASE_URL else "sqlite"
 DATASETS_DIR = DATA_DIR / "datasets"
 DATASETS_UPLOAD_DIR = DATA_DIR / "datasets" / "uploads"
 TEMPLATES_DIR = DATA_DIR / "templates"
