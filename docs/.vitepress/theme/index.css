@@ -1,0 +1,61 @@
+/* fyndnot brand palette + gradients — mirrors the product's sunset/coral/violet theme. */
+:root {
+  /* Brand — sunset orange (the product's primary accent) */
+  --vp-c-brand-1: #ea580c; /* sunset-600 */
+  --vp-c-brand-2: #f97316; /* sunset-500 */
+  --vp-c-brand-3: #fdba74; /* sunset-300 */
+  --vp-c-brand-tint: rgb(234 88 12 / 0.16);
+
+  /* Accent — coral pink (secondary brand) */
+  --vp-c-accent-1: #ec4899; /* coral-500 */
+  --vp-c-accent-2: #db2777; /* coral-600 */
+  --vp-c-accent-3: #fecdd3; /* coral-200 */
+  --vp-c-accent-tint: rgb(236 72 153 / 0.16);
+
+  /* Violet tertiary */
+  --vp-c-violet-1: #8b5cf6;
+  --vp-c-violet-2: #7c3aed;
+
+  /* Signature fyndnot gradients (sunset -> coral -> violet) */
+  --fyndnot-gradient-text: linear-gradient(90deg, #f97316, #ec4899, #8b5cf6);
+  --fyndnot-gradient-btn: linear-gradient(135deg, #f97316, #ec4899);
+  --fyndnot-gradient-btn-hover: linear-gradient(135deg, #ea580c, #db2777);
+}
+
+/* Links use the sunset brand; hover warms to coral */
+.dark .vp-doc a,
+.vp-doc a {
+  color: var(--vp-c-brand-1);
+}
+
+@media (min-width: 640px) {
+  .vp-doc a:hover {
+    color: var(--vp-c-accent-1);
+  }
+}
+
+/* Home hero name — gradient brand text (sunset -> coral -> violet) */
+.VPHero .name {
+  background: var(--fyndnot-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Doc headings follow the sunset primary */
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3 {
+  color: var(--vp-c-brand-1);
+}
+
+/* Primary brand buttons get the product's sunset->coral gradient */
+.VPButton.brand {
+  background: var(--fyndnot-gradient-btn);
+  border-color: transparent;
+  box-shadow: 0 1px 3px rgb(234 88 12 / 0.35);
+}
+.VPButton.brand:hover {
+  background: var(--fyndnot-gradient-btn-hover);
+}
