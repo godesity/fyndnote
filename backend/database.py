@@ -1,11 +1,10 @@
 import re
 import sqlite3
 
-from config import DATABASE_PATH, DATABASE_URL, DATABASE_TYPE
+from config import DATABASE_PATH, DATABASE_TYPE, DATABASE_URL
 
 if DATABASE_TYPE == "postgres":
     import psycopg
-    from psycopg.errors import ProgrammingError
 
 # ---------------------------------------------------------------------------
 # Schema (SQLite dialect). For PostgreSQL the annotation id line uses a
@@ -92,8 +91,9 @@ def _schema():
 # dict(row), mirroring sqlite3.Row.
 # ---------------------------------------------------------------------------
 
+
 class _Row:
-    __slots__ = ("_m", "_cols")
+    __slots__ = ("_cols", "_m")
 
     def __init__(self, mapping):
         self._m = mapping
@@ -157,6 +157,7 @@ class _PGConnection:
 # SQLite -> PostgreSQL translation for the few SQLite-only constructs used.
 # ---------------------------------------------------------------------------
 
+
 def _translate_replace(sql):
     m = _OR_REPLACE_RE.match(sql.strip())
     if not m:
@@ -192,6 +193,7 @@ def _translate(sql):
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def get_db():
     if DATABASE_TYPE == "sqlite":
         db = sqlite3.connect(str(DATABASE_PATH))
@@ -216,7 +218,10 @@ def init_db():
 def _migrate(db):
     # Existing columns on fyndnot_projects (dialect-aware).
     if DATABASE_TYPE == "sqlite":
-        existing = {r["name"] for r in db.execute("PRAGMA table_info(fyndnot_projects)").fetchall()}
+        existing = {
+            r["name"]
+            for r in db.execute("PRAGMA table_info(fyndnot_projects)").fetchall()
+        }
     else:
         existing = {
             r["column_name"]

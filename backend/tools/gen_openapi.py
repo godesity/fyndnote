@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import main  # noqa: E402 - imports the FastAPI app
+import main
 
 spec = main.app.openapi()
 

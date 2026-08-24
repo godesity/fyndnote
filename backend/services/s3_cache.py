@@ -1,6 +1,6 @@
 import logging
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,12 @@ class S3BackedCache:
     Local cache files are never deleted unless verified on S3 first.
     """
 
-    def __init__(self, bucket: str, prefix: str = "datasets-cache", endpoint_url: str | None = None):
+    def __init__(
+        self,
+        bucket: str,
+        prefix: str = "datasets-cache",
+        endpoint_url: str | None = None,
+    ):
         self.bucket = bucket
         self.prefix = prefix
         self.endpoint_url = endpoint_url
@@ -25,6 +30,7 @@ class S3BackedCache:
     def _client(self):
         if self._s3 is None:
             import boto3
+
             kwargs = {}
             if self.endpoint_url:
                 kwargs["endpoint_url"] = self.endpoint_url
@@ -53,9 +59,17 @@ class S3BackedCache:
             try:
                 self._client.upload_file(str(f), self.bucket, key)
             except Exception:
-                logger.exception("Failed to upload %s to s3://%s/%s", relative, self.bucket, key)
+                logger.exception(
+                    "Failed to upload %s to s3://%s/%s", relative, self.bucket, key
+                )
                 raise
-        logger.info("Uploaded %d files for %s to s3://%s/%s", len(files), ds_id, self.bucket, self._ds_prefix(ds_id))
+        logger.info(
+            "Uploaded %d files for %s to s3://%s/%s",
+            len(files),
+            ds_id,
+            self.bucket,
+            self._ds_prefix(ds_id),
+        )
 
     def upload_async(self, ds_id: str, local_path: Path):
         """Dispatch upload to background thread. Returns ``Future``."""
@@ -75,7 +89,7 @@ class S3BackedCache:
             restored = 0
             for page in pages:
                 for obj in page.get("Contents", []):
-                    relative = obj["Key"][len(prefix):]
+                    relative = obj["Key"][len(prefix) :]
                     if not relative:
                         continue
                     dest = local_path / relative
@@ -86,7 +100,13 @@ class S3BackedCache:
             logger.exception("Failed to download cache for %s", ds_id)
             return False
         if restored:
-            logger.info("Restored %d files for %s from s3://%s/%s", restored, ds_id, self.bucket, prefix)
+            logger.info(
+                "Restored %d files for %s from s3://%s/%s",
+                restored,
+                ds_id,
+                self.bucket,
+                prefix,
+            )
             return True
         return False
 

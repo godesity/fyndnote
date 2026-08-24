@@ -1,13 +1,14 @@
 __pycache__/
 *.pyc
 *.pyo
-.data/
+data/
 data/labeling.db
 data/datasets/
 data/templates/
 .venv/
 node_modules/
 dist/
+.env
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 .superpowers/

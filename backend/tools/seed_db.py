@@ -6,9 +6,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import uuid
+
 from database import get_db, init_db, seed_from_json
-from services.dataset_service import DatasetService
 from services.annotation_service import AnnotationService
+from services.dataset_service import DatasetService
 from services.template_service import TemplateService
 
 # 1. Reset DB
@@ -42,7 +43,12 @@ print(f"Dataset: {ds_id} ({meta['num_rows']} rows)")
 
 # 5. Create projects
 projects = [
-    ("IMDB Sentiment Analysis", "#1976d2", "nlp,imdb", "Label the sentiment of each review"),
+    (
+        "IMDB Sentiment Analysis",
+        "#1976d2",
+        "nlp,imdb",
+        "Label the sentiment of each review",
+    ),
     ("Review Triage", "#e67e22", "triage", "Quickly triage reviews"),
     ("Quality Check", "#2ecc71", "qa", "Quality assurance pass"),
 ]

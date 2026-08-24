@@ -1,8 +1,10 @@
-import uuid
 import json
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
-from datetime import datetime
+
 from config import TEMPLATES_DIR
+
 
 class TemplateService:
     @staticmethod
@@ -13,7 +15,7 @@ class TemplateService:
     def create(cls, name: str, source: str, validated: bool = False) -> dict:
         tid = str(uuid.uuid4())
         TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         data = {
             "id": tid,
             "name": name,
@@ -36,7 +38,9 @@ class TemplateService:
             return json.load(f)
 
     @classmethod
-    def update(cls, tid: str, source: str = None, validated: bool = None) -> dict | None:
+    def update(
+        cls, tid: str, source: str | None = None, validated: bool | None = None
+    ) -> dict | None:
         data = cls.get(tid)
         if data is None:
             return None
@@ -44,7 +48,7 @@ class TemplateService:
             data["source"] = source
         if validated is not None:
             data["validated"] = validated
-        data["updated_at"] = datetime.utcnow().isoformat()
+        data["updated_at"] = datetime.now(timezone.utc).isoformat()
         with open(cls._path(tid), "w") as f:
             json.dump(data, f, indent=2)
         return data

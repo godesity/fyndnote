@@ -25,7 +25,9 @@ RUN pip install --no-cache-dir \
     "Pillow>=10.0.0" \
     "requests>=2.31.0" \
     "python-multipart>=0.0.32" \
-    "boto3>=1.34.0"
+    "boto3>=1.34.0" \
+    "cryptography>=42.0.0" \
+    "itsdangerous>=2.2.0"
 
 # Create a non-root user to run the app.
 # UID/GID 1000 matches the host user so the bind-mounted ./data dir stays writable.

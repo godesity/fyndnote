@@ -1,4 +1,4 @@
-import { type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import useHashLocation from './hooks/useHashLocation';
 import LoginView from './views/LoginView';
@@ -29,8 +29,31 @@ function matchRoute(parts: string[]): { component: JSX.Element; id?: string } {
 }
 
 function AppContent() {
-  const { user } = useAuth();
+  const { user, handleCallback } = useAuth();
   const { parts } = useHashLocation();
+  const [callbackDone, setCallbackDone] = useState(false);
+
+  // The backend redirects to /callback?token=... after completing the OAuth
+  // exchange with Keycloak (top-level nav), so the SPA just reads the tokens.
+  const params = new URLSearchParams(window.location.search);
+  const isCallback = params.get('token') != null || params.get('error') != null;
+
+  useEffect(() => {
+    if (isCallback && !callbackDone) {
+      handleCallback()
+        .then(() => {
+          setCallbackDone(true);
+          // Land the user inside the app after login.
+          if (!window.location.hash) window.location.hash = '#/projects';
+        })
+        .catch(() => {
+          setCallbackDone(true);
+        });
+    }
+  }, [isCallback, callbackDone, handleCallback]);
+
+  // While a callback is in flight we don't yet know the user.
+  if (isCallback && !callbackDone) return <div style={{ padding: 20 }}>Signing in via SSO…</div>;
 
   if (!user) return <LoginView />;
 

@@ -64,6 +64,64 @@ Opens at `http://localhost:5173`.
 5. Save the template, name your project, and create it
 6. Click **Label** to start annotating rows
 
+## Single Sign-On (Keycloak, MinIO-style OIDC)
+
+fyndnot can authenticate through Keycloak using the standard OpenID Connect
+Authorization Code flow — the same pattern MinIO uses for its web console.
+The backend validates Keycloak-issued JWTs **statelessly** against the realm's
+JWKS endpoint (public keys fetched and cached), so no per-request call to
+Keycloak is needed once keys are cached.
+
+### Enabling SSO
+
+1. Start Keycloak in development mode:
+
+   ```bash
+   docker compose --profile sso up -d keycloak
+   ```
+
+   Console: `http://localhost:8080` (admin / admin).
+
+2. In the Keycloak admin console create a realm named `fyndnot`, then a client:
+   - Client ID: `fyndnot-app`
+   - Access Type: `confidential`
+   - Valid redirect URIs: `http://localhost:5173/callback`
+   - (optional) Client roles `system_admin` and `annotator` mapped to users.
+
+3. Set the env vars (see `config.py`):
+
+   ```bash
+   SSO_ENABLED=true
+   KEYCLOAK_URL=http://localhost:8080
+   KEYCLOAK_REALM=fyndnot
+   KEYCLOAK_CLIENT_ID=fyndnot-app
+   KEYCLOAK_CLIENT_SECRET=<client secret>
+   SSO_REDIRECT_URI=http://localhost:5173
+   ```
+
+4. Restart the backend. The login screen becomes **Sign in with SSO**, which
+   redirects to Keycloak and back to `/callback`.
+
+### How it maps roles
+
+- Keycloak **realm roles** map onto `global_role`:
+  - `system_admin` → `system_admin`
+  - anything else (or none) → `annotator` (least privilege)
+- **Project permissions** are still sourced from the local `fyndnot_project_permissions`
+  table (seeded via `data/users.json`), so realm roles govern only the global role.
+
+### SSO endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET    | `/api/v1/sso/login` | Redirect to Keycloak authorize |
+| GET    | `/api/v1/sso/callback` | Exchange code → JWT + local user |
+| GET    | `/api/v1/sso/logout` | Redirect to Keycloak logout |
+| GET    | `/api/v1/sso/me` | Decode Bearer JWT → local user |
+
+The frontend stores the JWT in `localStorage` (`fyndnot_sso_token`) so refreshes
+stay signed in, and resolves it via `/sso/me` when needed.
+
 ## Project Structure
 
 ```

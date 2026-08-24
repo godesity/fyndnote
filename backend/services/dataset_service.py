@@ -6,12 +6,13 @@ import tempfile
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
 import requests
-from datasets import Audio, Dataset, Image as HfImage, load_dataset
+from datasets import Audio, Dataset, load_dataset
+from datasets import Image as HfImage
 from PIL import Image as PILImage
 
 from config import (
@@ -47,7 +48,7 @@ def _extract_extension(path: str) -> str:
 
 def _detect_source(source: str) -> tuple[str, str, str]:
     """Returns (source_type, format, clean_source)."""
-    if source.startswith("http://") or source.startswith("https://"):
+    if source.startswith(("http://", "https://")):
         ext = _extract_extension(source)
         if ext not in DATASET_SOURCE_TYPES:
             raise ValueError(
@@ -130,9 +131,15 @@ class DatasetService:
     def _s3(cls) -> S3BackedCache | None:
         if cls._s3_cache is None and S3_CACHE_ENABLED:
             if S3_CACHE_BUCKET:
-                cls._s3_cache = S3BackedCache(bucket=S3_CACHE_BUCKET, prefix=S3_CACHE_PREFIX, endpoint_url=S3_ENDPOINT_URL)
+                cls._s3_cache = S3BackedCache(
+                    bucket=S3_CACHE_BUCKET,
+                    prefix=S3_CACHE_PREFIX,
+                    endpoint_url=S3_ENDPOINT_URL,
+                )
             else:
-                logger.warning("S3_CACHE_ENABLED is True but S3_CACHE_BUCKET is not set")
+                logger.warning(
+                    "S3_CACHE_ENABLED is True but S3_CACHE_BUCKET is not set"
+                )
         return cls._s3_cache if S3_CACHE_ENABLED else None
 
     @classmethod
@@ -140,13 +147,15 @@ class DatasetService:
         """Evict datasets from _instances when above MAX_CACHED_DATASETS."""
         if len(cls._instances) <= MAX_CACHED_DATASETS:
             return
-        candidates = [(ds_id, cls._access_times.get(ds_id, 0))
-                      for ds_id in cls._instances
-                      if ds_id != active_id]
+        candidates = [
+            (ds_id, cls._access_times.get(ds_id, 0))
+            for ds_id in cls._instances
+            if ds_id != active_id
+        ]
         if not candidates:
             return
         candidates.sort(key=lambda x: x[1])
-        for ds_id, _ in candidates[:len(cls._instances) - MAX_CACHED_DATASETS]:
+        for ds_id, _ in candidates[: len(cls._instances) - MAX_CACHED_DATASETS]:
             cls._instances.pop(ds_id, None)
             cls._access_times.pop(ds_id, None)
 
@@ -163,7 +172,11 @@ class DatasetService:
             return
         if ratio <= DISK_USAGE_THRESHOLD:
             return
-        logger.info("Disk usage %.1f%% exceeds threshold %.1f%%", ratio * 100, DISK_USAGE_THRESHOLD * 100)
+        logger.info(
+            "Disk usage %.1f%% exceeds threshold %.1f%%",
+            ratio * 100,
+            DISK_USAGE_THRESHOLD * 100,
+        )
         db = get_db()
         rows = db.execute(
             "SELECT id FROM fyndnot_datasets WHERE s3_uploaded = 1 ORDER BY created_at ASC"
@@ -178,7 +191,7 @@ class DatasetService:
                 logger.info("Evicted local cache for %s (disk pressure)", ds_id)
 
     @classmethod
-    def load(cls, source: str, split: str = "train", name: str = None) -> dict:
+    def load(cls, source: str, split: str = "train", name: str | None = None) -> dict:
         source_type, source_format, clean_source = _detect_source(source)
         ds_id = str(uuid.uuid4())
         cache_dir = _cache_dir_for(ds_id)
@@ -208,8 +221,10 @@ class DatasetService:
             "name": name,
             "split": split,
             "num_rows": len(ds),
-            "columns": [{"name": col, "type": str(ds.features[col])} for col in ds.column_names],
-            "created_at": datetime.utcnow().isoformat(),
+            "columns": [
+                {"name": col, "type": str(ds.features[col])} for col in ds.column_names
+            ],
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
         # Upload to S3 immediately (synchronous) — fail if S3 is configured and upload fails
@@ -229,8 +244,18 @@ class DatasetService:
         db.execute(
             """INSERT INTO fyndnot_datasets (id, source, source_type, source_format, hf_name, hf_split, num_rows, columns, created_at, s3_uploaded)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (ds_id, source, source_type, source_format, name, split, len(ds),
-             json.dumps(meta["columns"]), meta["created_at"], s3_uploaded),
+            (
+                ds_id,
+                source,
+                source_type,
+                source_format,
+                name,
+                split,
+                len(ds),
+                json.dumps(meta["columns"]),
+                meta["created_at"],
+                s3_uploaded,
+            ),
         )
         db.commit()
         db.close()
@@ -242,7 +267,9 @@ class DatasetService:
     @classmethod
     def list_datasets(cls) -> list[dict]:
         db = get_db()
-        rows = db.execute("SELECT * FROM fyndnot_datasets ORDER BY created_at DESC").fetchall()
+        rows = db.execute(
+            "SELECT * FROM fyndnot_datasets ORDER BY created_at DESC"
+        ).fetchall()
         db.close()
         result = []
         for row in rows:
@@ -272,7 +299,9 @@ class DatasetService:
 
         # Read metadata from database
         db = get_db()
-        row = db.execute("SELECT * FROM fyndnot_datasets WHERE id = ?", (ds_id,)).fetchone()
+        row = db.execute(
+            "SELECT * FROM fyndnot_datasets WHERE id = ?", (ds_id,)
+        ).fetchone()
         db.close()
         if not row:
             raise ValueError("Dataset not found")
@@ -298,14 +327,17 @@ class DatasetService:
         source = row["source"]
         try:
             if source_type == "huggingface":
-                ds = load_dataset(source, row["hf_name"],
-                                  split=row["hf_split"],
-                                  cache_dir=str(cache_dir))
+                ds = load_dataset(
+                    source,
+                    row["hf_name"],
+                    split=row["hf_split"],
+                    cache_dir=str(cache_dir),
+                )
             elif source_type == "http":
                 fmt = row["source_format"] or "csv"
                 ds = _load_http(source, fmt, cache_dir=str(cache_dir))
             elif source_type == "file":
-                clean = source[7:] if source.startswith("file://") else source
+                clean = source.removeprefix("file://")
                 fmt = row["source_format"] or "csv"
                 ds = _load_file(clean, fmt, cache_dir=str(cache_dir))
             else:
@@ -326,9 +358,7 @@ class DatasetService:
         row = ds[index]
         serialized = {}
         for col, val in row.items():
-            if isinstance(val, PILImage.Image):
-                serialized[col] = f"/api/v1/datasets/{ds_id}/rows/{index}/columns/{col}"
-            elif isinstance(val, Audio):
+            if isinstance(val, (PILImage.Image, Audio)):
                 serialized[col] = f"/api/v1/datasets/{ds_id}/rows/{index}/columns/{col}"
             elif isinstance(val, dict):
                 serialized[col] = val
@@ -353,7 +383,9 @@ class DatasetService:
             return str(val)
 
     @classmethod
-    def get_binary_column(cls, ds_id: str, index: int, column: str) -> tuple[bytes, str]:
+    def get_binary_column(
+        cls, ds_id: str, index: int, column: str
+    ) -> tuple[bytes, str]:
         ds = cls._load_ds(ds_id)
         val = ds[index][column]
         if isinstance(val, (PILImage.Image, HfImage)):
@@ -373,7 +405,7 @@ class DatasetService:
             raise ValueError(
                 f"Unsupported format: .{ext}. Supported: .csv, .json, .jsonl, .parquet"
             )
-        fmt = DATASET_SOURCE_TYPES[ext]
+        DATASET_SOURCE_TYPES[ext]
         DATASETS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
         dest = DATASETS_UPLOAD_DIR / f"{uuid.uuid4()}.{ext}"
         dest.write_bytes(content)

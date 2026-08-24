@@ -3,22 +3,13 @@ import { useAuth } from '../context/AuthContext';
 
 export default function LoginView() {
   const { login } = useAuth();
-  const [userId, setUserId] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async () => {
     try {
-      setError('');
-      setLoading(true);
-      await login(userId);
-      const hash = window.location.hash;
-      window.location.hash = (hash && hash !== '#') ? hash : '#/projects';
+      await login();
     } catch {
-      setError('Unknown user ID');
-    } finally {
-      setLoading(false);
+      setError('Single sign-on is not available.');
     }
   };
 
@@ -58,25 +49,17 @@ export default function LoginView() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <input
-                value={userId}
-                onChange={(e) => setUserId(e.target.value)}
-                placeholder="Enter your user ID"
-                autoFocus
-                className="w-full px-3 py-2.5 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:border-sunset-400 focus:ring-3 focus:ring-sunset-100 transition-all"
-              />
+            <div className="space-y-4">
               <button
-                type="submit"
-                disabled={loading || !userId.trim()}
-                className="w-full py-2.5 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white font-medium text-sm hover:from-sunset-600 hover:to-coral-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                onClick={handleLogin}
+                className="w-full py-2.5 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white font-medium text-sm hover:from-sunset-600 hover:to-coral-600 transition-all shadow-sm"
               >
-                {loading ? 'Signing in...' : 'Sign In'}
+                Sign in with SSO
               </button>
               {error && (
                 <p className="text-red-500 text-sm text-center">{error}</p>
               )}
-            </form>
+            </div>
           </div>
         </div>
       </div>

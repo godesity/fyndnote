@@ -1,11 +1,13 @@
 import logging
-
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
+
 from database import init_db, seed_from_json
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
@@ -20,23 +22,38 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Signed-cookie session storage for the SSO state parameter (CSRF protection).
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "dev-insecure-session-secret"),
+    https_only=False,
+)
+
+
 @app.on_event("startup")
 def startup():
     init_db()
     seed_from_json()
 
+
 # Import routers after app creation to avoid circular imports
-from routers import auth, datasets, templates, projects
+from routers import auth, datasets, projects, sso, templates
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(templates.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
+app.include_router(sso.router, prefix="/api/v1")
 
 # Serve built frontend as static files
 frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if frontend_dist.is_dir():
-    app.mount("/assets", StaticFiles(directory=str(frontend_dist / "assets")), name="frontend_assets")
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(frontend_dist / "assets")),
+        name="frontend_assets",
+    )
 
     @app.get("/favicon.svg")
     def favicon():
@@ -48,7 +65,9 @@ if frontend_dist.is_dir():
 
     @app.exception_handler(404)
     async def spa_fallback(request, exc):
-        if request.url.path.startswith("/api/") or request.url.path.startswith("/static/"):
+        if request.url.path.startswith("/api/") or request.url.path.startswith(
+            "/static/"
+        ):
             return PlainTextResponse("Not Found", status_code=404)
         index = frontend_dist / "index.html"
         if not index.exists():

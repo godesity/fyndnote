@@ -8,3 +8,4 @@ data/datasets/
 data/templates/
 dist/
 .env
+backend/.env

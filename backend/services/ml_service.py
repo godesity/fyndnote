@@ -1,6 +1,8 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 import httpx
+
 from database import get_db
 from services.dataset_service import DatasetService
 
@@ -25,7 +27,7 @@ def get_ml_annotation(pid: str, row_index: int) -> dict | None:
     db = get_db()
     row = db.execute(
         "SELECT * FROM fyndnot_ml_annotations WHERE project_id = ? AND row_index = ?",
-        (pid, row_index)
+        (pid, row_index),
     ).fetchone()
     db.close()
     if not row:
@@ -45,7 +47,11 @@ def prefill_row(pid: str, row_index: int) -> dict:
 
     existing = get_ml_annotation(pid, row_index)
     if existing:
-        return {"row_index": row_index, "annotation": existing["data"], "annotator": existing["annotator"]}
+        return {
+            "row_index": row_index,
+            "annotation": existing["data"],
+            "annotator": existing["annotator"],
+        }
 
     row = DatasetService.get_row(project["dataset_id"], row_index)
     annotation = call_ml_backend(project["ml_url"], row)
@@ -53,15 +59,19 @@ def prefill_row(pid: str, row_index: int) -> dict:
         return {"row_index": row_index, "annotation": None, "annotator": None}
 
     db = get_db()
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     db.execute(
         "INSERT OR REPLACE INTO fyndnot_ml_annotations (project_id, row_index, annotator, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-        (pid, row_index, project["ml_annotator"], json.dumps(annotation), now, now)
+        (pid, row_index, project["ml_annotator"], json.dumps(annotation), now, now),
     )
     db.commit()
     db.close()
 
-    return {"row_index": row_index, "annotation": annotation, "annotator": project["ml_annotator"]}
+    return {
+        "row_index": row_index,
+        "annotation": annotation,
+        "annotator": project["ml_annotator"],
+    }
 
 
 def batch_prefill(pid: str, row_indices: list[int] | None = None) -> dict:
@@ -75,9 +85,12 @@ def batch_prefill(pid: str, row_indices: list[int] | None = None) -> dict:
 
     # Get already-prefilled rows to skip
     db = get_db()
-    existing = {r[0] for r in db.execute(
-        "SELECT row_index FROM fyndnot_ml_annotations WHERE project_id = ?", (pid,)
-    ).fetchall()}
+    existing = {
+        r[0]
+        for r in db.execute(
+            "SELECT row_index FROM fyndnot_ml_annotations WHERE project_id = ?", (pid,)
+        ).fetchall()
+    }
     db.close()
 
     succeeded = 0
@@ -90,10 +103,10 @@ def batch_prefill(pid: str, row_indices: list[int] | None = None) -> dict:
         annotation = call_ml_backend(project["ml_url"], row)
         if annotation is not None:
             db = get_db()
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             db.execute(
                 "INSERT OR REPLACE INTO fyndnot_ml_annotations (project_id, row_index, annotator, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (pid, idx, project["ml_annotator"], json.dumps(annotation), now, now)
+                (pid, idx, project["ml_annotator"], json.dumps(annotation), now, now),
             )
             db.commit()
             db.close()
@@ -108,7 +121,7 @@ def _get_project_settings(pid: str) -> dict | None:
     db = get_db()
     p = db.execute(
         "SELECT dataset_id, ml_enabled, ml_url, ml_annotator, ml_mode FROM fyndnot_projects WHERE id = ?",
-        (pid,)
+        (pid,),
     ).fetchone()
     db.close()
     if not p:

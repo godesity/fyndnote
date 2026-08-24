@@ -1,11 +1,14 @@
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile
+
 from services.dataset_service import DatasetService
 
 router = APIRouter()
 
+
 @router.get("/datasets")
 def list_datasets():
     return {"datasets": DatasetService.list_datasets()}
+
 
 @router.post("/datasets/load")
 def load_dataset(body: dict):
@@ -15,6 +18,7 @@ def load_dataset(body: dict):
     meta = DatasetService.load(source, split, name)
     return meta
 
+
 @router.get("/datasets/{ds_id}/rows/{index}")
 def get_row(ds_id: str, index: int):
     try:
@@ -22,6 +26,7 @@ def get_row(ds_id: str, index: int):
         return {"index": index, "row": row}
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
+
 
 @router.post("/datasets/upload", status_code=201)
 async def upload_dataset(file: UploadFile = File(...)):
@@ -31,6 +36,7 @@ async def upload_dataset(file: UploadFile = File(...)):
         return meta
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.get("/datasets/{ds_id}/rows/{index}/columns/{column}")
 def get_binary_column(ds_id: str, index: int, column: str):

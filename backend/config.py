@@ -25,3 +25,21 @@ S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL") or None
 # LRU / disk-pressure settings
 MAX_CACHED_DATASETS = int(os.getenv("MAX_CACHED_DATASETS", "10"))
 DISK_USAGE_THRESHOLD = float(os.getenv("DISK_USAGE_THRESHOLD", "0.9"))
+
+# ---------------------------------------------------------------------------
+# Keycloak SSO (OpenID Connect) — MinIO-style: backend validates Keycloak JWTs
+# statelessly against the realm JWKS endpoint.
+# ---------------------------------------------------------------------------
+SSO_ENABLED = os.getenv("SSO_ENABLED", "false").lower() == "true"
+KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://localhost:8080")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "fyndnot")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "fyndnot-app")
+KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "")
+# Public redirect URI that Keycloak sends the auth code back to. Point it at the
+# backend callback so Keycloak redirects the browser (top-level nav) to the API
+# — the SameSite=Lax session cookie IS sent on a top-level navigation, so the
+# CSRF state check works. authorize_url() appends "/callback" to this value.
+SSO_REDIRECT_URI = os.getenv("SSO_REDIRECT_URI", "http://localhost:8000/api/v1/sso")
+# SPA origin the backend redirects to with the token after a successful exchange.
+SSO_APP_ORIGIN = os.getenv("SSO_APP_ORIGIN", "http://localhost:8000")
+SSO_AUDIENCE = os.getenv("SSO_AUDIENCE", "fyndnot-app")

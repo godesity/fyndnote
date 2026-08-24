@@ -1,5 +1,15 @@
 const BASE = '/api/v1';
 
+export const apiBase = BASE;
+
+export interface User {
+  user_id: string;
+  name: string;
+  global_role: string;
+  project_roles: Record<string, string> | null;
+  sso_roles?: string[];
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -11,6 +21,8 @@ export class ApiError extends Error {
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    // Session cookie must be sent for the SSO callback (state / CSRF check).
+    credentials: 'include',
     ...options,
   });
   if (!res.ok) {
@@ -21,10 +33,21 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  base: BASE,
   login: (userId: string) =>
     request<{ user_id: string; name: string; global_role: string; project_roles: Record<string, string> | null }>(
       '/auth/login', { method: 'POST', body: JSON.stringify({ user_id: userId }) }
     ),
+  me: (token: string) =>
+    request<{ user: User }>('/sso/me', { headers: { Authorization: `Bearer ${token}` } }),
+  ssoCallback: (code: string, state: string) =>
+    request<{ token: string; refresh_token?: string; id_token?: string; user: User }>(
+      `/sso/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`),
+  ssoLogin: () =>
+    fetch(`${BASE}/sso/login`, { credentials: 'include' }).then((r) => {
+      if (!r.ok) throw new ApiError(r.status, 'sso_not_enabled');
+      return r;
+    }),
   listDatasets: () =>
     request<{ datasets: any[] }>('/datasets'),
   uploadDataset: (file: File) => {
