@@ -260,8 +260,8 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
             <div className="bg-white rounded-xl border-2 border-red-300 p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-red-600 mb-1">Danger Zone</h3>
               <p className="text-sm text-[var(--color-text-muted)] mb-4">
-                Deleting a project permanently removes the project and all annotations made
-                on it. The underlying dataset and templates are kept.
+                Deletes the project and all its annotations permanently. The dataset and
+                templates stay available for other or new projects.
               </p>
               <button
                 onClick={() => setShowDeleteDialog(true)}

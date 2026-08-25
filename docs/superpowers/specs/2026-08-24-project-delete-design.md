@@ -98,8 +98,8 @@ New **Danger Zone** section after the ML Backend section:
 - Card with a red border (`border-2 border-red-300`-style, consistent with the
   card styling of the other sections), white background.
 - Heading **Danger Zone** (red text), description:
-  "Deleting a project permanently removes the project and all annotations made
-  on it. The underlying dataset and templates are kept."
+  "Deletes the project and all its annotations permanently. The dataset and
+  templates stay available for other or new projects."
 - Red **Delete Project** button (`bg-red-500 text-white`, hover darker, same
   size/shape as section buttons).
 - Clicking opens `DeleteProjectDialog`.
