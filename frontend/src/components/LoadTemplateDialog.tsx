@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Dialog from "./Dialog";
 import { LiveProvider, LivePreview, LiveError } from "react-live";
 import { themes } from "prism-react-renderer";
 import { PREDEFINED_TEMPLATES } from "../predefinedTemplates";
@@ -32,35 +33,7 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
     : [];
 
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
-        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          background: "#fff", borderRadius: 8, padding: 24,
-          minWidth: 700, maxWidth: 900, width: "85vw",
-          maxHeight: "85vh", display: "flex", flexDirection: "column", position: "relative",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          onClick={onClose}
-          style={{
-            position: "absolute", top: 12, right: 12,
-            border: "none", background: "none",
-            fontSize: 20, cursor: "pointer", color: "#666",
-            lineHeight: 1, padding: "4px 8px", borderRadius: 4,
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#000")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#666")}
-        >
-          ✕
-        </button>
-        <h3 style={{ margin: "0 0 16px" }}>Load Template</h3>
+    <Dialog title="Load Template" onClose={onClose}>
 
         {/* Filter pills */}
         <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
@@ -181,8 +154,7 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
         </div>
 
 
-      </div>
-    </div>
+    </Dialog>
   );
 }
 
