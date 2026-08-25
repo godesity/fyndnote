@@ -291,6 +291,66 @@ class DatasetService:
         return result
 
     @classmethod
+    def dataset_details(cls, ds_id: str) -> dict | None:
+        db = get_db()
+        row = db.execute(
+            "SELECT * FROM fyndnot_datasets WHERE id = ?", (ds_id,)
+        ).fetchone()
+        if not row:
+            db.close()
+            return None
+        projects = db.execute(
+            "SELECT id, name, color FROM fyndnot_projects WHERE dataset_id = ? ORDER BY created_at",
+            (ds_id,),
+        ).fetchall()
+        result_projects = []
+        total_annotations = 0
+        total_predictions = 0
+        for p in projects:
+            annotated_rows = db.execute(
+                "SELECT COUNT(DISTINCT row_index) FROM fyndnot_annotations WHERE project_id = ?",
+                (p["id"],),
+            ).fetchone()[0]
+            annotations = db.execute(
+                "SELECT COUNT(*) FROM fyndnot_annotations WHERE project_id = ?",
+                (p["id"],),
+            ).fetchone()[0]
+            predictions = db.execute(
+                "SELECT COUNT(*) FROM fyndnot_ml_annotations WHERE project_id = ?",
+                (p["id"],),
+            ).fetchone()[0]
+            total_annotations += annotations
+            total_predictions += predictions
+            result_projects.append(
+                {
+                    "id": p["id"],
+                    "name": p["name"],
+                    "color": p["color"],
+                    "annotated_rows": annotated_rows,
+                    "annotations": annotations,
+                    "predictions": predictions,
+                }
+            )
+        db.close()
+        return {
+            "dataset": {
+                "id": row["id"],
+                "source": row["source"],
+                "source_type": row["source_type"],
+                "source_format": row["source_format"],
+                "name": row["hf_name"],
+                "split": row["hf_split"],
+                "num_rows": row["num_rows"],
+                "created_at": row["created_at"],
+            },
+            "projects": result_projects,
+            "totals": {
+                "annotations": total_annotations,
+                "predictions": total_predictions,
+            },
+        }
+
+    @classmethod
     def _load_ds(cls, ds_id: str) -> Dataset:
         ds = cls._instances.get(ds_id)
         if ds is not None:

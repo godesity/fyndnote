@@ -10,6 +10,14 @@ def list_datasets():
     return {"datasets": DatasetService.list_datasets()}
 
 
+@router.get("/datasets/{ds_id}/details")
+def dataset_details(ds_id: str):
+    details = DatasetService.dataset_details(ds_id)
+    if details is None:
+        raise HTTPException(status_code=404, detail="dataset not found")
+    return details
+
+
 @router.post("/datasets/load")
 def load_dataset(body: dict):
     source = body["source"]
