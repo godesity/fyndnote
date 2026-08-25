@@ -254,22 +254,24 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
           </div>
         </section>
 
-        {/* Danger Zone */}
-        <section className="mb-6">
-          <div className="bg-white rounded-xl border-2 border-red-300 p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-red-600 mb-1">Danger Zone</h3>
-            <p className="text-sm text-[var(--color-text-muted)] mb-4">
-              Deleting a project permanently removes the project and all annotations made
-              on it. The underlying dataset and templates are kept.
-            </p>
-            <button
-              onClick={() => setShowDeleteDialog(true)}
-              className="px-5 py-2.5 rounded-lg bg-red-500 text-white font-medium text-sm hover:bg-red-600 transition-all shadow-sm"
-            >
-              Delete Project
-            </button>
-          </div>
-        </section>
+        {datasetLoaded && (
+          <section className="mb-6">
+            {/* Danger Zone */}
+            <div className="bg-white rounded-xl border-2 border-red-300 p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-red-600 mb-1">Danger Zone</h3>
+              <p className="text-sm text-[var(--color-text-muted)] mb-4">
+                Deleting a project permanently removes the project and all annotations made
+                on it. The underlying dataset and templates are kept.
+              </p>
+              <button
+                onClick={() => setShowDeleteDialog(true)}
+                className="px-5 py-2.5 rounded-lg bg-red-500 text-white font-medium text-sm hover:bg-red-600 transition-all shadow-sm"
+              >
+                Delete Project
+              </button>
+            </div>
+          </section>
+        )}
 
         {showDeleteDialog && (
           <DeleteProjectDialog

@@ -31,7 +31,7 @@ export default function DeleteProjectDialog({ projectName, projectId, onClose }:
   };
 
   return (
-    <Dialog title="Delete project" onClose={onClose} minWidth="460px" closeOnBackdrop={false}>
+    <Dialog title="Delete project" onClose={deleting ? () => {} : onClose} minWidth="460px" closeOnBackdrop={false}>
       <p className="text-sm text-[var(--color-text)] mb-4">
         You are about to delete <strong>{projectName}</strong>. This will permanently remove
         the project and all annotations made on it. This action cannot be undone.
