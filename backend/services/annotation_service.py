@@ -399,6 +399,21 @@ class AnnotationService:
         return dict(p) if p else None
 
     @staticmethod
+    def delete_project(pid: str) -> bool:
+        db = get_db()
+        row = db.execute("SELECT 1 FROM fyndnot_projects WHERE id = ?", (pid,)).fetchone()
+        if not row:
+            db.close()
+            return False
+        db.execute("DELETE FROM fyndnot_annotations WHERE project_id = ?", (pid,))
+        db.execute("DELETE FROM fyndnot_ml_annotations WHERE project_id = ?", (pid,))
+        db.execute("DELETE FROM fyndnot_project_permissions WHERE project_id = ?", (pid,))
+        db.execute("DELETE FROM fyndnot_projects WHERE id = ?", (pid,))
+        db.commit()
+        db.close()
+        return True
+
+    @staticmethod
     def get_project(pid: str) -> dict | None:
         db = get_db()
         p = db.execute("SELECT * FROM fyndnot_projects WHERE id = ?", (pid,)).fetchone()

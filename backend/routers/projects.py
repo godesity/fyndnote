@@ -1,7 +1,6 @@
 
 from fastapi import APIRouter, HTTPException, Response
 
-from database import get_db
 from schemas import AnnotateRequest, BrowseRowsRequest, MLBatchRequest, MLPrefillRequest
 from services.annotation_service import AnnotationService
 from services.dataset_service import DatasetService
@@ -156,13 +155,8 @@ def export_annotations(pid: str, format: str = "parquet"):
 
 @router.delete("/projects/{pid}")
 def delete_project(pid: str):
-    db = get_db()
-    db.execute("DELETE FROM fyndnot_annotations WHERE project_id = ?", (pid,))
-    db.execute("DELETE FROM fyndnot_ml_annotations WHERE project_id = ?", (pid,))
-    db.execute("DELETE FROM fyndnot_project_permissions WHERE project_id = ?", (pid,))
-    db.execute("DELETE FROM fyndnot_projects WHERE id = ?", (pid,))
-    db.commit()
-    db.close()
+    if not AnnotationService.delete_project(pid):
+        raise HTTPException(status_code=404, detail="project not found")
     return {"status": "deleted"}
 
 
