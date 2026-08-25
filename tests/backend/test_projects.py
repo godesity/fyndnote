@@ -1,3 +1,4 @@
+from database import get_db
 from database import init_db, seed_from_json
 
 def test_create_project_and_submit_annotation():
@@ -122,6 +123,17 @@ def test_delete_project(client):
     # Project gone; annotations gone with it
     assert client.get(f"/api/v1/projects/{pid}?user_id=alice").status_code == 404
     assert client.delete(f"/api/v1/projects/{pid}").status_code == 404
+
+    # Child rows actually gone (FK enforcement is off on runtime connections,
+    # so orphaned rows would otherwise survive invisibly)
+    db = get_db()
+    try:
+        for table in ("fyndnot_annotations", "fyndnot_ml_annotations"):
+            assert db.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE project_id = ?", (pid,)
+            ).fetchone()[0] == 0
+    finally:
+        db.close()
 
     # Dataset survived
     ds_list = client.get("/api/v1/datasets").json()["datasets"]
