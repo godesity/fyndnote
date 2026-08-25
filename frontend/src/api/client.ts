@@ -86,6 +86,8 @@ export const api = {
   updateProject: (id: string, name: string, color?: string, tags?: string, instructions?: string,
     mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string) =>
     request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode }) }),
+  deleteProject: (id: string) =>
+    request<any>(`/projects/${id}`, { method: 'DELETE' }),
   nextRow: (projectId: string, userId: string) =>
     request<{ index: number | null; row: Record<string, any> | null }>(`/projects/${projectId}/next-row?user_id=${userId}`),
   getProjectRow: (projectId: string, rowIndex: number, userId: string) =>

@@ -6,6 +6,7 @@ import * as widgets from "../widgets";
 import { AnnotationProvider } from "../context/AnnotationContext";
 import BreadcrumbNav from "../components/BreadcrumbNav";
 import LoadTemplateDialog from "../components/LoadTemplateDialog";
+import DeleteProjectDialog from "../components/DeleteProjectDialog";
 import WidgetDocs from "../components/WidgetDocs";
 import InstructionsButton from "../components/InstructionsButton";
 
@@ -34,6 +35,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
   const [datasetLoaded, setDatasetLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [mlEnabled, setMlEnabled] = useState(false);
   const [mlUrl, setMlUrl] = useState("");
   const [mlAnnotator, setMlAnnotator] = useState("");
@@ -251,6 +253,31 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
             )}
           </div>
         </section>
+
+        {/* Danger Zone */}
+        <section className="mb-6">
+          <div className="bg-white rounded-xl border-2 border-red-300 p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-red-600 mb-1">Danger Zone</h3>
+            <p className="text-sm text-[var(--color-text-muted)] mb-4">
+              Deleting a project permanently removes the project and all annotations made
+              on it. The underlying dataset and templates are kept.
+            </p>
+            <button
+              onClick={() => setShowDeleteDialog(true)}
+              className="px-5 py-2.5 rounded-lg bg-red-500 text-white font-medium text-sm hover:bg-red-600 transition-all shadow-sm"
+            >
+              Delete Project
+            </button>
+          </div>
+        </section>
+
+        {showDeleteDialog && (
+          <DeleteProjectDialog
+            projectName={projectName}
+            projectId={projectId}
+            onClose={() => setShowDeleteDialog(false)}
+          />
+        )}
       </div>
     </div>
   );
