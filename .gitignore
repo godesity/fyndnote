@@ -12,3 +12,4 @@ dist/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 .superpowers/
+.worktrees/
