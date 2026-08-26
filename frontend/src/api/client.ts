@@ -68,6 +68,8 @@ export const api = {
     request<any>('/datasets/load', { method: 'POST', body: JSON.stringify({ source, split }) }),
   getRow: (dsId: string, index: number) =>
     request<{ index: number; row: Record<string, any> }>(`/datasets/${dsId}/rows/${index}`),
+  getDatasetDetails: (dsId: string) =>
+    request<any>(`/datasets/${dsId}/details`),
   listTemplates: () =>
     request<{ templates: any[] }>('/templates'),
   getTemplate: (id: string) =>
