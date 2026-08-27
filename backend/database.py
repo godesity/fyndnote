@@ -66,6 +66,13 @@ _SCHEMA = [
         created_at    TEXT NOT NULL,
         s3_uploaded   INTEGER DEFAULT 0
     )""",
+    """CREATE TABLE IF NOT EXISTS dataset_meta (
+        project_id   TEXT PRIMARY KEY,
+        num_rows     INTEGER NOT NULL DEFAULT 0,
+        next_fragment INTEGER NOT NULL DEFAULT 0,
+        schema       TEXT,
+        created_at   TEXT NOT NULL
+    )""",
 ]
 
 _SQLITE_PK = "INTEGER PRIMARY KEY AUTOINCREMENT"

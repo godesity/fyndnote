@@ -10,6 +10,7 @@ DATABASE_PATH = DATA_DIR / "labeling.db"
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 DATABASE_TYPE = "postgres" if DATABASE_URL else "sqlite"
 DATASETS_DIR = DATA_DIR / "datasets"
+PROJECTS_DIR = DATASETS_DIR / "projects"
 DATASETS_UPLOAD_DIR = DATA_DIR / "datasets" / "uploads"
 TEMPLATES_DIR = DATA_DIR / "templates"
 
