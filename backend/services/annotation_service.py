@@ -588,7 +588,16 @@ class AnnotationService:
         if not project:
             return None
         ds_id = project["dataset_id"]
-        row = DatasetService.get_row(ds_id, row_index)
+        from services.project_dataset import ProjectDatasetService
+
+        meta = ProjectDatasetService.get_meta(pid)
+        if meta is not None:
+            row = ProjectDatasetService.get_row(pid, row_index)
+        else:
+            try:
+                row = DatasetService.get_row(ds_id, row_index)
+            except IndexError:
+                return None
         status = AnnotationService.get_row_annotation_status(pid, row_index, user_id)
         return {"index": row_index, "row": row, "annotation_status": status}
 
@@ -607,8 +616,14 @@ class AnnotationService:
         db.close()
         if not salt:
             return None
-        ds = DatasetService._load_ds(ds_id)
-        num_rows = len(ds)
+        from services.project_dataset import ProjectDatasetService
+
+        meta = ProjectDatasetService.get_meta(pid)
+        if meta is not None:
+            num_rows = meta["num_rows"]
+        else:
+            ds = DatasetService._load_ds(ds_id)
+            num_rows = len(ds)
         indices = list(range(num_rows))
         seed = hashlib.sha256(f"{user_id}:{salt[0]}".encode()).hexdigest()
         rng = random.Random(seed)
@@ -621,7 +636,10 @@ class AnnotationService:
         if new_pos < 0 or new_pos >= len(indices):
             return None
         new_idx = indices[new_pos]
-        row = DatasetService.get_row(ds_id, new_idx)
+        if meta is not None:
+            row = ProjectDatasetService.get_row(pid, new_idx)
+        else:
+            row = DatasetService.get_row(ds_id, new_idx)
         status = AnnotationService.get_row_annotation_status(pid, new_idx, user_id)
         return {"index": new_idx, "row": row, "annotation_status": status}
 

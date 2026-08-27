@@ -89,19 +89,32 @@ def next_row(pid: str, user_id: str):
     p = AnnotationService.get_project(pid)
     if not p:
         raise HTTPException(status_code=404, detail="project not found")
-    ds_meta = DatasetService.list_datasets()
-    meta = next((d for d in ds_meta if d["id"] == p["dataset_id"]), None)
-    if not meta:
-        raise HTTPException(status_code=404, detail="dataset not found for project")
-    idx = AnnotationService.next_row(pid, user_id, meta["num_rows"])
+    from services.project_dataset import ProjectDatasetService
+
+    meta = ProjectDatasetService.get_meta(pid)
+    if meta is not None:
+        num_rows = meta["num_rows"]
+
+        def serve(i: int):
+            return ProjectDatasetService.get_row(pid, i)
+
+    else:
+        ds_meta = DatasetService.list_datasets()
+        dmeta = next((d for d in ds_meta if d["id"] == p["dataset_id"]), None)
+        if not dmeta:
+            raise HTTPException(status_code=404, detail="dataset not found for project")
+        num_rows = dmeta["num_rows"]
+
+        def serve(i: int):
+            return DatasetService.get_row(p["dataset_id"], i)
+
+    idx = AnnotationService.next_row(pid, user_id, num_rows)
     if idx is None:
         return {"index": None, "row": None, "message": "all rows annotated"}
     try:
-        row = DatasetService.get_row(p["dataset_id"], idx)
+        row = serve(idx)
     except Exception:
-        raise HTTPException(
-            status_code=404, detail="dataset source no longer available"
-        )
+        raise HTTPException(status_code=404, detail="dataset source no longer available")
     return {"index": idx, "row": row}
 
 

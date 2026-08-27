@@ -1,6 +1,7 @@
 import csv
 import tempfile
 
+from services.annotation_service import AnnotationService
 from services.project_dataset import ProjectDatasetService, _frag_dir
 
 CSV_ROWS = [
@@ -109,3 +110,61 @@ def test_num_rows_falls_back_to_source_without_meta(client):
 
     # num_rows for a nonexistent project is 0 (graceful).
     assert ProjectDatasetService.num_rows("nope") == 0
+
+
+def test_get_project_row_serves_source_and_appended(client):
+    pid, _ = _make_project(client)
+    ProjectDatasetService.append_rows(pid, [{"a": "one"}, {"a": "two"}])
+
+    # Source row still served at index 0.
+    src = AnnotationService.get_project_row(pid, 0, "alice")
+    assert src is not None
+    assert src["row"]["text"] == "hello"
+
+    # Appended row served at index src_len (3).
+    appended = AnnotationService.get_project_row(pid, len(CSV_ROWS), "alice")
+    assert appended is not None
+    assert appended["row"]["a"] == "one"
+
+
+def test_navigate_row_bounds_include_appended(client):
+    pid, _ = _make_project(client)
+    ProjectDatasetService.append_rows(pid, [{"a": "one"}, {"a": "two"}])
+
+    # Index src_len (3) is an appended row. It must be addressable in the
+    # shuffled navigation list (num_rows == src + fragments), so navigating
+    # from it in at least one direction returns a neighbor.
+    fwd = AnnotationService.navigate_row(pid, "alice", len(CSV_ROWS), 1)
+    back = AnnotationService.navigate_row(pid, "alice", len(CSV_ROWS), -1)
+    assert fwd is not None or back is not None
+
+
+def test_next_row_router_serves_appended_rows(client):
+    pid, _ = _make_project(client)
+    ProjectDatasetService.append_rows(pid, [{"a": "one"}, {"a": "two"}])
+
+    # Annotate all source rows so next_row must fall through to the appended
+    # region (indices src_len..src_len+1).
+    for i in range(len(CSV_ROWS)):
+        AnnotationService.submit_annotation(pid, i, "alice", {"s": i})
+
+    resp = client.get(f"/api/v1/projects/{pid}/next-row?user_id=alice")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["index"] in (len(CSV_ROWS), len(CSV_ROWS) + 1)
+    assert body["row"]["a"] in ("one", "two")
+
+
+def test_unmodified_project_keeps_source_behavior(client):
+    pid, _ = _make_project(client)
+
+    # No dataset_meta -> source rows only, appended indices are out of range.
+    src = AnnotationService.get_project_row(pid, 0, "alice")
+    assert src is not None
+    assert src["row"]["text"] == "hello"
+    assert AnnotationService.get_project_row(pid, len(CSV_ROWS), "alice") is None
+
+    # Router next-row still serves a source row.
+    resp = client.get(f"/api/v1/projects/{pid}/next-row?user_id=alice")
+    assert resp.status_code == 200
+    assert resp.json()["index"] in range(len(CSV_ROWS))
