@@ -119,4 +119,12 @@ export const api = {
   getMLAnnotation: (projectId: string, rowIndex: number) =>
     request<{ row_index: number; annotator: string; data: Record<string, any>; created_at: string }>(
       `/projects/${projectId}/ml-annotations/${rowIndex}`),
+  deleteAnnotation: (pid: string, rowIndex: number, userId?: string) =>
+    request(`/projects/${pid}/annotations/${rowIndex}${userId ? `?user_id=${userId}` : ''}`, { method: 'DELETE' }),
+  deleteAllAnnotations: (pid: string) =>
+    request(`/projects/${pid}/annotations`, { method: 'DELETE' }),
+  deleteMLAnnotation: (pid: string, rowIndex: number) =>
+    request(`/projects/${pid}/ml-annotations/${rowIndex}`, { method: 'DELETE' }),
+  deleteAllMLAnnotations: (pid: string) =>
+    request(`/projects/${pid}/ml-annotations`, { method: 'DELETE' }),
 };

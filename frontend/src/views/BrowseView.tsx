@@ -47,7 +47,7 @@ export default function BrowseView({ projectId }: Props) {
     });
   }, [projectId, user]);
 
-  useEffect(() => {
+  const loadRows = () => {
     if (!user) return;
     setLoading(true);
     api.browseRows(projectId, user.user_id, page, filter).then((res) => {
@@ -55,6 +55,11 @@ export default function BrowseView({ projectId }: Props) {
       setTotal(res.total);
       setLoading(false);
     });
+  };
+
+  useEffect(() => {
+    loadRows();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, page, filter]);
 
   const handleSelect = async (idx: number) => {
@@ -149,12 +154,15 @@ export default function BrowseView({ projectId }: Props) {
           <RowGrid rows={rows} onSelect={handleSelect} page={page} total={total} onPageChange={setPage} color={projectColor} />
         )}
 
-        {selectedIndex !== null && selectedRow && (
+        {selectedIndex !== null && selectedRow && user && (
           <RowDetail
             index={selectedIndex}
             row={selectedRow}
             annotations={rows.find((r) => r.index === selectedIndex)?.annotations}
+            projectId={projectId}
+            userId={user.user_id}
             onClose={() => { setSelectedIndex(null); setRowError(null); }}
+            onRefresh={loadRows}
           />
         )}
         {rowError && (
