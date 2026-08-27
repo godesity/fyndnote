@@ -18,10 +18,6 @@ def _frag_dir(pid: str):
     return _project_dir(pid) / "fragments"
 
 
-def _media_dir(pid: str):
-    return _project_dir(pid) / "media"
-
-
 class ProjectDatasetService:
     """Storage for dynamically appended rows ("fragments") per project.
 
@@ -75,7 +71,13 @@ class ProjectDatasetService:
         frag_dir.mkdir(parents=True, exist_ok=True)
         pq.write_table(table, frag_dir / f"frag_{meta['next_fragment']}.parquet")
 
-        schema_json = json.dumps([str(c) for c in table.schema])
+        schema_json = json.dumps(
+            {
+                "columns": [
+                    {"name": c.name, "type": str(c.type)} for c in table.schema
+                ]
+            }
+        )
         db = get_db()
         db.execute(
             """UPDATE dataset_meta
