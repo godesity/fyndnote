@@ -526,7 +526,7 @@ class AnnotationService:
     @staticmethod
     def delete_annotation(pid: str, row_index: int, user_id: str | None = None) -> int:
         db = get_db()
-        if user_id:
+        if user_id is not None:
             cur = db.execute(
                 "DELETE FROM fyndnot_annotations WHERE project_id = ? AND row_index = ? AND user_id = ?",
                 (pid, row_index, user_id),
