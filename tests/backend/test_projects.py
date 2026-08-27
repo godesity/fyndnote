@@ -252,3 +252,59 @@ def test_delete_all_ml_annotations_for_project(client):
         ).fetchone()[0] == 0
     finally:
         db.close()
+
+
+def test_delete_annotation_endpoint(client):
+    pid = _make_project(client)
+
+    # annotate row 0 as alice + bob (match existing test setup)
+    client.post(f"/api/v1/projects/{pid}/annotate", json={
+        "row_index": 0, "user_id": "alice", "data": {"sentiment": "positive"}
+    })
+    client.post(f"/api/v1/projects/{pid}/annotate", json={
+        "row_index": 0, "user_id": "bob", "data": {"sentiment": "neutral"}
+    })
+    # seed ML annotations directly (ml-prefill needs an ml_enabled project)
+    from database import get_db
+    db = get_db()
+    db.execute(
+        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        (pid, 0, "ml", '{"pred": 1}'),
+    )
+    db.execute(
+        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        (pid, 1, "ml", '{"pred": 2}'),
+    )
+    db.commit()
+    db.close()
+
+    # delete one user's annotation on row 0
+    resp = client.delete(f"/api/v1/projects/{pid}/annotations/0?user_id=alice")
+    assert resp.status_code == 200 and resp.json()["status"] == "deleted"
+    assert resp.json()["rows"] == 1
+    # remaining: bob only
+    from services.annotation_service import AnnotationService
+    assert AnnotationService.get_annotation(pid, 0, "alice") is None
+    assert AnnotationService.get_annotation(pid, 0, "bob") is not None
+
+    # deletes all annotations for the project
+    resp = client.delete(f"/api/v1/projects/{pid}/annotations")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "deleted"
+    assert resp.json()["rows"] == 1
+    assert AnnotationService.get_annotation(pid, 0, "bob") is None
+
+    # ML single-row delete
+    resp = client.delete(f"/api/v1/projects/{pid}/ml-annotations/0")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "deleted"
+    assert resp.json()["rows"] == 1
+
+    # ML all-for-project delete (removes the remaining row 1)
+    resp = client.delete(f"/api/v1/projects/{pid}/ml-annotations")
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "deleted"
+    assert resp.json()["rows"] == 1
+
+    # 404 for unknown project
+    assert client.delete("/api/v1/projects/nope/annotations").status_code == 404

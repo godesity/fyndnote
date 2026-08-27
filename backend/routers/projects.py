@@ -160,6 +160,38 @@ def delete_project(pid: str):
     return {"status": "deleted"}
 
 
+@router.delete("/projects/{pid}/annotations/{row_index}")
+def delete_annotation(pid: str, row_index: int, user_id: str | None = None):
+    if not AnnotationService.get_project(pid):
+        raise HTTPException(status_code=404, detail="project not found")
+    n = AnnotationService.delete_annotation(pid, row_index, user_id)
+    return {"status": "deleted", "rows": n}
+
+
+@router.delete("/projects/{pid}/annotations")
+def delete_all_annotations(pid: str):
+    if not AnnotationService.get_project(pid):
+        raise HTTPException(status_code=404, detail="project not found")
+    n = AnnotationService.delete_all_annotations(pid)
+    return {"status": "deleted", "rows": n}
+
+
+@router.delete("/projects/{pid}/ml-annotations/{row_index}")
+def delete_ml_annotation(pid: str, row_index: int):
+    if not AnnotationService.get_project(pid):
+        raise HTTPException(status_code=404, detail="project not found")
+    n = AnnotationService.delete_ml_annotation(pid, row_index)
+    return {"status": "deleted", "rows": n}
+
+
+@router.delete("/projects/{pid}/ml-annotations")
+def delete_all_ml_annotations(pid: str):
+    if not AnnotationService.get_project(pid):
+        raise HTTPException(status_code=404, detail="project not found")
+    n = AnnotationService.delete_all_ml_annotations(pid)
+    return {"status": "deleted", "rows": n}
+
+
 # ---- ML Backend endpoints ----
 
 
