@@ -138,3 +138,117 @@ def test_delete_project(client):
     # Dataset survived
     ds_list = client.get("/api/v1/datasets").json()["datasets"]
     assert any(d["id"] == ds_id for d in ds_list)
+
+
+def _make_project(client):
+    dresp = client.post("/api/v1/datasets/load", json={"source": "stanfordnlp/imdb", "split": "train"})
+    did = dresp.json()["id"]
+    tresp = client.post("/api/v1/templates", json={"name": "tpl", "source": "<div>{data.text}</div>"})
+    tid = tresp.json()["id"]
+    presp = client.post("/api/v1/projects", json={"name": "del-test", "dataset_id": did, "template_id": tid})
+    assert presp.status_code == 201
+    return presp.json()["id"]
+
+
+def test_delete_annotation_single_user(client):
+    from services.annotation_service import AnnotationService
+
+    pid = _make_project(client)
+    AnnotationService.submit_annotation(pid, 0, "alice", {"sentiment": "positive"})
+    AnnotationService.submit_annotation(pid, 0, "bob", {"sentiment": "neutral"})
+
+    n = AnnotationService.delete_annotation(pid, 0, "alice")
+    assert n == 1
+    assert AnnotationService.get_annotation(pid, 0, "alice") is None
+    assert AnnotationService.get_annotation(pid, 0, "bob") is not None
+
+    # Deleting again deletes nothing
+    assert AnnotationService.delete_annotation(pid, 0, "alice") == 0
+
+
+def test_delete_annotations_for_row(client):
+    from services.annotation_service import AnnotationService
+
+    pid = _make_project(client)
+    AnnotationService.submit_annotation(pid, 0, "alice", {"a": 1})
+    AnnotationService.submit_annotation(pid, 0, "bob", {"a": 2})
+    AnnotationService.submit_annotation(pid, 1, "alice", {"a": 3})
+
+    n = AnnotationService.delete_annotation(pid, 0)
+    assert n == 2
+    assert AnnotationService.get_annotation(pid, 0, "alice") is None
+    assert AnnotationService.get_annotation(pid, 0, "bob") is None
+    assert AnnotationService.get_annotation(pid, 1, "alice") is not None
+
+
+def test_delete_all_annotations_for_project(client):
+    from services.annotation_service import AnnotationService
+
+    pid = _make_project(client)
+    AnnotationService.submit_annotation(pid, 0, "alice", {"a": 1})
+    AnnotationService.submit_annotation(pid, 1, "alice", {"a": 2})
+    AnnotationService.submit_annotation(pid, 1, "bob", {"a": 3})
+
+    n = AnnotationService.delete_all_annotations(pid)
+    assert n == 3
+    from database import get_db
+    db = get_db()
+    try:
+        assert db.execute(
+            "SELECT COUNT(*) FROM fyndnot_annotations WHERE project_id = ?", (pid,)
+        ).fetchone()[0] == 0
+    finally:
+        db.close()
+
+
+def test_delete_ml_annotation_for_row(client):
+    from services.annotation_service import AnnotationService
+
+    pid = _make_project(client)
+    from database import get_db
+    db = get_db()
+    db.execute(
+        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        (pid, 0, "ml", '{"pred": 1}'),
+    )
+    db.commit()
+    db.close()
+
+    n = AnnotationService.delete_ml_annotation(pid, 0)
+    assert n == 1
+    db = get_db()
+    try:
+        assert db.execute(
+            "SELECT COUNT(*) FROM fyndnot_ml_annotations WHERE project_id = ? AND row_index = ?",
+            (pid, 0),
+        ).fetchone()[0] == 0
+    finally:
+        db.close()
+
+
+def test_delete_all_ml_annotations_for_project(client):
+    from services.annotation_service import AnnotationService
+
+    pid = _make_project(client)
+    from database import get_db
+    db = get_db()
+    db.execute(
+        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        (pid, 0, "ml", '{"pred": 1}'),
+    )
+    db.execute(
+        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        (pid, 1, "ml", '{"pred": 2}'),
+    )
+    db.commit()
+    db.close()
+
+    n = AnnotationService.delete_all_ml_annotations(pid)
+    assert n == 2
+    db = get_db()
+    try:
+        assert db.execute(
+            "SELECT COUNT(*) FROM fyndnot_ml_annotations WHERE project_id = ?", (pid,)
+        ).fetchone()[0] == 0
+    finally:
+        db.close()

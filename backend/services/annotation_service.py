@@ -524,6 +524,50 @@ class AnnotationService:
         }
 
     @staticmethod
+    def delete_annotation(pid: str, row_index: int, user_id: str | None = None) -> int:
+        db = get_db()
+        if user_id:
+            cur = db.execute(
+                "DELETE FROM fyndnot_annotations WHERE project_id = ? AND row_index = ? AND user_id = ?",
+                (pid, row_index, user_id),
+            )
+        else:
+            cur = db.execute(
+                "DELETE FROM fyndnot_annotations WHERE project_id = ? AND row_index = ?",
+                (pid, row_index),
+            )
+        db.commit()
+        db.close()
+        return cur.rowcount
+
+    @staticmethod
+    def delete_all_annotations(pid: str) -> int:
+        db = get_db()
+        cur = db.execute("DELETE FROM fyndnot_annotations WHERE project_id = ?", (pid,))
+        db.commit()
+        db.close()
+        return cur.rowcount
+
+    @staticmethod
+    def delete_ml_annotation(pid: str, row_index: int) -> int:
+        db = get_db()
+        cur = db.execute(
+            "DELETE FROM fyndnot_ml_annotations WHERE project_id = ? AND row_index = ?",
+            (pid, row_index),
+        )
+        db.commit()
+        db.close()
+        return cur.rowcount
+
+    @staticmethod
+    def delete_all_ml_annotations(pid: str) -> int:
+        db = get_db()
+        cur = db.execute("DELETE FROM fyndnot_ml_annotations WHERE project_id = ?", (pid,))
+        db.commit()
+        db.close()
+        return cur.rowcount
+
+    @staticmethod
     def get_row_annotation_status(pid: str, row_index: int, user_id: str) -> dict:
         db = get_db()
         rows = db.execute(
