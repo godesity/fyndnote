@@ -168,3 +168,29 @@ def test_unmodified_project_keeps_source_behavior(client):
     resp = client.get(f"/api/v1/projects/{pid}/next-row?user_id=alice")
     assert resp.status_code == 200
     assert resp.json()["index"] in range(len(CSV_ROWS))
+
+
+def test_browse_rows_unmodified_paginates_source_only(client):
+    pid, _ = _make_project(client)
+
+    rows_data, total = AnnotationService.browse_rows(pid, "alice", 1, 100, [])
+    assert total == len(CSV_ROWS)
+    # Index 0 still returns the source row (unchanged behavior).
+    by_idx = {e["index"]: e for e in rows_data}
+    assert by_idx[0]["preview"]["text"] == "hello"
+    assert set(by_idx) == set(range(len(CSV_ROWS)))
+
+
+def test_browse_rows_modified_includes_appended_fragments(client):
+    pid, _ = _make_project(client)
+    ProjectDatasetService.append_rows(pid, [{"a": "one"}, {"a": "two"}])
+
+    rows_data, total = AnnotationService.browse_rows(pid, "alice", 1, 100, [])
+    assert total == len(CSV_ROWS) + 2
+
+    by_idx = {e["index"]: e for e in rows_data}
+    # Source row still served at index 0.
+    assert by_idx[0]["preview"]["text"] == "hello"
+    # Appended rows served at indices src_len..src_len+1.
+    assert by_idx[len(CSV_ROWS)]["preview"]["a"] == "one"
+    assert by_idx[len(CSV_ROWS) + 1]["preview"]["a"] == "two"

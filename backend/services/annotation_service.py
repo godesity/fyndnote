@@ -657,7 +657,22 @@ class AnnotationService:
 
         ds_id = project["dataset_id"]
         ds = DatasetService._load_ds(ds_id)
-        total_rows = len(ds)
+        from services.project_dataset import ProjectDatasetService
+
+        meta = ProjectDatasetService.get_meta(pid)
+        if meta is not None:
+            num_rows = ProjectDatasetService.num_rows(pid)
+
+            def serve(idx):
+                return ProjectDatasetService.get_row(pid, idx)
+
+        else:
+            num_rows = len(ds)
+
+            def serve(idx):
+                return DatasetService.get_row(ds_id, idx)
+
+        total_rows = num_rows
         all_indices = list(range(total_rows))
 
         # ---- FILTER PIPELINE ----
@@ -741,7 +756,7 @@ class AnnotationService:
 
         rows_data = []
         for idx in page_indices:
-            row = DatasetService.get_row(ds_id, idx)
+            row = serve(idx)
             # Merge annotation data into preview so cards show annotation fields
             annotated = annotation_data_by_row.get(idx, [])
             if annotated:
