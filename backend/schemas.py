@@ -102,6 +102,10 @@ class BrowseRowsRequest(BaseModel):
     filter: list[FilterExpression] = []
 
 
+class BulkRowsIn(BaseModel):
+    rows: list[dict[str, Any]]
+
+
 class MLPrefillRequest(BaseModel):
     row_index: int
 

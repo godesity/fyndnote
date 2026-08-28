@@ -1,7 +1,13 @@
 
 from fastapi import APIRouter, HTTPException, Response
 
-from schemas import AnnotateRequest, BrowseRowsRequest, MLBatchRequest, MLPrefillRequest
+from schemas import (
+    AnnotateRequest,
+    BrowseRowsRequest,
+    BulkRowsIn,
+    MLBatchRequest,
+    MLPrefillRequest,
+)
 from services.annotation_service import AnnotationService
 from services.dataset_service import DatasetService
 from services.ml_service import batch_prefill, get_ml_annotation, prefill_row
@@ -82,6 +88,16 @@ def browse_rows(pid: str, body: BrowseRowsRequest):
         pid, body.user_id, body.page, body.per_page, body.filter
     )
     return {"rows": rows, "total": total, "page": body.page, "per_page": body.per_page}
+
+
+@router.post("/projects/{pid}/rows/bulk")
+def import_rows(pid: str, body: BulkRowsIn):
+    if not AnnotationService.get_project(pid):
+        raise HTTPException(status_code=404, detail="project not found")
+    from services.project_dataset import ProjectDatasetService
+
+    n = ProjectDatasetService.append_rows(pid, body.rows)
+    return {"status": "ok", "imported": n}
 
 
 @router.get("/projects/{pid}/next-row")

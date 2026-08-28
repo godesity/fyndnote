@@ -181,6 +181,29 @@ def test_browse_rows_unmodified_paginates_source_only(client):
     assert set(by_idx) == set(range(len(CSV_ROWS)))
 
 
+def test_import_rows_bulk_endpoint(client):
+    pid, _ = _make_project(client)
+
+    body = {"rows": [{"text": "imported one"}, {"text": "imported two"}]}
+    resp = client.post(f"/api/v1/projects/{pid}/rows/bulk", json=body)
+    assert resp.status_code == 200
+    assert resp.json()["imported"] == 2
+
+    # Appended rows served at indices src_len..src_len+1.
+    r0 = AnnotationService.get_project_row(pid, len(CSV_ROWS), "alice")
+    assert r0["row"]["text"] == "imported one"
+    r1 = AnnotationService.get_project_row(pid, len(CSV_ROWS) + 1, "alice")
+    assert r1["row"]["text"] == "imported two"
+
+    # num_rows now = source_len + 2
+    assert ProjectDatasetService.num_rows(pid) == len(CSV_ROWS) + 2
+
+
+def test_import_rows_bulk_404_for_unknown_project(client):
+    resp = client.post("/api/v1/projects/nope/rows/bulk", json={"rows": [{"text": "x"}]})
+    assert resp.status_code == 404
+
+
 def test_browse_rows_modified_includes_appended_fragments(client):
     pid, _ = _make_project(client)
     ProjectDatasetService.append_rows(pid, [{"a": "one"}, {"a": "two"}])
