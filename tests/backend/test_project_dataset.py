@@ -206,6 +206,16 @@ def test_import_rows_bulk_404_for_unknown_project(client):
     assert resp.status_code == 404
 
 
+def test_import_rows_bulk_422_on_heterogeneous(client):
+    pid, _ = _make_project(client)
+    resp = client.post(
+        f"/api/v1/projects/{pid}/rows/bulk",
+        json={"rows": [{"a": 1}, {"b": 2}]},
+    )
+    assert resp.status_code == 422
+    assert "same columns" in resp.json()["detail"]
+
+
 def test_browse_rows_modified_includes_appended_fragments(client):
     pid, _ = _make_project(client)
     ProjectDatasetService.append_rows(pid, [{"a": "one"}, {"a": "two"}])

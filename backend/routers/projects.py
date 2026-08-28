@@ -96,7 +96,10 @@ def import_rows(pid: str, body: BulkRowsIn):
         raise HTTPException(status_code=404, detail="project not found")
     from services.project_dataset import ProjectDatasetService
 
-    n = ProjectDatasetService.append_rows(pid, body.rows)
+    try:
+        n = ProjectDatasetService.append_rows(pid, body.rows)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     return {"status": "ok", "imported": n}
 
 

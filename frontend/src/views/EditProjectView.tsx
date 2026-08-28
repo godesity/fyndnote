@@ -113,6 +113,10 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
       setImportError("Expected a JSON array of row objects");
       return;
     }
+    if (!rows.every((r) => r && typeof r === "object" && !Array.isArray(r))) {
+      setImportError("Each row must be a JSON object");
+      return;
+    }
     setImporting(true);
     try {
       await api.importRows(projectId, rows);
