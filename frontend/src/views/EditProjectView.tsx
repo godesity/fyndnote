@@ -40,6 +40,10 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
   const [mlUrl, setMlUrl] = useState("");
   const [mlAnnotator, setMlAnnotator] = useState("");
   const [mlMode, setMlMode] = useState("on_navigate");
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -92,6 +96,33 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
 
   const handleSelectTemplate = (tpl: { source: string }) => {
     setTemplateSource(tpl.source);
+  };
+
+  const handleImportRows = async () => {
+    setImportError(null);
+    setImportResult(null);
+    if (!importText.trim()) return;
+    let rows: any[];
+    try {
+      rows = JSON.parse(importText);
+    } catch {
+      setImportError("Invalid JSON array");
+      return;
+    }
+    if (!Array.isArray(rows)) {
+      setImportError("Expected a JSON array of row objects");
+      return;
+    }
+    setImporting(true);
+    try {
+      await api.importRows(projectId, rows);
+      setImportResult(`Imported ${rows.length} rows`);
+      setImportText("");
+    } catch (e: any) {
+      setImportError(e.message || "Import failed");
+    } finally {
+      setImporting(false);
+    }
   };
 
   return (
@@ -203,6 +234,38 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
             {showTemplateDialog && (
               <LoadTemplateDialog onSelect={handleSelectTemplate} onClose={() => setShowTemplateDialog(false)} />
             )}
+          </div>
+        </section>
+
+        {/* Import Rows */}
+        <section className="mb-6">
+          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-[var(--color-text-heading)] mb-2">Import Rows</h3>
+            <p className="text-sm text-[var(--color-text-muted)] mb-3">
+              Paste a JSON array of row objects to bulk-add rows to this project's dataset.
+            </p>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder={`[{ "text": "hello" }, ... ]`}
+              className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:border-sunset-400 font-mono"
+              rows={5}
+            />
+            <div className="flex items-center gap-3 mt-3">
+              <button
+                onClick={handleImportRows}
+                disabled={importing || !importText.trim()}
+                className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white font-medium text-sm hover:from-sunset-600 hover:to-coral-600 disabled:opacity-50 transition-all shadow-sm"
+              >
+                {importing ? "Importing..." : "Import"}
+              </button>
+              {importResult && (
+                <span className="text-sm text-green-600">{importResult}</span>
+              )}
+              {importError && (
+                <span className="text-sm text-red-500">{importError}</span>
+              )}
+            </div>
           </div>
         </section>
 
