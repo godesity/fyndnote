@@ -1,6 +1,8 @@
 import csv
 import tempfile
 
+import pytest
+
 from services.annotation_service import AnnotationService
 from services.project_dataset import ProjectDatasetService, _frag_dir
 
@@ -217,3 +219,21 @@ def test_browse_rows_modified_includes_appended_fragments(client):
     # Appended rows served at indices src_len..src_len+1.
     assert by_idx[len(CSV_ROWS)]["preview"]["a"] == "one"
     assert by_idx[len(CSV_ROWS) + 1]["preview"]["a"] == "two"
+
+
+def test_append_rows_rejects_heterogeneous_columns(client):
+    pid, _ = _make_project(client)
+    with pytest.raises(ValueError):
+        ProjectDatasetService.append_rows(pid, [{"a": 1}, {"b": 2}])
+
+    # Nothing should have been written for the rejected batch.
+    assert list(_frag_dir(pid).glob("frag_*.parquet")) == []
+
+
+def test_append_rows_empty_returns_zero(client):
+    pid, _ = _make_project(client)
+    n = ProjectDatasetService.append_rows(pid, [])
+    assert n == 0
+
+    # No fragment should be written for an empty batch.
+    assert list(_frag_dir(pid).glob("frag_*.parquet")) == []

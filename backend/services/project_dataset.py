@@ -64,8 +64,12 @@ class ProjectDatasetService:
 
     @staticmethod
     def append_rows(pid: str, rows: list[dict]) -> int:
+        if not rows:
+            return 0
         ProjectDatasetService.ensure_meta(pid)
         meta = ProjectDatasetService.get_meta(pid)
+        if any(set(row) != set(rows[0]) for row in rows):
+            raise ValueError("All imported rows must share the same columns")
         table = pa.Table.from_pylist(rows)
         frag_dir = _frag_dir(pid)
         frag_dir.mkdir(parents=True, exist_ok=True)
