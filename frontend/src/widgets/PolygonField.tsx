@@ -203,8 +203,7 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
     e.stopPropagation();
     dragMoved.current = false;
     const cur = pointFromEvent(e);
-    const first = shape.points[0];
-    setDrag({ shapeId: shape.id, kind: 'shape', offset: { x: cur.x - first.x, y: cur.y - first.y } });
+    setDrag({ shapeId: shape.id, kind: 'shape', offset: { x: cur.x, y: cur.y } });
   }
 
   const activeColor = getColor(activeCategory, categories, colors);
@@ -336,6 +335,7 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
                       fontSize={12}
                       fill={color}
                       textAnchor="middle"
+                      pointerEvents="none"
                     >
                       {shape.category}
                     </text>
