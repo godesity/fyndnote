@@ -30,6 +30,19 @@ const IMAGE_BBOX = `<div>
   {!data.image_url && <p>No image_url field found in this dataset.</p>}
 </div>`;
 
+const IMAGE_POLYGON = `<div>
+  <h3>Annotate polygons in the image</h3>
+  {data.image_url && (
+    <PolygonField
+      name="objects"
+      imageUrl={data.image_url}
+      categories={["cat", "dog", "car", "person"]}
+      defaultValue={annotations?.objects}
+    />
+  )}
+  {!data.image_url && <p>No image_url field found in this dataset.</p>}
+</div>`;
+
 const NER = `<div>
   <h3>Tag named entities</h3>
   {data.text && (
@@ -113,6 +126,44 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
     data: { image_url: "./labeling_template/image-sample.png" },
     annotations: { objects: [] },
     source: IMAGE_BBOX,
+  },
+  {
+    name: "Image Polygon",
+    description: "Annotate closed polygons, open polylines, and points",
+    group: "image",
+    data: { image_url: "./labeling_template/image-sample.png" },
+    annotations: {
+      objects: [
+        {
+          id: "demo-closed",
+          category: "cat",
+          type: "closed",
+          points: [
+            { x: 0.1, y: 0.1 },
+            { x: 0.3, y: 0.2 },
+            { x: 0.25, y: 0.4 },
+            { x: 0.1, y: 0.35 },
+          ],
+        },
+        {
+          id: "demo-open",
+          category: "dog",
+          type: "open",
+          points: [
+            { x: 0.5, y: 0.1 },
+            { x: 0.6, y: 0.3 },
+            { x: 0.7, y: 0.2 },
+          ],
+        },
+        {
+          id: "demo-point",
+          category: "person",
+          type: "point",
+          points: [{ x: 0.8, y: 0.8 }],
+        },
+      ],
+    },
+    source: IMAGE_POLYGON,
   },
   {
     name: "NER",

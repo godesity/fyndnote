@@ -61,17 +61,28 @@ const WIDGETS: Widget[] = [
       { name: 'colors', type: 'string[]', desc: 'Override entity colors (CSS color strings).' },
     ],
   },
-  {
-    name: 'BBoxField',
-    description: 'Bounding box annotation on an image.',
-    props: [
-      { name: 'name', type: 'string', required: true, desc: 'Field key stored in annotations.' },
-      { name: 'imageUrl', type: 'string', required: true, desc: 'URL or API path to the image.' },
-      { name: 'categories', type: 'string[]', required: true, desc: 'Object category labels, e.g. ["cat","dog"].' },
-      { name: 'defaultValue', type: 'BBox[]', desc: 'Pre-existing bounding boxes.' },
-      { name: 'colors', type: 'string[]', desc: 'Override category colors (CSS color strings).' },
-    ],
-  },
+    {
+      name: 'BBoxField',
+      description: 'Bounding box annotation on an image.',
+      props: [
+        { name: 'name', type: 'string', required: true, desc: 'Field key stored in annotations.' },
+        { name: 'imageUrl', type: 'string', required: true, desc: 'URL or API path to the image.' },
+        { name: 'categories', type: 'string[]', required: true, desc: 'Labels to assign to boxes.' },
+        { name: 'defaultValue', type: 'BBox[]', desc: 'Pre-existing boxes to render.' },
+        { name: 'colors', type: 'string[]', desc: 'Per-category color overrides.' },
+      ],
+    },
+    {
+      name: 'PolygonField',
+      description: 'Annotate closed polygons, open polylines, or points on an image.',
+      props: [
+        { name: 'name', type: 'string', required: true, desc: 'Field key stored in annotations.' },
+        { name: 'imageUrl', type: 'string', required: true, desc: 'URL or API path to the image.' },
+        { name: 'categories', type: 'string[]', required: true, desc: 'Labels to assign to shapes.' },
+        { name: 'defaultValue', type: 'Shape[]', desc: 'Pre-existing shapes to render.' },
+        { name: 'colors', type: 'string[]', desc: 'Per-category color overrides.' },
+      ],
+    },
   {
     name: 'AudioPlayer',
     description: 'Simple audio playback — play, pause, seek.',
