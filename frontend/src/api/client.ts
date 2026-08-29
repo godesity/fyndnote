@@ -81,8 +81,8 @@ export const api = {
   listProjects: (userId: string) =>
     request<{ projects: any[] }>(`/projects?user_id=${userId}`),
   createProject: (name: string, datasetId: string, templateId: string, color?: string, tags?: string, instructions?: string,
-    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string) =>
-    request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode }) }),
+    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string, userId?: string) =>
+    request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode, user_id: userId }) }),
   getProject: (id: string, userId: string) =>
     request<any>(`/projects/${id}?user_id=${userId}`),
   updateProject: (id: string, name: string, color?: string, tags?: string, instructions?: string,

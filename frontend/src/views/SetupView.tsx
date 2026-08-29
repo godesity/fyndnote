@@ -1,9 +1,10 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, memo, useMemo } from "react";
 import { LiveProvider, LiveEditor, LivePreview, LiveError } from "react-live";
 import { themes } from "prism-react-renderer";
 import { api } from "../api/client";
 import * as widgets from "../widgets";
 import { AnnotationProvider } from "../context/AnnotationContext";
+import { useAuth } from "../context/AuthContext";
 import BreadcrumbNav from "../components/BreadcrumbNav";
 import LoadTemplateDialog from "../components/LoadTemplateDialog";
 import WidgetDocs from "../components/WidgetDocs";
@@ -22,7 +23,35 @@ const DEFAULT_TEMPLATE = `<div style={{ padding: 20 }}>
   />
 </div>`;
 
+// Memoized template editor. Isolating it from SetupView's other state changes
+// (project name, instructions, etc.) stops react-live's use-editable layout
+// effect from stealing focus back to the code editor on every unrelated
+// re-render.
+const TemplateEditor = memo(function TemplateEditor({
+  code,
+  sampleRow,
+  onChange,
+}: {
+  code: string;
+  sampleRow: any;
+  onChange: (c: string) => void;
+}) {
+  const liveScope = useMemo(
+    () => ({ ...scope, data: sampleRow || {}, annotations: {} }),
+    [sampleRow]
+  );
+  return (
+    <AnnotationProvider>
+      <LiveProvider code={code} scope={liveScope} theme={editorTheme}>
+        <LiveEditor onChange={onChange} style={{ textAlign: "left" }} />
+        <LiveError />
+      </LiveProvider>
+    </AnnotationProvider>
+  );
+});
+
 export default function SetupView() {
+  const { user } = useAuth();
   const [datasets, setDatasets] = useState<any[]>([]);
   const [selectedDataset, setSelectedDataset] = useState("");
   const [templateSource, setTemplateSource] = useState(DEFAULT_TEMPLATE);
@@ -73,7 +102,7 @@ export default function SetupView() {
   const createProject = async () => {
     if (!projectName || !selectedDataset || !templateId) return;
     await api.createProject(projectName, selectedDataset, templateId, projectColor, projectTags, projectInstructions,
-      mlEnabled, mlUrl, mlAnnotator, mlMode);
+      mlEnabled, mlUrl, mlAnnotator, mlMode, user?.user_id);
     window.location.hash = '#/projects';
   };
 
@@ -207,12 +236,7 @@ export default function SetupView() {
             </p>
             <div className="flex gap-4">
               <div className="flex-1 min-w-0">
-                <AnnotationProvider>
-                  <LiveProvider code={templateSource} scope={{ ...scope, data: sampleRow || {}, annotations: {} }} theme={editorTheme}>
-                    <LiveEditor onChange={setTemplateSource} style={{ textAlign: 'left' }} />
-                    <LiveError />
-                  </LiveProvider>
-                </AnnotationProvider>
+                <TemplateEditor code={templateSource} sampleRow={sampleRow} onChange={setTemplateSource} />
                 <details className="mt-3 group">
                   <summary className="text-sm font-medium text-[var(--color-text-muted)] cursor-pointer hover:text-[var(--color-text)] select-none">
                     Available widgets

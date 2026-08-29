@@ -21,8 +21,8 @@ services:
       - KEYCLOAK_URL=${KEYCLOAK_URL:-http://localhost:8080}
       - KEYCLOAK_REALM=${KEYCLOAK_REALM:-fyndnot}
       - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-fyndnot-app}
-      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-}
-      - SSO_REDIRECT_URI=${SSO_REDIRECT_URI:-http://localhost:5173}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-fyndnot-secret}
+      - SSO_REDIRECT_URI=${SSO_REDIRECT_URI:-http://localhost:8000/api/v1/sso}
     volumes:
       - ./data:/app/data
     depends_on:
@@ -37,8 +37,10 @@ services:
     environment:
       - KC_BOOTSTRAP_ADMIN_USERNAME=admin
       - KC_BOOTSTRAP_ADMIN_PASSWORD=admin
-    command: start-dev
+    command: start-dev --import-realm
     restart: unless-stopped
+    volumes:
+      - ./data/fyndnot-realm.json:/opt/keycloak/data/import/fyndnot-realm.json
 
   pg:
     image: postgres:16-alpine

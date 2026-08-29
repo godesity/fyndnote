@@ -91,6 +91,7 @@ def sso_callback(
         raise HTTPException(status_code=401, detail="invalid_state")
 
     tokens = kc.exchange_code(code)
+    print(tokens, code)
     if tokens is None:
         raise HTTPException(status_code=401, detail="token_exchange_failed")
 
