@@ -46,10 +46,28 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
   const [draft, setDraft] = useState<Point[]>([]);
   const [cursor, setCursor] = useState<Point | null>(null);
   const [drag, setDrag] = useState<{ shapeId: string; kind: 'vertex' | 'shape'; pointIndex?: number; offset: Point } | null>(null);
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const [showLabels, setShowLabels] = useState(true);
   const imgRef = useRef<HTMLDivElement>(null);
   const clickTimer = useRef<number | null>(null);
+  const dragMoved = useRef(false);
   const { registerField, unregisterField } = useAnnotationContext();
+
+  function measure() {
+    const el = imgRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) setImgSize({ w: rect.width, h: rect.height });
+  }
+
+  useEffect(() => {
+    measure();
+    const el = imgRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (defaultValue !== undefined) setShapes(defaultValue);
@@ -73,6 +91,7 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
   useEffect(() => {
     if (!drag) return;
     const handleMove = (e: MouseEvent) => {
+      dragMoved.current = true;
       const rect = imgRef.current!.getBoundingClientRect();
       const cur = { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
       setShapes((prev) => {
@@ -95,7 +114,10 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
         });
       });
     };
-    const handleUp = () => setDrag(null);
+    const handleUp = () => {
+      setDrag(null);
+      window.setTimeout(() => { dragMoved.current = false; }, 0);
+    };
     document.addEventListener('mousemove', handleMove);
     document.addEventListener('mouseup', handleUp);
     return () => {
@@ -107,6 +129,15 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
   function pointFromEvent(e: React.MouseEvent): Point {
     const rect = imgRef.current!.getBoundingClientRect();
     return { x: (e.clientX - rect.left) / rect.width, y: (e.clientY - rect.top) / rect.height };
+  }
+
+  // Suppress a click that immediately follows a drag (browsers fire click on mouseup).
+  function suppressDragClick(): boolean {
+    if (dragMoved.current) {
+      dragMoved.current = false;
+      return true;
+    }
+    return false;
   }
 
   function addPoint(p: Point) {
@@ -125,7 +156,7 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
   }
 
   function handleImageClick(e: React.MouseEvent) {
-    if (drag) return;
+    if (drag || suppressDragClick()) return;
     const p = pointFromEvent(e);
     if (clickTimer.current !== null) {
       window.clearTimeout(clickTimer.current);
@@ -162,6 +193,7 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
 
   function startVertexDrag(e: React.MouseEvent, shape: Shape, pointIndex: number) {
     e.stopPropagation();
+    dragMoved.current = false;
     const cur = pointFromEvent(e);
     const p = shape.points[pointIndex];
     setDrag({ shapeId: shape.id, kind: 'vertex', pointIndex, offset: { x: cur.x - p.x, y: cur.y - p.y } });
@@ -169,6 +201,7 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
 
   function startShapeDrag(e: React.MouseEvent, shape: Shape) {
     e.stopPropagation();
+    dragMoved.current = false;
     const cur = pointFromEvent(e);
     const first = shape.points[0];
     setDrag({ shapeId: shape.id, kind: 'shape', offset: { x: cur.x - first.x, y: cur.y - first.y } });
@@ -179,6 +212,10 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
     mode === 'point'
       ? 'Click to add a point.'
       : `Click to add points (${mode} needs ${minFor(mode)}); double-click or Enter to finish.`;
+
+  const w = imgSize ? imgSize.w : 1;
+  const h = imgSize ? imgSize.h : 1;
+  const toSvg = (p: Point) => ({ x: p.x * w, y: p.y * h });
 
   return (
     <div>
@@ -225,102 +262,116 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
         onMouseMove={handleImageMove}
         style={{ position: 'relative', display: 'inline-block', userSelect: 'none' }}
       >
-        <img src={imageUrl} alt="annotate" draggable={false} style={{ maxWidth: '100%', cursor: 'crosshair' }} />
-        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox="0 0 1 1" preserveAspectRatio="none">
-          {shapes.map((shape) => {
-            const color = getColor(shape.category, categories, colors);
-            const pts = shape.points.map((p) => `${p.x},${p.y}`).join(' ');
-            const body = (() => {
-              if (shape.type === 'closed') {
+        <img src={imageUrl} alt="annotate" draggable={false} onLoad={measure} style={{ maxWidth: '100%', cursor: 'crosshair' }} />
+        {imgSize && (
+          <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox={`0 0 ${w} ${h}`}>
+            {shapes.map((shape) => {
+              const color = getColor(shape.category, categories, colors);
+              const pts = shape.points.map((p) => { const s = toSvg(p); return `${s.x},${s.y}`; }).join(' ');
+              const body = (() => {
+                if (shape.type === 'closed') {
+                  return (
+                    <polygon
+                      key={shape.id}
+                      points={pts}
+                      fill={`${color}22`}
+                      stroke={color}
+                      strokeWidth={2}
+                      onMouseDown={(e) => startShapeDrag(e, shape)}
+                      onClick={(e) => { e.stopPropagation(); if (suppressDragClick()) return; deleteShape(shape.id); }}
+                    />
+                  );
+                }
+                if (shape.type === 'open') {
+                  return (
+                    <polyline
+                      key={shape.id}
+                      points={pts}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={2}
+                      onMouseDown={(e) => startShapeDrag(e, shape)}
+                      onClick={(e) => { e.stopPropagation(); if (suppressDragClick()) return; deleteShape(shape.id); }}
+                    />
+                  );
+                }
                 return (
-                  <polygon
+                  <circle
                     key={shape.id}
-                    points={pts}
-                    fill={`${color}22`}
+                    cx={toSvg(shape.points[0]).x}
+                    cy={toSvg(shape.points[0]).y}
+                    r={8}
+                    fill={color}
                     stroke={color}
-                    strokeWidth={0.002}
+                    strokeWidth={1}
                     onMouseDown={(e) => startShapeDrag(e, shape)}
-                    onClick={(e) => { e.stopPropagation(); deleteShape(shape.id); }}
+                    onClick={(e) => { e.stopPropagation(); if (suppressDragClick()) return; deleteShape(shape.id); }}
                   />
                 );
-              }
-              if (shape.type === 'open') {
+              })();
+              const vertices = shape.points.map((p, i) => {
+                const s = toSvg(p);
                 return (
-                  <polyline
-                    key={shape.id}
-                    points={pts}
-                    fill="none"
+                  <circle
+                    key={`${shape.id}-v${i}`}
+                    cx={s.x}
+                    cy={s.y}
+                    r={5}
+                    fill="#fff"
                     stroke={color}
-                    strokeWidth={0.002}
-                    onMouseDown={(e) => startShapeDrag(e, shape)}
-                    onClick={(e) => { e.stopPropagation(); deleteShape(shape.id); }}
+                    strokeWidth={2}
+                    onMouseDown={(e) => startVertexDrag(e, shape, i)}
+                    onClick={(e) => { e.stopPropagation(); if (suppressDragClick()) return; deleteVertex(shape.id, i); }}
                   />
                 );
-              }
+              });
               return (
-                <circle
-                  key={shape.id}
-                  cx={shape.points[0].x}
-                  cy={shape.points[0].y}
-                  r={0.008}
-                  fill={color}
-                  stroke={color}
-                  strokeWidth={0.001}
-                  onMouseDown={(e) => startShapeDrag(e, shape)}
-                  onClick={(e) => { e.stopPropagation(); deleteShape(shape.id); }}
-                />
+                <g key={shape.id}>
+                  {body}
+                  {vertices}
+                  {showLabels && shape.type !== 'point' && (
+                    <text
+                      x={toSvg(shape.points[0]).x}
+                      y={Math.max(14, toSvg(shape.points[0]).y - 10)}
+                      fontSize={12}
+                      fill={color}
+                      textAnchor="middle"
+                    >
+                      {shape.category}
+                    </text>
+                  )}
+                </g>
               );
-            })();
-            const vertices = shape.points.map((p, i) => (
-              <circle
-                key={`${shape.id}-v${i}`}
-                cx={p.x}
-                cy={p.y}
-                r={0.005}
-                fill="#fff"
-                stroke={color}
-                strokeWidth={0.002}
-                onMouseDown={(e) => startVertexDrag(e, shape, i)}
-                onClick={(e) => { e.stopPropagation(); deleteVertex(shape.id, i); }}
-              />
-            ));
-            return (
-              <g key={shape.id}>
-                {body}
-                {vertices}
-                {showLabels && shape.type !== 'point' && (
-                  <text x={shape.points[0].x} y={Math.max(0.01, shape.points[0].y - 0.01)} fontSize={0.01} fill={color} textAnchor="middle">
-                    {shape.category}
-                  </text>
+            })}
+            {draft.length > 0 && cursor && imgSize && (
+              <g>
+                {mode === 'closed' ? (
+                  <polygon
+                    points={[...draft, cursor].map((p) => { const s = toSvg(p); return `${s.x},${s.y}`; }).join(' ')}
+                    fill="none"
+                    stroke={activeColor}
+                    strokeWidth={2}
+                    strokeDasharray="6 6"
+                  />
+                ) : (
+                  <polyline
+                    points={[...draft, cursor].map((p) => { const s = toSvg(p); return `${s.x},${s.y}`; }).join(' ')}
+                    fill="none"
+                    stroke={activeColor}
+                    strokeWidth={2}
+                    strokeDasharray="6 6"
+                  />
                 )}
+                {draft.map((p, i) => {
+                  const s = toSvg(p);
+                  return (
+                    <circle key={`d${i}`} cx={s.x} cy={s.y} r={4} fill="#fff" stroke={activeColor} strokeWidth={2} />
+                  );
+                })}
               </g>
-            );
-          })}
-          {draft.length > 0 && cursor && (
-            <g>
-              {mode === 'closed' ? (
-                <polygon
-                  points={[...draft, cursor].map((p) => `${p.x},${p.y}`).join(' ')}
-                  fill="none"
-                  stroke={activeColor}
-                  strokeWidth={0.002}
-                  strokeDasharray="0.002 0.002"
-                />
-              ) : (
-                <polyline
-                  points={[...draft, cursor].map((p) => `${p.x},${p.y}`).join(' ')}
-                  fill="none"
-                  stroke={activeColor}
-                  strokeWidth={0.002}
-                  strokeDasharray="0.002 0.002"
-                />
-              )}
-              {draft.map((p, i) => (
-                <circle key={`d${i}`} cx={p.x} cy={p.y} r={0.004} fill="#fff" stroke={activeColor} strokeWidth={0.002} />
-              ))}
-            </g>
-          )}
-        </svg>
+            )}
+          </svg>
+        )}
       </div>
       <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{modeHint}</div>
     </div>
