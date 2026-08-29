@@ -132,13 +132,14 @@ export default function BrowseView({ projectId }: Props) {
 
       <div className="max-w-5xl mx-auto px-6 py-6 animate-fade-in">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-bold text-[var(--color-text-heading)]">Browse Data</h2>
             {showBatchButton && (
               <button
                 onClick={handleBatchPrefill}
                 disabled={batchRunning}
-                className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-500 text-white text-xs font-medium hover:from-violet-600 hover:to-purple-600 disabled:opacity-50 transition-all shadow-sm"
+                title={batchRunning ? 'Prefilling...' : 'AI Prefill'}
+              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-500 to-purple-500 text-white text-xs font-medium hover:from-violet-600 hover:to-purple-600 disabled:opacity-50 transition-all shadow-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]"
               >
                 {batchRunning ? 'Prefilling...' : 'AI Prefill'}
               </button>
@@ -146,33 +147,37 @@ export default function BrowseView({ projectId }: Props) {
             <button
               onClick={() => handleClearAnnotations(true)}
               disabled={clearState[0] || filter.length === 0}
-              className="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-xs font-medium transition-all disabled:opacity-50"
+              title="Clear annotations matching the current filter"
+              className="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-xs font-medium transition-all disabled:opacity-50 whitespace-nowrap overflow-hidden text-ellipsis max-w-[170px]"
             >
               {clearState[0] ? 'Clearing...' : 'Clear filtered annotations'}
             </button>
             <button
               onClick={() => handleClearAnnotations(false)}
               disabled={clearState[0]}
-              className="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-xs font-medium transition-all disabled:opacity-50"
+              title="Clear every annotation in this project"
+              className="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-xs font-medium transition-all disabled:opacity-50 whitespace-nowrap overflow-hidden text-ellipsis max-w-[170px]"
             >
               {clearState[0] ? 'Clearing...' : 'Clear all annotations'}
             </button>
             <button
               onClick={() => handleClearPredictions(true)}
               disabled={clearState[0] || filter.length === 0}
-              className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-medium transition-all disabled:opacity-50"
+              title="Clear predictions matching the current filter"
+              className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-medium transition-all disabled:opacity-50 whitespace-nowrap overflow-hidden text-ellipsis max-w-[170px]"
             >
               {clearState[0] ? 'Clearing...' : 'Clear filtered predictions'}
             </button>
             <button
               onClick={() => handleClearPredictions(false)}
               disabled={clearState[0]}
-              className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-medium transition-all disabled:opacity-50"
+              title="Clear every prediction in this project"
+              className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-medium transition-all disabled:opacity-50 whitespace-nowrap overflow-hidden text-ellipsis max-w-[170px]"
             >
               {clearState[0] ? 'Clearing...' : 'Clear all predictions'}
             </button>
           </div>
-          <div className="w-full max-w-xl ml-8">
+          <div className="w-full max-w-xl min-w-0 ml-8">
             <FilterBar
               datasetColumns={datasetColumns}
               annotationFields={annotationFields}
