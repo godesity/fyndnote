@@ -45,7 +45,7 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
   const [mode, setMode] = useState<'closed' | 'open' | 'point'>('closed');
   const [draft, setDraft] = useState<Point[]>([]);
   const [cursor, setCursor] = useState<Point | null>(null);
-  const [drag, setDrag] = useState<{ shapeId: string; kind: 'vertex' | 'shape'; pointIndex?: number; offset: Point } | null>(null);
+  const [drag, setDrag] = useState<{ shapeId: string; kind: 'vertex' | 'shape'; pointIndex?: number; offset: Point; startPoints?: Point[] } | null>(null);
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const [showLabels, setShowLabels] = useState(true);
   const imgRef = useRef<HTMLDivElement>(null);
@@ -109,7 +109,8 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
           }
           const dx = cur.x - drag.offset.x;
           const dy = cur.y - drag.offset.y;
-          const pts = s.points.map((p) => ({ x: Math.max(0, Math.min(1, p.x + dx)), y: Math.max(0, Math.min(1, p.y + dy)) }));
+          const base = drag.startPoints || s.points;
+          const pts = base.map((p) => ({ x: Math.max(0, Math.min(1, p.x + dx)), y: Math.max(0, Math.min(1, p.y + dy)) }));
           return { ...s, points: pts };
         });
       });
@@ -203,7 +204,7 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
     e.stopPropagation();
     dragMoved.current = false;
     const cur = pointFromEvent(e);
-    setDrag({ shapeId: shape.id, kind: 'shape', offset: { x: cur.x, y: cur.y } });
+    setDrag({ shapeId: shape.id, kind: 'shape', offset: { x: cur.x, y: cur.y }, startPoints: shape.points });
   }
 
   const activeColor = getColor(activeCategory, categories, colors);
