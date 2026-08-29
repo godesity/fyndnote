@@ -93,3 +93,74 @@ class TestFilterAPI:
         assert data["total"] == 10
         indices = [r["index"] for r in data["rows"]]
         assert all(10 <= i <= 19 for i in indices)
+
+
+def _seed_ml_annotations(client, pid, rows, label="cat", annotator="ml-model"):
+    import json
+    from database import get_db
+    db = get_db()
+    for idx in rows:
+        db.execute(
+            "INSERT OR REPLACE INTO fyndnot_ml_annotations "
+            "(project_id, row_index, annotator, data, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (pid, idx, annotator, json.dumps({"label": label}),
+             "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z"),
+        )
+    db.commit()
+    db.close()
+
+
+def test_browse_rows_prediction_field_filter(client):
+    pid = _setup_project(client)
+    _seed_ml_annotations(client, pid, [0, 1, 2], label="cat")
+    _seed_ml_annotations(client, pid, [3, 4], label="dog")
+
+    resp = client.post(f"/api/v1/projects/{pid}/rows", json={
+        "user_id": "alice", "page": 1, "per_page": 5, "filter": [
+            {"field": "prediction.label", "operator": "=", "value": "cat", "conjunction": "AND"}
+        ]
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [r["index"] for r in data["rows"]] == [0, 1, 2]
+    assert data["total"] == 3
+
+
+def test_browse_rows_predictions_count_filter(client):
+    pid = _setup_project(client)
+    _seed_ml_annotations(client, pid, [0, 1])
+
+    resp = client.post(f"/api/v1/projects/{pid}/rows", json={
+        "user_id": "alice", "page": 1, "per_page": 5, "filter": [
+            {"field": "predictions.count", "operator": "=", "value": "1", "conjunction": "AND"}
+        ]
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [r["index"] for r in data["rows"]] == [0, 1]
+
+    resp = client.post(f"/api/v1/projects/{pid}/rows", json={
+        "user_id": "alice", "page": 1, "per_page": 5, "filter": [
+            {"field": "predictions.count", "operator": "=", "value": "0", "conjunction": "AND"}
+        ]
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert 0 not in [r["index"] for r in data["rows"]]
+    assert 1 not in [r["index"] for r in data["rows"]]
+
+
+def test_browse_rows_predictions_name_filter(client):
+    pid = _setup_project(client)
+    _seed_ml_annotations(client, pid, [0, 1], annotator="model-a")
+    _seed_ml_annotations(client, pid, [2, 3], annotator="model-b")
+
+    resp = client.post(f"/api/v1/projects/{pid}/rows", json={
+        "user_id": "alice", "page": 1, "per_page": 5, "filter": [
+            {"field": "predictions.name", "operator": "=", "value": "model-a", "conjunction": "AND"}
+        ]
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert [r["index"] for r in data["rows"]] == [0, 1]

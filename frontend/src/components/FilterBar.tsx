@@ -10,15 +10,20 @@ interface FilterExpression {
 interface FilterBarProps {
   datasetColumns: { name: string; type: string }[];
   annotationFields: string[];
+  predictionFields: string[];
   onFilterChange: (filter: FilterExpression[]) => void;
 }
 
 const BUILTIN_FIELDS = [
-  { name: 'annotations.count', type: 'integer' },
-  { name: 'annotations.annotated_by', type: 'string' },
-  { name: 'annotations.created_at', type: 'datetime' },
-  { name: 'annotations.updated_at', type: 'datetime' },
-  { name: 'row_index', type: 'integer' },
+  'annotations.count',
+  'annotations.annotated_by',
+  'annotations.created_at',
+  'annotations.updated_at',
+  'predictions.count',
+  'predictions.name',
+  'predictions.created_at',
+  'predictions.updated_at',
+  'row_index',
 ];
 
 const OPERATORS = ['=', '!=', '~=', '>', '>=', '<', '<='];
@@ -36,7 +41,7 @@ interface ExpressionPill {
   conjunction: 'AND' | 'OR';
 }
 
-export default function FilterBar({ datasetColumns, annotationFields, onFilterChange }: FilterBarProps) {
+export default function FilterBar({ datasetColumns, annotationFields, predictionFields, onFilterChange }: FilterBarProps) {
   const [pills, setPills] = useState<ExpressionPill[]>([]);
   const [inProgress, setInProgress] = useState<ExpressionPill | null>(null);
   const [draft, setDraft] = useState('');
@@ -50,9 +55,10 @@ export default function FilterBar({ datasetColumns, annotationFields, onFilterCh
   const allFields = useCallback(() => {
     const data = (datasetColumns || []).map((c) => `data.${c.name}`);
     const ann = (annotationFields || []).map((f) => `annotation.${f}`);
-    const builtin = BUILTIN_FIELDS.map((f) => f.name);
-    return [...data, ...ann, ...builtin];
-  }, [datasetColumns, annotationFields]);
+    const pred = (predictionFields || []).map((f) => `prediction.${f}`);
+    const builtin = BUILTIN_FIELDS.map((f) => f);
+    return [...data, ...ann, ...pred, ...builtin];
+  }, [datasetColumns, annotationFields, predictionFields]);
 
   const matchingFields = allFields().filter((f) =>
     f.toLowerCase().includes(draft.toLowerCase())

@@ -131,9 +131,20 @@ export default function BrowseView({ projectId }: Props) {
       <div className="h-1" style={{ background: projectColor }} />
 
       <div className="max-w-5xl mx-auto px-6 py-6 animate-fade-in">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="mb-4">
+          <div className="flex items-center justify-between gap-4 mb-3">
             <h2 className="text-xl font-bold text-[var(--color-text-heading)]">Browse Data</h2>
+            <div className="w-full max-w-xl min-w-0">
+            <FilterBar
+              datasetColumns={datasetColumns}
+              annotationFields={annotationFields}
+              predictionFields={annotationFields}
+              onFilterChange={(f) => { setFilter(f); setPage(1); }}
+            />
+
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {showBatchButton && (
               <button
                 onClick={handleBatchPrefill}
@@ -176,13 +187,7 @@ export default function BrowseView({ projectId }: Props) {
             >
               {clearState[0] ? 'Clearing...' : 'Clear all predictions'}
             </button>
-          </div>
-          <div className="w-full max-w-xl min-w-0 ml-8">
-            <FilterBar
-              datasetColumns={datasetColumns}
-              annotationFields={annotationFields}
-              onFilterChange={(f) => { setFilter(f); setPage(1); }}
-            />
+
           </div>
         </div>
 
@@ -258,7 +263,12 @@ function DatasetDetailsSection({ details }: { details: any }) {
           {projects.map((proj: any) => (
             <div key={proj.id} className="flex items-center gap-2 text-sm py-1">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: proj.color }} />
-              <span className="font-medium text-[var(--color-text)]">{proj.name}</span>
+              <a
+                href={`#/projects/${proj.id}/browse`}
+                className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)] hover:underline"
+              >
+                {proj.name}
+              </a>
               <span className="text-[var(--color-text-muted)]">
                 {proj.annotated_rows} rows annotated · {proj.annotations} annotations · {proj.predictions} predictions
               </span>

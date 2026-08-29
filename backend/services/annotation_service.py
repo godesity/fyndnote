@@ -244,6 +244,152 @@ def _apply_annotation_data_filter(
     return [i for i in project_indices if i in matched]
 
 
+def _apply_ml_annotation_data_filter(
+    db, project_indices: list[int], expr, pid: str
+) -> list[int]:
+    """Filter rows by values inside the ML annotation (prediction) JSON data."""
+    if not project_indices or not expr.field.startswith("prediction."):
+        return project_indices
+    field_name = expr.field[len("prediction.") :]
+    json_path = f"$.{field_name}"
+    op = expr.operator
+    val = expr.value
+    placeholders = ",".join("?" * len(project_indices))
+    pg_path = "{" + field_name.replace(".", ",") + "}"
+
+    if DATABASE_TYPE == "postgres":
+        if op == "~=":
+            sql = f"""
+                SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+                WHERE project_id = ?
+                  AND row_index IN ({placeholders})
+                  AND data::jsonb #>> ? LIKE ?
+            """
+            params = [pid] + project_indices + [pg_path, f"%{val}%"]
+        elif op == "=":
+            try:
+                num_val = float(val) if "." in val else int(val)
+                sql = f"""
+                    SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+                    WHERE project_id = ?
+                      AND row_index IN ({placeholders})
+                      AND CAST(data::jsonb #>> ? AS NUMERIC) = ?
+                """
+                params = [pid] + project_indices + [pg_path, num_val]
+            except (ValueError, TypeError):
+                sql = f"""
+                    SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+                    WHERE project_id = ?
+                      AND row_index IN ({placeholders})
+                      AND data::jsonb #>> ? = ?
+                """
+                params = [pid] + project_indices + [pg_path, val]
+        elif op in (">", ">=", "<", "<="):
+            sql = f"""
+                SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+                WHERE project_id = ?
+                  AND row_index IN ({placeholders})
+                  AND CAST(data::jsonb #>> ? AS NUMERIC) {op} ?
+            """
+            params = [pid] + project_indices + [pg_path, float(val)]
+        else:
+            return project_indices
+    else:
+        if op == "~=":
+            sql = f"""
+                SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+                WHERE project_id = ?
+                  AND row_index IN ({placeholders})
+                  AND json_extract(data, ?) LIKE ?
+            """
+            params = [pid] + project_indices + [json_path, f"%{val}%"]
+        elif op == "=":
+            try:
+                num_val = float(val) if "." in val else int(val)
+                sql = f"""
+                    SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+                    WHERE project_id = ?
+                      AND row_index IN ({placeholders})
+                      AND json_extract(data, ?) = ?
+                """
+                params = [pid] + project_indices + [json_path, num_val]
+            except (ValueError, TypeError):
+                sql = f"""
+                    SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+                    WHERE project_id = ?
+                      AND row_index IN ({placeholders})
+                      AND json_extract(data, ?) = ?
+                """
+                params = [pid] + project_indices + [json_path, val]
+        elif op in (">", ">=", "<", "<="):
+            sql = f"""
+                SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+                WHERE project_id = ?
+                  AND row_index IN ({placeholders})
+                  AND CAST(json_extract(data, ?) AS REAL) {op} ?
+            """
+            params = [pid] + project_indices + [json_path, float(val)]
+        else:
+            return project_indices
+
+    matched = {r[0] for r in db.execute(sql, params).fetchall()}
+    return [i for i in project_indices if i in matched]
+
+
+def _apply_ml_annotation_meta_filter(
+    db, project_indices: list[int], expr, pid: str
+) -> list[int]:
+    """Filter rows by ML annotation (prediction) metadata. One row per row_index."""
+    if not project_indices:
+        return []
+
+    if expr.field == "predictions.count":
+        op = expr.operator
+        val = int(expr.value)
+        placeholders = ",".join("?" * len(project_indices))
+        present = {
+            r[0]
+            for r in db.execute(
+                f"SELECT DISTINCT row_index FROM fyndnot_ml_annotations WHERE project_id = ? AND row_index IN ({placeholders})",
+                [pid] + project_indices,
+            ).fetchall()
+        }
+        # One row per row_index, so count is either 0 or 1.
+        if (op == "=" and val == 0) or (op == "<" and val == 1) or (op == "<=" and val == 0):
+            return [i for i in project_indices if i not in present]
+        if (op == "=" and val == 1) or (op == ">" and val == 0) or (op == ">=" and val == 1):
+            return [i for i in project_indices if i in present]
+        return project_indices
+
+    elif expr.field == "predictions.name":
+        val = expr.value
+        placeholders = ",".join("?" * len(project_indices))
+        sql = f"""
+            SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+            WHERE project_id = ?
+              AND row_index IN ({placeholders})
+              AND annotator = ?
+        """
+        matched = {r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()}
+        return [i for i in project_indices if i in matched]
+
+    elif expr.field in ("predictions.created_at", "predictions.updated_at"):
+        op = expr.operator
+        val = expr.value
+        col = expr.field.split(".")[1]
+        placeholders = ",".join("?" * len(project_indices))
+        sql = f"""
+            SELECT DISTINCT row_index FROM fyndnot_ml_annotations
+            WHERE project_id = ?
+              AND row_index IN ({placeholders})
+              AND {col} {op} ?
+        """
+        matched = {r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()}
+        return [i for i in project_indices if i in matched]
+
+    return project_indices
+
+
 def _apply_data_field_filter(indices: list[int], expr, ds) -> list[int]:
     if not indices or not expr.field.startswith("data."):
         return indices
@@ -359,6 +505,22 @@ def _resolve_matching_indices(pid: str, user_id: str, filter_exprs: list) -> lis
     ]
     for expr in ann_exprs:
         current = _apply_annotation_data_filter(db, current, expr, pid)
+
+    ml_meta_exprs = [
+        fe
+        for fe in filter_exprs
+        if fe.field.startswith("predictions.") and fe.field != "predictions."
+    ]
+    for expr in ml_meta_exprs:
+        current = _apply_ml_annotation_meta_filter(db, current, expr, pid)
+
+    ml_data_exprs = [
+        fe
+        for fe in filter_exprs
+        if fe.field.startswith("prediction.") and fe.field != "prediction."
+    ]
+    for expr in ml_data_exprs:
+        current = _apply_ml_annotation_data_filter(db, current, expr, pid)
 
     data_exprs = [
         fe
