@@ -93,6 +93,32 @@ export default function BrowseView({ projectId }: Props) {
     setBatchRunning(false);
   };
 
+  const clearState = useState(false);
+
+  const handleClearAnnotations = async (filtered: boolean) => {
+    if (!user) return;
+    clearState[1](true);
+    try {
+      await api.bulkClearAnnotations(projectId, user.user_id, filtered ? filter : []);
+      await loadRows();
+    } catch {
+      // ignore
+    }
+    clearState[1](false);
+  };
+
+  const handleClearPredictions = async (filtered: boolean) => {
+    if (!user) return;
+    clearState[1](true);
+    try {
+      await api.bulkClearMLAnnotations(projectId, user.user_id, filtered ? filter : []);
+      await loadRows();
+    } catch {
+      // ignore
+    }
+    clearState[1](false);
+  };
+
   const showBatchButton = mlEnabled && (mlMode === 'batch' || mlMode === 'both');
 
   return (
@@ -117,6 +143,34 @@ export default function BrowseView({ projectId }: Props) {
                 {batchRunning ? 'Prefilling...' : 'AI Prefill'}
               </button>
             )}
+            <button
+              onClick={() => handleClearAnnotations(true)}
+              disabled={clearState[0] || filter.length === 0}
+              className="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-xs font-medium transition-all disabled:opacity-50"
+            >
+              {clearState[0] ? 'Clearing...' : 'Clear filtered annotations'}
+            </button>
+            <button
+              onClick={() => handleClearAnnotations(false)}
+              disabled={clearState[0]}
+              className="px-3 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 text-xs font-medium transition-all disabled:opacity-50"
+            >
+              {clearState[0] ? 'Clearing...' : 'Clear all annotations'}
+            </button>
+            <button
+              onClick={() => handleClearPredictions(true)}
+              disabled={clearState[0] || filter.length === 0}
+              className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-medium transition-all disabled:opacity-50"
+            >
+              {clearState[0] ? 'Clearing...' : 'Clear filtered predictions'}
+            </button>
+            <button
+              onClick={() => handleClearPredictions(false)}
+              disabled={clearState[0]}
+              className="px-3 py-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-700 text-xs font-medium transition-all disabled:opacity-50"
+            >
+              {clearState[0] ? 'Clearing...' : 'Clear all predictions'}
+            </button>
           </div>
           <div className="w-full max-w-xl ml-8">
             <FilterBar

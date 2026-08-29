@@ -127,6 +127,16 @@ export const api = {
     request(`/projects/${pid}/ml-annotations/${rowIndex}`, { method: 'DELETE' }),
   deleteAllMLAnnotations: (pid: string) =>
     request(`/projects/${pid}/ml-annotations`, { method: 'DELETE' }),
+  bulkClearAnnotations: (pid: string, userId: string, filter: any[] = []) =>
+    request(`/projects/${pid}/annotations/bulk?user_id=${userId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ filter }),
+    }),
+  bulkClearMLAnnotations: (pid: string, userId: string, filter: any[] = []) =>
+    request(`/projects/${pid}/ml-annotations/bulk?user_id=${userId}`, {
+      method: 'DELETE',
+      body: JSON.stringify({ filter }),
+    }),
   importRows: (pid: string, rows: any[]) =>
     request<any>(`/projects/${pid}/rows/bulk`, { method: 'POST', body: JSON.stringify({ rows }) }),
 };

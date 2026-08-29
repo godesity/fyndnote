@@ -308,3 +308,74 @@ def test_delete_annotation_endpoint(client):
 
     # 404 for unknown project
     assert client.delete("/api/v1/projects/nope/annotations").status_code == 404
+
+
+def _seed_annotations(client, pid):
+    client.post(f"/api/v1/projects/{pid}/annotate", json={
+        "row_index": 0, "user_id": "alice", "data": {"sentiment": "positive"}
+    })
+    client.post(f"/api/v1/projects/{pid}/annotate", json={
+        "row_index": 1, "user_id": "alice", "data": {"sentiment": "negative"}
+    })
+
+
+def test_bulk_clear_annotations_filtered(client):
+    pid = _make_project(client)
+    _seed_annotations(client, pid)
+
+    resp = client.request("DELETE", f"/api/v1/projects/{pid}/annotations/bulk?user_id=alice", json={
+        "filter": [{"field": "row_index", "operator": "=", "value": "0", "conjunction": "AND"}]
+    })
+    assert resp.json()["rows"] == 1
+
+    # row 0 cleared, row 1 still annotated
+    from services.annotation_service import AnnotationService
+    assert AnnotationService.get_annotation(pid, 0, "alice") is None
+    assert AnnotationService.get_annotation(pid, 1, "alice") is not None
+
+
+def test_bulk_clear_annotations_all(client):
+    pid = _make_project(client)
+    _seed_annotations(client, pid)
+
+    resp = client.request("DELETE", f"/api/v1/projects/{pid}/annotations/bulk?user_id=alice", json={"filter": []})
+    assert resp.status_code == 200
+    assert resp.json()["rows"] == 2
+
+    from services.annotation_service import AnnotationService
+    assert AnnotationService.get_annotation(pid, 0, "alice") is None
+    assert AnnotationService.get_annotation(pid, 1, "alice") is None
+
+
+def test_bulk_clear_ml_annotations(client):
+    pid = _make_project(client)
+    client.post(f"/api/v1/projects/{pid}/annotate", json={
+        "row_index": 0, "user_id": "alice", "data": {"sentiment": "positive"}
+    })
+    # seed an ML annotation directly via the DB (no ML backend needed)
+    from database import get_db
+    db = get_db()
+    db.execute(
+        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        (pid, 0, "ml", '{"pred": 1}'),
+    )
+    db.commit()
+    db.close()
+
+    resp = client.request("DELETE", f"/api/v1/projects/{pid}/ml-annotations/bulk?user_id=alice", json={"filter": []})
+    assert resp.status_code == 200
+    assert resp.json()["rows"] == 1
+
+
+def test_bulk_clear_annotations_forbidden_for_annotator(client):
+    pid = _make_project(client)
+    _seed_annotations(client, pid)
+
+    # bob is a global annotator and has no project_admin on this project
+    resp = client.request("DELETE", f"/api/v1/projects/{pid}/annotations/bulk?user_id=bob", json={"filter": []})
+    assert resp.status_code == 403
+
+
+def test_bulk_clear_annotations_404(client):
+    resp = client.request("DELETE", "/api/v1/projects/nope/annotations/bulk?user_id=alice", json={"filter": []})
+    assert resp.status_code == 404

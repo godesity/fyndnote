@@ -314,6 +314,64 @@ def _pyarrow_fallback(py_val, op: str, search_val: str) -> bool:
     return False
 
 
+def _resolve_matching_indices(pid: str, user_id: str, filter_exprs: list) -> list[int]:
+    """Apply the browse filter pipeline and return the matching row indices."""
+    db = get_db()
+    project = db.execute(
+        "SELECT dataset_id FROM fyndnot_projects WHERE id = ?", (pid,)
+    ).fetchone()
+    if not project:
+        db.close()
+        return []
+
+    ds_id = project["dataset_id"]
+    ds = DatasetService._load_ds(ds_id)
+    from services.project_dataset import ProjectDatasetService
+
+    meta = ProjectDatasetService.get_meta(pid)
+    if meta is not None:
+        num_rows = ProjectDatasetService.num_rows(pid)
+    else:
+        num_rows = len(ds)
+
+    current = list(range(num_rows))
+
+    if not filter_exprs:
+        db.close()
+        return current
+
+    row_index_exprs = [fe for fe in filter_exprs if fe.field == "row_index"]
+    for expr in row_index_exprs:
+        current = _apply_row_index_filter(current, expr)
+
+    meta_exprs = [
+        fe
+        for fe in filter_exprs
+        if fe.field.startswith("annotations.") and fe.field != "annotations."
+    ]
+    for expr in meta_exprs:
+        current = _apply_annotation_meta_filter(db, current, expr, user_id, pid)
+
+    ann_exprs = [
+        fe
+        for fe in filter_exprs
+        if fe.field.startswith("annotation.") and fe.field != "annotation."
+    ]
+    for expr in ann_exprs:
+        current = _apply_annotation_data_filter(db, current, expr, pid)
+
+    data_exprs = [
+        fe
+        for fe in filter_exprs
+        if fe.field.startswith("data.") and fe.field != "data."
+    ]
+    for expr in data_exprs:
+        current = _apply_data_field_filter(current, expr, ds)
+
+    db.close()
+    return current
+
+
 class AnnotationService:
     @staticmethod
     def create_project(
@@ -327,6 +385,7 @@ class AnnotationService:
         ml_url: str = "",
         ml_annotator: str = "",
         ml_mode: str = "on_navigate",
+        user_id: str | None = None,
     ) -> dict:
         db = get_db()
         pid = str(uuid.uuid4())
@@ -348,6 +407,13 @@ class AnnotationService:
                 ml_mode,
             ),
         )
+        # Grant the creator access to the project so it shows up in /projects
+        # for non-admin users (list_projects filters by fyndnot_project_permissions).
+        if user_id:
+            db.execute(
+                "INSERT OR IGNORE INTO fyndnot_project_permissions (user_id, project_id, role) VALUES (?, ?, ?)",
+                (user_id, pid, "project_admin"),
+            )
         db.commit()
         proj = db.execute(
             "SELECT * FROM fyndnot_projects WHERE id = ?", (pid,)
@@ -568,6 +634,34 @@ class AnnotationService:
         return cur.rowcount
 
     @staticmethod
+    def delete_annotations_for_rows(pid: str, row_indices: list[int]) -> int:
+        if not row_indices:
+            return 0
+        db = get_db()
+        placeholders = ",".join("?" * len(row_indices))
+        cur = db.execute(
+            f"DELETE FROM fyndnot_annotations WHERE project_id = ? AND row_index IN ({placeholders})",
+            [pid] + row_indices,
+        )
+        db.commit()
+        db.close()
+        return cur.rowcount
+
+    @staticmethod
+    def delete_ml_annotations_for_rows(pid: str, row_indices: list[int]) -> int:
+        if not row_indices:
+            return 0
+        db = get_db()
+        placeholders = ",".join("?" * len(row_indices))
+        cur = db.execute(
+            f"DELETE FROM fyndnot_ml_annotations WHERE project_id = ? AND row_index IN ({placeholders})",
+            [pid] + row_indices,
+        )
+        db.commit()
+        db.close()
+        return cur.rowcount
+
+    @staticmethod
     def get_row_annotation_status(pid: str, row_index: int, user_id: str) -> dict:
         db = get_db()
         rows = db.execute(
@@ -673,42 +767,9 @@ class AnnotationService:
                 return DatasetService.get_row(ds_id, idx)
 
         total_rows = num_rows
-        all_indices = list(range(total_rows))
 
         # ---- FILTER PIPELINE ----
-        current = all_indices[:]
-
-        # 1. Row index filters (computational, cheapest)
-        row_index_exprs = [fe for fe in filter_exprs if fe.field == "row_index"]
-        for expr in row_index_exprs:
-            current = _apply_row_index_filter(current, expr)
-
-        # 2. Annotation metadata filters (SQL — annotations.count, annotations.annotated_by)
-        meta_exprs = [
-            fe
-            for fe in filter_exprs
-            if fe.field.startswith("annotations.") and fe.field != "annotations."
-        ]
-        for expr in meta_exprs:
-            current = _apply_annotation_meta_filter(db, current, expr, user_id, pid)
-
-        # 3. Annotation data filters (SQL — json_extract on annotation.*)
-        ann_exprs = [
-            fe
-            for fe in filter_exprs
-            if fe.field.startswith("annotation.") and fe.field != "annotation."
-        ]
-        for expr in ann_exprs:
-            current = _apply_annotation_data_filter(db, current, expr, pid)
-
-        # 4. Data field filters (Arrow — data.*)
-        data_exprs = [
-            fe
-            for fe in filter_exprs
-            if fe.field.startswith("data.") and fe.field != "data."
-        ]
-        for expr in data_exprs:
-            current = _apply_data_field_filter(current, expr, ds)
+        current = _resolve_matching_indices(pid, user_id, filter_exprs)
 
         # ---- PAGINATION ----
         current.sort()
