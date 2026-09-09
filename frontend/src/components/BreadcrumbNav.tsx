@@ -12,6 +12,14 @@ export default function BreadcrumbNav({ crumbs }: { crumbs: Crumb[] }) {
         </span>
       </a>
       <span className="text-[var(--color-border)]">|</span>
+      <a
+        href="/fyndnote/"
+        title="Documentation"
+        className="hover:text-sunset-500 transition-colors no-underline"
+      >
+        Docs
+      </a>
+      <span className="text-[var(--color-border)]">|</span>
       {crumbs.map((crumb, i) => (
         <span key={i} className="flex items-center gap-2">
           {i > 0 && <span className="text-[var(--color-text-muted)]">/</span>}

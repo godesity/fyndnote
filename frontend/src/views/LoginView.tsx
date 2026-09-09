@@ -59,6 +59,14 @@ export default function LoginView() {
               {error && (
                 <p className="text-red-500 text-sm text-center">{error}</p>
               )}
+              <p className="text-center">
+                <a
+                  href="/fyndnote/"
+                  className="text-sm text-[var(--color-text-muted)] hover:text-sunset-500 transition-colors no-underline"
+                >
+                  Read the docs
+                </a>
+              </p>
             </div>
           </div>
         </div>

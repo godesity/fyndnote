@@ -79,6 +79,7 @@ export default withMermaid(defineConfig({
       { text: 'Install', link: '/install' },
       { text: 'User Guide', link: '/guide/' },
       { text: 'API Reference', link: '/api/' },
+      { text: 'Open the app', link: '/' },
     ],
     sidebar: {
       '/install/': [
