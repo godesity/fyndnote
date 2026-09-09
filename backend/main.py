@@ -40,6 +40,18 @@ def startup():
 from routers import auth, datasets, projects, sso, templates
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve the built VitePress docs site (public; no auth) under /fyndnote.
+repo_root = Path(__file__).resolve().parent.parent
+docs_dist = Path(
+    os.getenv("DOCS_DIST", str(repo_root / "docs" / ".vitepress" / "dist"))
+)
+if docs_dist.is_dir():
+    app.mount(
+        "/fyndnote",
+        StaticFiles(directory=str(docs_dist), html=True),
+        name="docs",
+    )
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(templates.router, prefix="/api/v1")
@@ -65,8 +77,10 @@ if frontend_dist.is_dir():
 
     @app.exception_handler(404)
     async def spa_fallback(request, exc):
-        if request.url.path.startswith("/api/") or request.url.path.startswith(
-            "/static/"
+        if (
+            request.url.path.startswith("/api/")
+            or request.url.path.startswith("/static/")
+            or request.url.path.startswith("/fyndnote")
         ):
             return PlainTextResponse("Not Found", status_code=404)
         index = frontend_dist / "index.html"
