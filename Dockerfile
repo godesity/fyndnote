@@ -6,6 +6,13 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
+# Stage 1b: Build docs site
+FROM node:20-alpine AS docs
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY docs/ ./docs/
+RUN npm ci && npm run docs:build
+
 # Stage 2: Backend + static frontend
 FROM python:3.11-slim
 WORKDIR /app/backend
@@ -41,6 +48,10 @@ COPY data/users.json /app/data/users.json
 
 # Copy built frontend
 COPY --from=frontend /app/frontend/dist /app/frontend/dist
+
+# Copy built docs (served at /fyndnote by FastAPI)
+COPY --from=docs /app/docs/.vitepress/dist /app/docs/dist
+ENV DOCS_DIST=/app/docs/dist
 
 # Give the app user ownership of the runtime files and data dir
 RUN mkdir -p /app/data && chown -R app:app /app
