@@ -59,3 +59,32 @@
 .VPButton.brand:hover {
   background: var(--fyndnot-gradient-btn-hover);
 }
+
+/* Home page screenshot grid — desktop: 3 columns */
+.fyndnot-screenshots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0 64px;
+}
+@media (max-width: 768px) {
+  .fyndnot-screenshots {
+    grid-template-columns: 1fr;
+  }
+}
+.fyndnot-screenshots figure {
+  margin: 0;
+}
+.fyndnot-screenshots img {
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--vp-c-divider);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.08);
+}
+.fyndnot-screenshots figcaption {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+}
