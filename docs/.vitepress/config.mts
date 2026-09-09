@@ -7,6 +7,19 @@ export default withMermaid(defineConfig({
   base: '/fyndnote/',
   lang: 'en-US',
 
+  // Pre-bundle fastdom for the dev server: mermaid's ESM chunks do a default
+  // import of it, but fastdom 1.x ships only a UMD build with no ESM exports,
+  // so served raw via @fs the browser throws "does not provide an export
+  // named 'default'". Pre-bundling gives it proper default-export interop.
+  vite: {
+    optimizeDeps: {
+      include: [
+        'fastdom',
+        'fastdom/extensions/fastdom-promised.js',
+      ],
+    },
+  },
+
   // Centralized Mermaid styling — applies to every diagram, no per-diagram overrides.
   mermaid: {
     theme: 'base',
