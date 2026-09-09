@@ -1,4 +1,4 @@
-"""Generate the OpenAPI/Swagger JSON for the fyndnot docs site.
+"""Generate the OpenAPI/Swagger JSON for the fyndnote docs site.
 
 Run from the backend directory:
     uv run python tools/gen_openapi.py

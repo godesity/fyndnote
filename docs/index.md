@@ -1,7 +1,7 @@
 ---
 layout: home
 hero:
-  name: fyndnot
+  name: fyndnote
   text: ML dataset annotation tool
   tagline: Every new dataset has meant a new labeling app. Not anymore.
   actions:
@@ -24,7 +24,7 @@ features:
 
 ## Goal
 
-fyndnot turns any dataset into an annotation project: load your data, define the
+fyndnote turns any dataset into an annotation project: load your data, define the
 labeling UI from reusable widgets with a live preview, collect annotations from
 annotators, and export labeled rows as Parquet — without writing frontend code.
 
@@ -43,7 +43,7 @@ Full walkthrough: [User Guide](/guide/).
 
 ## Screenshots
 
-<div class="fyndnot-screenshots">
+<div class="fyndnote-screenshots">
 
 <figure>
   <img src="./public/images/setup.png" alt="Admin creates a project" />

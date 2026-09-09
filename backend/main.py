@@ -12,7 +12,7 @@ from database import init_db, seed_from_json
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
 
-app = FastAPI(title="fyndnot")
+app = FastAPI(title="fyndnote")
 
 app.add_middleware(
     CORSMiddleware,

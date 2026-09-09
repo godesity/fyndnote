@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
 
 export default withMermaid(defineConfig({
-  title: 'fyndnot',
+  title: 'fyndnote',
   description: 'A general-purpose ML dataset annotation tool',
   base: '/fyndnote/',
   lang: 'en-US',
@@ -117,7 +117,7 @@ export default withMermaid(defineConfig({
       ],
     },
     footer: {
-      message: 'fyndnot — ML dataset annotation',
+      message: 'fyndnote — ML dataset annotation',
       copyright: 'MIT License',
     },
   },

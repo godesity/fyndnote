@@ -1,4 +1,4 @@
-/* fyndnot brand palette + gradients — mirrors the product's sunset/coral/violet theme. */
+/* fyndnote brand palette + gradients — mirrors the product's sunset/coral/violet theme. */
 :root {
   /* Brand — sunset orange (the product's primary accent) */
   --vp-c-brand-1: #ea580c; /* sunset-600 */
@@ -16,10 +16,10 @@
   --vp-c-violet-1: #8b5cf6;
   --vp-c-violet-2: #7c3aed;
 
-  /* Signature fyndnot gradients (sunset -> coral -> violet) */
-  --fyndnot-gradient-text: linear-gradient(90deg, #f97316, #ec4899, #8b5cf6);
-  --fyndnot-gradient-btn: linear-gradient(135deg, #f97316, #ec4899);
-  --fyndnot-gradient-btn-hover: linear-gradient(135deg, #ea580c, #db2777);
+  /* Signature fyndnote gradients (sunset -> coral -> violet) */
+  --fyndnote-gradient-text: linear-gradient(90deg, #f97316, #ec4899, #8b5cf6);
+  --fyndnote-gradient-btn: linear-gradient(135deg, #f97316, #ec4899);
+  --fyndnote-gradient-btn-hover: linear-gradient(135deg, #ea580c, #db2777);
 }
 
 /* Links use the sunset brand; hover warms to coral */
@@ -36,7 +36,7 @@
 
 /* Home hero name — gradient brand text (sunset -> coral -> violet) */
 .VPHero .name {
-  background: var(--fyndnot-gradient-text);
+  background: var(--fyndnote-gradient-text);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -52,37 +52,37 @@
 
 /* Primary brand buttons get the product's sunset->coral gradient */
 .VPButton.brand {
-  background: var(--fyndnot-gradient-btn);
+  background: var(--fyndnote-gradient-btn);
   border-color: transparent;
   box-shadow: 0 1px 3px rgb(234 88 12 / 0.35);
 }
 .VPButton.brand:hover {
-  background: var(--fyndnot-gradient-btn-hover);
+  background: var(--fyndnote-gradient-btn-hover);
 }
 
 /* Home page screenshot grid — desktop: 3 columns */
-.fyndnot-screenshots {
+.fyndnote-screenshots {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin: 24px 0 64px;
 }
 @media (max-width: 768px) {
-  .fyndnot-screenshots {
+  .fyndnote-screenshots {
     grid-template-columns: 1fr;
   }
 }
-.fyndnot-screenshots figure {
+.fyndnote-screenshots figure {
   margin: 0;
 }
-.fyndnot-screenshots img {
+.fyndnote-screenshots img {
   display: block;
   width: 100%;
   border-radius: 12px;
   border: 1px solid var(--vp-c-divider);
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.08);
 }
-.fyndnot-screenshots figcaption {
+.fyndnote-screenshots figcaption {
   margin-top: 8px;
   text-align: center;
   font-size: 13px;

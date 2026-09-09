@@ -128,7 +128,7 @@ def test_delete_project(client):
     # so orphaned rows would otherwise survive invisibly)
     db = get_db()
     try:
-        for table in ("fyndnot_annotations", "fyndnot_ml_annotations"):
+        for table in ("fyndnote_annotations", "fyndnote_ml_annotations"):
             assert db.execute(
                 f"SELECT COUNT(*) FROM {table} WHERE project_id = ?", (pid,)
             ).fetchone()[0] == 0
@@ -195,7 +195,7 @@ def test_delete_all_annotations_for_project(client):
     db = get_db()
     try:
         assert db.execute(
-            "SELECT COUNT(*) FROM fyndnot_annotations WHERE project_id = ?", (pid,)
+            "SELECT COUNT(*) FROM fyndnote_annotations WHERE project_id = ?", (pid,)
         ).fetchone()[0] == 0
     finally:
         db.close()
@@ -208,7 +208,7 @@ def test_delete_ml_annotation_for_row(client):
     from database import get_db
     db = get_db()
     db.execute(
-        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
         (pid, 0, "ml", '{"pred": 1}'),
     )
     db.commit()
@@ -219,7 +219,7 @@ def test_delete_ml_annotation_for_row(client):
     db = get_db()
     try:
         assert db.execute(
-            "SELECT COUNT(*) FROM fyndnot_ml_annotations WHERE project_id = ? AND row_index = ?",
+            "SELECT COUNT(*) FROM fyndnote_ml_annotations WHERE project_id = ? AND row_index = ?",
             (pid, 0),
         ).fetchone()[0] == 0
     finally:
@@ -233,11 +233,11 @@ def test_delete_all_ml_annotations_for_project(client):
     from database import get_db
     db = get_db()
     db.execute(
-        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
         (pid, 0, "ml", '{"pred": 1}'),
     )
     db.execute(
-        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
         (pid, 1, "ml", '{"pred": 2}'),
     )
     db.commit()
@@ -248,7 +248,7 @@ def test_delete_all_ml_annotations_for_project(client):
     db = get_db()
     try:
         assert db.execute(
-            "SELECT COUNT(*) FROM fyndnot_ml_annotations WHERE project_id = ?", (pid,)
+            "SELECT COUNT(*) FROM fyndnote_ml_annotations WHERE project_id = ?", (pid,)
         ).fetchone()[0] == 0
     finally:
         db.close()
@@ -268,11 +268,11 @@ def test_delete_annotation_endpoint(client):
     from database import get_db
     db = get_db()
     db.execute(
-        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
         (pid, 0, "ml", '{"pred": 1}'),
     )
     db.execute(
-        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
         (pid, 1, "ml", '{"pred": 2}'),
     )
     db.commit()
@@ -356,7 +356,7 @@ def test_bulk_clear_ml_annotations(client):
     from database import get_db
     db = get_db()
     db.execute(
-        "INSERT INTO fyndnot_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
+        "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
         (pid, 0, "ml", '{"pred": 1}'),
     )
     db.commit()

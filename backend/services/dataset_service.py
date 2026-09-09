@@ -179,7 +179,7 @@ class DatasetService:
         )
         db = get_db()
         rows = db.execute(
-            "SELECT id FROM fyndnot_datasets WHERE s3_uploaded = 1 ORDER BY created_at ASC"
+            "SELECT id FROM fyndnote_datasets WHERE s3_uploaded = 1 ORDER BY created_at ASC"
         ).fetchall()
         db.close()
         for (ds_id,) in rows:
@@ -242,7 +242,7 @@ class DatasetService:
         s3_uploaded = 1 if s3 is not None else 0
         db = get_db()
         db.execute(
-            """INSERT INTO fyndnot_datasets (id, source, source_type, source_format, hf_name, hf_split, num_rows, columns, created_at, s3_uploaded)
+            """INSERT INTO fyndnote_datasets (id, source, source_type, source_format, hf_name, hf_split, num_rows, columns, created_at, s3_uploaded)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 ds_id,
@@ -268,7 +268,7 @@ class DatasetService:
     def list_datasets(cls) -> list[dict]:
         db = get_db()
         rows = db.execute(
-            "SELECT * FROM fyndnot_datasets ORDER BY created_at DESC"
+            "SELECT * FROM fyndnote_datasets ORDER BY created_at DESC"
         ).fetchall()
         db.close()
         result = []
@@ -294,13 +294,13 @@ class DatasetService:
     def dataset_details(cls, ds_id: str) -> dict | None:
         db = get_db()
         row = db.execute(
-            "SELECT * FROM fyndnot_datasets WHERE id = ?", (ds_id,)
+            "SELECT * FROM fyndnote_datasets WHERE id = ?", (ds_id,)
         ).fetchone()
         if not row:
             db.close()
             return None
         projects = db.execute(
-            "SELECT id, name, color FROM fyndnot_projects WHERE dataset_id = ? ORDER BY created_at",
+            "SELECT id, name, color FROM fyndnote_projects WHERE dataset_id = ? ORDER BY created_at",
             (ds_id,),
         ).fetchall()
         result_projects = []
@@ -308,15 +308,15 @@ class DatasetService:
         total_predictions = 0
         for p in projects:
             annotated_rows = db.execute(
-                "SELECT COUNT(DISTINCT row_index) FROM fyndnot_annotations WHERE project_id = ?",
+                "SELECT COUNT(DISTINCT row_index) FROM fyndnote_annotations WHERE project_id = ?",
                 (p["id"],),
             ).fetchone()[0]
             annotations = db.execute(
-                "SELECT COUNT(*) FROM fyndnot_annotations WHERE project_id = ?",
+                "SELECT COUNT(*) FROM fyndnote_annotations WHERE project_id = ?",
                 (p["id"],),
             ).fetchone()[0]
             predictions = db.execute(
-                "SELECT COUNT(*) FROM fyndnot_ml_annotations WHERE project_id = ?",
+                "SELECT COUNT(*) FROM fyndnote_ml_annotations WHERE project_id = ?",
                 (p["id"],),
             ).fetchone()[0]
             total_annotations += annotations
@@ -360,7 +360,7 @@ class DatasetService:
         # Read metadata from database
         db = get_db()
         row = db.execute(
-            "SELECT * FROM fyndnot_datasets WHERE id = ?", (ds_id,)
+            "SELECT * FROM fyndnote_datasets WHERE id = ?", (ds_id,)
         ).fetchone()
         db.close()
         if not row:

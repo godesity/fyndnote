@@ -1,6 +1,6 @@
-# fyndnot User Guide
+# fyndnote User Guide
 
-fyndnot is a general-purpose **ML dataset annotation tool**. It loads datasets, defines labeling UIs via React templates rendered in `react-live`, and collects annotations from annotators.
+fyndnote is a general-purpose **ML dataset annotation tool**. It loads datasets, defines labeling UIs via React templates rendered in `react-live`, and collects annotations from annotators.
 
 ## Workflows
 

@@ -1,6 +1,6 @@
 # Install
 
-fyndnot ships as a Docker image that serves both the backend and the built frontend from one container. You can run it with **Docker Compose** (recommended, includes an optional MinIO S3 cache) or with the **plain Docker CLI**.
+fyndnote ships as a Docker image that serves both the backend and the built frontend from one container. You can run it with **Docker Compose** (recommended, includes an optional MinIO S3 cache) or with the **plain Docker CLI**.
 
 ## Prerequisites
 
@@ -9,7 +9,7 @@ fyndnot ships as a Docker image that serves both the backend and the built front
 
 ## Architecture
 
-The install runs two main pieces: the **fyndnot app container** (backend + built frontend) and, optionally, a **MinIO** S3-compatible cache. Persistent state lives on the host via a bind-mount of `./data`.
+The install runs two main pieces: the **fyndnote app container** (backend + built frontend) and, optionally, a **MinIO** S3-compatible cache. Persistent state lives on the host via a bind-mount of `./data`.
 
 ```mermaid
 flowchart LR
@@ -18,7 +18,7 @@ flowchart LR
     browser[Browser - localhost:8000]
   end
 
-  subgraph app[fyndnot container :8000]
+  subgraph app[fyndnote container :8000]
     frontend[React frontend]
     backend[FastAPI backend]
     sqlite[(Database - sqlite or postgres)]
@@ -72,17 +72,17 @@ This:
 Build the image:
 
 ```bash
-docker build -t fyndnot .
+docker build -t fyndnote .
 ```
 
 Run without S3 (local-only mode):
 
 ```bash
-docker run -d --name fyndnot \
+docker run -d --name fyndnote \
   -p 8000:8000 \
   -v "$(pwd)/data:/app/data" \
   -e S3_CACHE_ENABLED=false \
-  fyndnot
+  fyndnote
 ```
 
 Open **`http://localhost:8000`** — the built frontend is served at `/`, and the Swagger UI is at `/docs`.
@@ -96,7 +96,7 @@ docker run -d --name minio \
   -e MINIO_ROOT_PASSWORD=minioadmin \
   minio/minio server /data --console-address ":9001"
 
-docker run -d --name fyndnot \
+docker run -d --name fyndnote \
   -p 8000:8000 \
   -v "$(pwd)/data:/app/data" \
   -e S3_CACHE_ENABLED=true \
@@ -105,7 +105,7 @@ docker run -d --name fyndnot \
   -e S3_ENDPOINT_URL=http://localhost:9000 \
   -e AWS_ACCESS_KEY_ID=minioadmin \
   -e AWS_SECRET_ACCESS_KEY=minioadmin \
-  fyndnot
+  fyndnote
 ```
 
 ## Data persistence
@@ -124,7 +124,7 @@ The image copies a default `data/users.json` into `/app/data`, but the bind-moun
 docker compose down
 
 # cli
-docker stop fyndnot
+docker stop fyndnote
 ```
 
 To reset everything, delete the `data/` folder and run again — the DB is recreated from `users.json`.

@@ -6,7 +6,7 @@ DATA_DIR = ROOT / "data"
 DATABASE_PATH = DATA_DIR / "labeling.db"
 
 # Set DATABASE_URL to use PostgreSQL instead of SQLite, e.g.:
-#   DATABASE_URL=postgresql://user:pass@localhost:5432/fyndnot
+#   DATABASE_URL=postgresql://user:pass@localhost:5432/fyndnote
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 DATABASE_TYPE = "postgres" if DATABASE_URL else "sqlite"
 DATASETS_DIR = DATA_DIR / "datasets"
@@ -33,8 +33,8 @@ DISK_USAGE_THRESHOLD = float(os.getenv("DISK_USAGE_THRESHOLD", "0.9"))
 # ---------------------------------------------------------------------------
 SSO_ENABLED = os.getenv("SSO_ENABLED", "false").lower() == "true"
 KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://localhost:8080")
-KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "fyndnot")
-KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "fyndnot-app")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "fyndnote")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "fyndnote-app")
 KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "")
 # Public redirect URI that Keycloak sends the auth code back to. Point it at the
 # backend callback so Keycloak redirects the browser (top-level nav) to the API
@@ -43,4 +43,4 @@ KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "")
 SSO_REDIRECT_URI = os.getenv("SSO_REDIRECT_URI", "http://localhost:8000/api/v1/sso")
 # SPA origin the backend redirects to with the token after a successful exchange.
 SSO_APP_ORIGIN = os.getenv("SSO_APP_ORIGIN", "http://localhost:8000")
-SSO_AUDIENCE = os.getenv("SSO_AUDIENCE", "fyndnot-app")
+SSO_AUDIENCE = os.getenv("SSO_AUDIENCE", "fyndnote-app")

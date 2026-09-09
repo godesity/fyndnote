@@ -30,16 +30,16 @@ def _upsert_user(identity: dict) -> dict:
     sub = identity["sub"]
     db = get_db()
     row = db.execute(
-        "SELECT id, name, global_role FROM fyndnot_users WHERE id = ?", (sub,)
+        "SELECT id, name, global_role FROM fyndnote_users WHERE id = ?", (sub,)
     ).fetchone()
     if row:
         db.execute(
-            "UPDATE fyndnot_users SET name = ?, global_role = ? WHERE id = ?",
+            "UPDATE fyndnote_users SET name = ?, global_role = ? WHERE id = ?",
             (identity["name"], identity["global_role"], sub),
         )
     else:
         db.execute(
-            "INSERT INTO fyndnot_users (id, name, global_role) VALUES (?, ?, ?)",
+            "INSERT INTO fyndnote_users (id, name, global_role) VALUES (?, ?, ?)",
             (sub, identity["name"], identity["global_role"]),
         )
     db.commit()
@@ -47,7 +47,7 @@ def _upsert_user(identity: dict) -> dict:
     # Project roles come from the local DB (seeded via users.json) — SSO
     # realm roles govern global_role only.
     perms = db.execute(
-        "SELECT project_id, role FROM fyndnot_project_permissions WHERE user_id = ?",
+        "SELECT project_id, role FROM fyndnote_project_permissions WHERE user_id = ?",
         (sub,),
     ).fetchall()
     project_roles = {p["project_id"]: p["role"] for p in perms} if perms else None

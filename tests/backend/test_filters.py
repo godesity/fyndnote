@@ -101,7 +101,7 @@ def _seed_ml_annotations(client, pid, rows, label="cat", annotator="ml-model"):
     db = get_db()
     for idx in rows:
         db.execute(
-            "INSERT OR REPLACE INTO fyndnot_ml_annotations "
+            "INSERT OR REPLACE INTO fyndnote_ml_annotations "
             "(project_id, row_index, annotator, data, created_at, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (pid, idx, annotator, json.dumps({"label": label}),

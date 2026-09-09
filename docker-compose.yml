@@ -15,14 +15,14 @@ services:
       - DISK_USAGE_THRESHOLD=0.1
       - DOCS_DIST=/app/docs/dist
       # Empty = SQLite (default). For the pg profile use:
-      #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/fyndnot docker compose --profile pg up
+      #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/fyndnote docker compose --profile pg up
       - DATABASE_URL=${DATABASE_URL:-}
       # Keycloak SSO (MinIO-style OpenID Connect). Disabled by default.
       - SSO_ENABLED=${SSO_ENABLED:-false}
       - KEYCLOAK_URL=${KEYCLOAK_URL:-http://localhost:8080}
-      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-fyndnot}
-      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-fyndnot-app}
-      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-fyndnot-secret}
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-fyndnote}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-fyndnote-app}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-fyndnote-secret}
       - SSO_REDIRECT_URI=${SSO_REDIRECT_URI:-http://localhost:8000/api/v1/sso}
     volumes:
       - ./data:/app/data
@@ -41,7 +41,7 @@ services:
     command: start-dev --import-realm
     restart: unless-stopped
     volumes:
-      - ./data/fyndnot-realm.json:/opt/keycloak/data/import/fyndnot-realm.json
+      - ./data/fyndnote-realm.json:/opt/keycloak/data/import/fyndnote-realm.json
 
   pg:
     image: postgres:16-alpine
@@ -50,7 +50,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=fyndnot
+      - POSTGRES_DB=fyndnote
     ports:
       - "5432:5432"
     volumes:

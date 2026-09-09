@@ -23,13 +23,13 @@ def _can_clear(pid: str, user_id: str) -> bool:
 
     db = get_db()
     user = db.execute(
-        "SELECT global_role FROM fyndnot_users WHERE id = ?", (user_id,)
+        "SELECT global_role FROM fyndnote_users WHERE id = ?", (user_id,)
     ).fetchone()
     if user and user["global_role"] == "system_admin":
         db.close()
         return True
     perm = db.execute(
-        "SELECT role FROM fyndnot_project_permissions WHERE user_id = ? AND project_id = ?",
+        "SELECT role FROM fyndnote_project_permissions WHERE user_id = ? AND project_id = ?",
         (user_id, pid),
     ).fetchone()
     db.close()

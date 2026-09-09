@@ -26,7 +26,7 @@ def call_ml_backend(url: str, row_data: dict) -> dict | None:
 def get_ml_annotation(pid: str, row_index: int) -> dict | None:
     db = get_db()
     row = db.execute(
-        "SELECT * FROM fyndnot_ml_annotations WHERE project_id = ? AND row_index = ?",
+        "SELECT * FROM fyndnote_ml_annotations WHERE project_id = ? AND row_index = ?",
         (pid, row_index),
     ).fetchone()
     db.close()
@@ -61,7 +61,7 @@ def prefill_row(pid: str, row_index: int) -> dict:
     db = get_db()
     now = datetime.now(UTC).isoformat()
     db.execute(
-        "INSERT OR REPLACE INTO fyndnot_ml_annotations (project_id, row_index, annotator, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO fyndnote_ml_annotations (project_id, row_index, annotator, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
         (pid, row_index, project["ml_annotator"], json.dumps(annotation), now, now),
     )
     db.commit()
@@ -88,7 +88,7 @@ def batch_prefill(pid: str, row_indices: list[int] | None = None) -> dict:
     existing = {
         r[0]
         for r in db.execute(
-            "SELECT row_index FROM fyndnot_ml_annotations WHERE project_id = ?", (pid,)
+            "SELECT row_index FROM fyndnote_ml_annotations WHERE project_id = ?", (pid,)
         ).fetchall()
     }
     db.close()
@@ -105,7 +105,7 @@ def batch_prefill(pid: str, row_indices: list[int] | None = None) -> dict:
             db = get_db()
             now = datetime.now(UTC).isoformat()
             db.execute(
-                "INSERT OR REPLACE INTO fyndnot_ml_annotations (project_id, row_index, annotator, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT OR REPLACE INTO fyndnote_ml_annotations (project_id, row_index, annotator, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
                 (pid, idx, project["ml_annotator"], json.dumps(annotation), now, now),
             )
             db.commit()
@@ -120,7 +120,7 @@ def batch_prefill(pid: str, row_indices: list[int] | None = None) -> dict:
 def _get_project_settings(pid: str) -> dict | None:
     db = get_db()
     p = db.execute(
-        "SELECT dataset_id, ml_enabled, ml_url, ml_annotator, ml_mode FROM fyndnot_projects WHERE id = ?",
+        "SELECT dataset_id, ml_enabled, ml_url, ml_annotator, ml_mode FROM fyndnote_projects WHERE id = ?",
         (pid,),
     ).fetchone()
     db.close()

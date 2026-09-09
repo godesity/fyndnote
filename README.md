@@ -1,4 +1,4 @@
-# fyndnot
+# fyndnote
 
 A general-purpose ML dataset annotation tool. Define labeling interfaces via restricted React component templates rendered in `react-live`. Supports text, image (bounding box), and audio annotation through reusable widgets.
 
@@ -66,7 +66,7 @@ Opens at `http://localhost:5173`.
 
 ## Single Sign-On (Keycloak, MinIO-style OIDC)
 
-fyndnot can authenticate through Keycloak using the standard OpenID Connect
+fyndnote can authenticate through Keycloak using the standard OpenID Connect
 Authorization Code flow — the same pattern MinIO uses for its web console.
 The backend validates Keycloak-issued JWTs **statelessly** against the realm's
 JWKS endpoint (public keys fetched and cached), so no per-request call to
@@ -82,8 +82,8 @@ Keycloak is needed once keys are cached.
 
    Console: `http://localhost:8080` (admin / admin).
 
-2. In the Keycloak admin console create a realm named `fyndnot`, then a client:
-   - Client ID: `fyndnot-app`
+2. In the Keycloak admin console create a realm named `fyndnote`, then a client:
+   - Client ID: `fyndnote-app`
    - Access Type: `confidential`
    - Valid redirect URIs: `http://localhost:5173/callback`
    - (optional) Client roles `system_admin` and `annotator` mapped to users.
@@ -93,8 +93,8 @@ Keycloak is needed once keys are cached.
    ```bash
    SSO_ENABLED=true
    KEYCLOAK_URL=http://localhost:8080
-   KEYCLOAK_REALM=fyndnot
-   KEYCLOAK_CLIENT_ID=fyndnot-app
+   KEYCLOAK_REALM=fyndnote
+   KEYCLOAK_CLIENT_ID=fyndnote-app
    KEYCLOAK_CLIENT_SECRET=<client secret>
    SSO_REDIRECT_URI=http://localhost:5173
    ```
@@ -107,7 +107,7 @@ Keycloak is needed once keys are cached.
 - Keycloak **realm roles** map onto `global_role`:
   - `system_admin` → `system_admin`
   - anything else (or none) → `annotator` (least privilege)
-- **Project permissions** are still sourced from the local `fyndnot_project_permissions`
+- **Project permissions** are still sourced from the local `fyndnote_project_permissions`
   table (seeded via `data/users.json`), so realm roles govern only the global role.
 
 ### SSO endpoints
@@ -119,7 +119,7 @@ Keycloak is needed once keys are cached.
 | GET    | `/api/v1/sso/logout` | Redirect to Keycloak logout |
 | GET    | `/api/v1/sso/me` | Decode Bearer JWT → local user |
 
-The frontend stores the JWT in `localStorage` (`fyndnot_sso_token`) so refreshes
+The frontend stores the JWT in `localStorage` (`fyndnote_sso_token`) so refreshes
 stay signed in, and resolves it via `/sso/me` when needed.
 
 ## Documentation site

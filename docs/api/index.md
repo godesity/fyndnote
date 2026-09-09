@@ -1,6 +1,6 @@
 # API Overview
 
-The fyndnot backend exposes a REST API under the base path **`/api/v1`**. The full OpenAPI/Swagger schema is rendered interactively on the [Swagger page](/api/swagger).
+The fyndnote backend exposes a REST API under the base path **`/api/v1`**. The full OpenAPI/Swagger schema is rendered interactively on the [Swagger page](/api/swagger).
 
 ## Endpoints
 

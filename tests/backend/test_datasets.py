@@ -109,7 +109,7 @@ def test_dataset_details(client):
     for pid, count in ((p_a, 1), (p_b, 2)):
         for row in range(count):
             db.execute(
-                "INSERT OR REPLACE INTO fyndnot_ml_annotations "
+                "INSERT OR REPLACE INTO fyndnote_ml_annotations "
                 "(project_id, row_index, annotator, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
                 (pid, row, "ml-test", "{}", "2026-08-25T00:00:00", "2026-08-25T00:00:00"),
             )

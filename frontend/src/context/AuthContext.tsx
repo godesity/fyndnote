@@ -14,8 +14,8 @@ interface AuthCtx {
 const AuthContext = createContext<AuthCtx>(null!);
 
 // Session state lives in localStorage so a refresh keeps the JWT.
-const TOKEN_KEY = 'fyndnot_sso_token';
-const USER_KEY = 'fyndnot_sso_user';
+const TOKEN_KEY = 'fyndnote_sso_token';
+const USER_KEY = 'fyndnote_sso_user';
 
 function readSession(): { token: string | null; user: User | null } {
   const token = localStorage.getItem(TOKEN_KEY);
