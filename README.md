@@ -122,6 +122,15 @@ Keycloak is needed once keys are cached.
 The frontend stores the JWT in `localStorage` (`fyndnot_sso_token`) so refreshes
 stay signed in, and resolves it via `/sso/me` when needed.
 
+## Documentation site
+
+The docs live in `docs/` and are built with [VitePress](https://vitepress.dev/).
+
+- **Standalone dev:** `npm run docs:dev` → `http://localhost:5173/fyndnote/`
+- **In the app:** `npm run docs:build` once, then open `/fyndnote/` inside the
+  running app (dev server or Docker — the Docker image builds the docs
+  automatically and sets `DOCS_DIST`).
+
 ## Project Structure
 
 ```
