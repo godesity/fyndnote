@@ -14,7 +14,7 @@ export default function GradientBorderCard({
   if (color && !gradient) {
     return (
       <div
-        className={`rounded-xl bg-white shadow-sm border border-[var(--color-border)] hover:shadow-md transition-shadow ${className}`}
+        className={`rounded-xl bg-[var(--color-surface)] shadow-sm border border-[var(--color-border)] hover:shadow-md transition-shadow ${className}`}
         style={{ borderLeft: `4px solid ${color}` }}
       >
         {children}
@@ -24,7 +24,7 @@ export default function GradientBorderCard({
 
   return (
     <div className={`p-[2px] rounded-xl bg-gradient-to-r ${gradient} shadow-sm hover:shadow-md transition-shadow ${className}`}>
-      <div className="bg-white rounded-[calc(0.75rem-2px)] h-full">
+      <div className="bg-[var(--color-surface)] rounded-[calc(0.75rem-2px)] h-full">
         {children}
       </div>
     </div>

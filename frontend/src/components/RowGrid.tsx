@@ -52,7 +52,7 @@ export default function RowGrid({ rows, onSelect, page, total, onPageChange, col
   return (
     <div>
       {/* View toggle */}
-      <div className="flex items-center gap-1 mb-4 bg-white border border-[var(--color-border)] rounded-lg p-0.5 w-fit shadow-sm">
+      <div className="flex items-center gap-1 mb-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-0.5 w-fit shadow-sm">
         <button
           onClick={() => setViewMode('grid')}
           className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'grid' ? 'bg-gradient-to-r from-sunset-500 to-coral-500 text-white shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'}`}
@@ -89,12 +89,12 @@ export default function RowGrid({ rows, onSelect, page, total, onPageChange, col
         </div>
       ) : (
         /* ---- List view ---- */
-        <div className="bg-white rounded-lg border border-[var(--color-border)] overflow-hidden shadow-sm">
+        <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] overflow-hidden shadow-sm">
           <div className="divide-y divide-[var(--color-border)]">
             {rows.map((r) => (
               <div
                 key={r.index}
-                className="px-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                className="px-4 py-3 cursor-pointer hover:bg-[var(--color-surface-sunken)] transition-colors"
                 onClick={() => onSelect(r.index)}
               >
                 <div className="flex items-center gap-4">
@@ -126,7 +126,7 @@ export default function RowGrid({ rows, onSelect, page, total, onPageChange, col
           <button
             onClick={() => onPageChange(page - 1)}
             disabled={page <= 1}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-[var(--color-border)] text-[var(--color-text)] hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M10.3 12.7L5.6 8l4.7-4.7L9.3 2.3 3.6 8l5.7 5.7 1-1z"/></svg>
             Prev
@@ -152,7 +152,7 @@ export default function RowGrid({ rows, onSelect, page, total, onPageChange, col
                 className={`w-9 h-9 rounded-lg text-sm font-medium transition-all ${
                   page === p
                     ? 'bg-gradient-to-r from-sunset-500 to-coral-500 text-white shadow-sm'
-                    : 'bg-white border border-[var(--color-border)] text-[var(--color-text)] hover:bg-gray-50'
+                    : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)]'
                 }`}
               >
                 {p}
@@ -164,7 +164,7 @@ export default function RowGrid({ rows, onSelect, page, total, onPageChange, col
           <button
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white border border-[var(--color-border)] text-[var(--color-text)] hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1"
           >
             Next
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.7 3.3L10.4 8l-4.7 4.7 1.4 1.4L12.8 8 7.1 2.3 5.7 3.3z"/></svg>

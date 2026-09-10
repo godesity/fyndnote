@@ -57,13 +57,13 @@ export default function RowDetail({ index, row, annotations, projectId, userId, 
   };
 
   return (
-    <div className="fixed top-0 right-0 w-[500px] max-w-full h-screen bg-white border-l border-[var(--color-border)] shadow-xl z-50 flex flex-col animate-slide-in">
+    <div className="fixed top-0 right-0 w-[500px] max-w-full h-screen bg-[var(--color-surface)] border-l border-[var(--color-border)] shadow-xl z-50 flex flex-col animate-slide-in">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
         <h3 className="font-semibold text-[var(--color-text-heading)]">Row {index}</h3>
         <button
           onClick={onClose}
-          className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-all text-lg leading-none"
+          className="w-8 h-8 rounded-lg flex items-center justify-center bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface-sunken)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-all text-lg leading-none"
           title="Close"
         >
           ✕
@@ -91,7 +91,7 @@ export default function RowDetail({ index, row, annotations, projectId, userId, 
               <button
                 onClick={clearAnnotation}
                 disabled={pending === 'annotation'}
-                className="px-2.5 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs font-medium transition-all disabled:opacity-50"
+                className="px-2.5 py-1 rounded-md bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface-sunken)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs font-medium transition-all disabled:opacity-50"
               >
                 {pending === 'annotation' ? 'Clearing...' : 'Clear annotation'}
               </button>
@@ -109,7 +109,7 @@ export default function RowDetail({ index, row, annotations, projectId, userId, 
                 <button
                   onClick={clearPrediction}
                   disabled={pending === 'prediction'}
-                  className="px-2.5 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs font-medium transition-all disabled:opacity-50"
+                  className="px-2.5 py-1 rounded-md bg-[var(--color-surface-secondary)] hover:bg-[var(--color-surface-sunken)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs font-medium transition-all disabled:opacity-50"
                 >
                   {pending === 'prediction' ? 'Clearing...' : 'Clear prediction'}
                 </button>

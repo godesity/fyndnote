@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function LoginView() {
   const { login } = useAuth();
@@ -14,12 +15,15 @@ export default function LoginView() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sunset-50 via-white to-coral-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-sunset-50 via-white to-coral-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
+      <div className="fixed top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-sm animate-fade-in">
         <div className="p-[2px] rounded-2xl bg-gradient-to-r from-sunset-500 via-coral-500 to-violet-500 shadow-lg shadow-sunset-200/50">
-          <div className="bg-white rounded-[calc(1rem-2px)] p-8">
+          <div className="bg-[var(--color-surface)] rounded-[calc(1rem-2px)] p-8">
             <div className="flex flex-col items-center mb-6">
-              <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center mb-3 shadow-sm">
+              <div className="w-14 h-14 rounded-xl bg-[var(--color-surface)] flex items-center justify-center mb-3 shadow-sm">
                 <svg width="40" height="40" viewBox="0 0 140 140" fill="none">
                   <ellipse cx="70" cy="116" rx="44" ry="8" fill="#fbbf24" opacity="0.12"/>
                   <polygon points="80,95 110,85 115,65 95,58 72,68 70,88" fill="#ea580c" stroke="#c2410c" stroke-width="2" opacity="0.25"/>

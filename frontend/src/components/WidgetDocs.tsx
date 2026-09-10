@@ -107,10 +107,10 @@ function CollapsibleWidget({ widget, defaultOpen }: { widget: Widget; defaultOpe
   const [open, setOpen] = useState(defaultOpen || false);
 
   return (
-    <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-white">
+    <div className="border border-[var(--color-border)] rounded-lg overflow-hidden bg-[var(--color-surface)]">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center gap-2 px-4 py-2.5 text-left hover:bg-[var(--color-surface-sunken)] transition-colors"
       >
         <span className={`text-xs text-[var(--color-text-muted)] transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
         <code className="text-sm font-semibold text-sunset-600">{widget.name}</code>
@@ -134,7 +134,7 @@ function CollapsibleWidget({ widget, defaultOpen }: { widget: Widget; defaultOpe
                     {prop.required && <span className="ml-1 text-red-400">*</span>}
                   </td>
                   <td className="py-1.5 pr-3">
-                    <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{prop.type}</code>
+                    <code className="text-xs bg-[var(--color-surface-secondary)] px-1.5 py-0.5 rounded">{prop.type}</code>
                   </td>
                   <td className="py-1.5 text-[var(--color-text-muted)]">{prop.desc}</td>
                 </tr>

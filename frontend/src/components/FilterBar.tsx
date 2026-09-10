@@ -209,7 +209,7 @@ export default function FilterBar({ datasetColumns, annotationFields, prediction
 
   return (
     <div ref={containerRef} className="relative">
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border border-[var(--color-border)] rounded-lg bg-white min-h-[40px] focus-within:border-sunset-400 transition-colors">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface)] min-h-[40px] focus-within:border-sunset-400 transition-colors">
         {/* Existing expression pills */}
         {pills.map((pill, i) => (
           <span key={i} className="inline-flex items-center text-sm">
@@ -217,7 +217,7 @@ export default function FilterBar({ datasetColumns, annotationFields, prediction
             {i > 0 && (
               <button
                 onClick={() => toggleConjunction(i)}
-                className="mx-1 px-1.5 py-0.5 text-xs font-bold rounded bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                className="mx-1 px-1.5 py-0.5 text-xs font-bold rounded bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-sunken)] transition-colors"
               >
                 {pill.conjunction}
               </button>
@@ -236,7 +236,7 @@ export default function FilterBar({ datasetColumns, annotationFields, prediction
             </span>
             <button
               onClick={() => removePill(i)}
-              className="ml-0.5 text-gray-400 hover:text-gray-600 text-xs leading-none"
+              className="ml-0.5 text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-xs leading-none"
             >
               ✕
             </button>
@@ -287,25 +287,25 @@ export default function FilterBar({ datasetColumns, annotationFields, prediction
             }
           }}
           placeholder={pills.length === 0 ? 'Filter data…' : '+ Add filter'}
-          className="flex-1 min-w-[120px] border-none outline-none text-sm bg-transparent text-[var(--color-text)] placeholder-gray-400"
+          className="flex-1 min-w-[120px] border-none outline-none text-sm bg-transparent text-[var(--color-text)] placeholder:text-[var(--color-text-muted)]"
         />
       </div>
 
       {/* Autocomplete dropdown */}
       {showAutocomplete && matchingFields.length > 0 && (
-        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-[var(--color-border)] rounded-lg shadow-lg max-h-48 overflow-y-auto">
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg max-h-48 overflow-y-auto">
           {matchingFields.map((f, i) => (
             <button
               key={f}
               onMouseDown={(e) => { e.preventDefault(); acceptField(f); }}
               className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                i === highlightIdx ? 'bg-purple-50 text-purple-800' : 'text-[var(--color-text)] hover:bg-gray-50'
+                i === highlightIdx ? 'bg-purple-50 text-purple-800' : 'text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)]'
               }`}
             >
               <span className="font-mono text-xs">{f}</span>
             </button>
           ))}
-          <div className="px-3 py-1.5 text-xs text-gray-400 border-t border-gray-100">
+          <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border)]">
             Tab to accept
           </div>
         </div>
@@ -313,14 +313,14 @@ export default function FilterBar({ datasetColumns, annotationFields, prediction
 
       {/* Empty-state suggestions */}
       {showEmptySuggestions && draft === '' && (
-        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-white border border-[var(--color-border)] rounded-lg shadow-lg">
-          <div className="px-3 py-1.5 text-xs text-gray-400 font-medium">Quick filters</div>
+        <div className="absolute z-50 top-full mt-1 left-0 right-0 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg">
+          <div className="px-3 py-1.5 text-xs text-[var(--color-text-muted)] font-medium">Quick filters</div>
           {EMPTY_SUGGESTIONS.map((sug, i) => (
             <button
               key={`${sug.field}-${sug.operator}-${sug.value}`}
               onMouseDown={(e) => { e.preventDefault(); acceptSuggestion(sug); }}
               className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                i === highlightIdx ? 'bg-purple-50 text-purple-800' : 'text-[var(--color-text)] hover:bg-gray-50'
+                i === highlightIdx ? 'bg-purple-50 text-purple-800' : 'text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)]'
               }`}
             >
               <span className="inline-flex items-center gap-1">

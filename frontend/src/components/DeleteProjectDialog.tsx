@@ -51,7 +51,7 @@ export default function DeleteProjectDialog({ projectName, projectId, onClose }:
         <button
           onClick={onClose}
           disabled={deleting}
-          className="px-4 py-2 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] hover:bg-gray-50 transition-all disabled:opacity-50"
+          className="px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all disabled:opacity-50"
         >
           Cancel
         </button>

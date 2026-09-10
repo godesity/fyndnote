@@ -8,7 +8,7 @@ export default function RowNavigator({ currentIndex, numRows }: Props) {
   return (
     <div style={{ marginBottom: 8 }}>
       <span>Row {currentIndex + 1} of {numRows}</span>
-      <div style={{ width: '100%', height: 6, background: '#eee', borderRadius: 3, marginTop: 4 }}>
+      <div style={{ width: '100%', height: 6, background: 'var(--color-surface-sunken)', borderRadius: 3, marginTop: 4 }}>
         <div style={{ width: `${pct}%`, height: '100%', background: '#4caf50', borderRadius: 3 }} />
       </div>
     </div>

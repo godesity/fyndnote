@@ -145,7 +145,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
 
         {/* Project Name */}
         <section className="mb-6">
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm flex items-center gap-4">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm flex items-center gap-4">
             <div className="flex-1">
               <h3 className="text-sm font-semibold text-[var(--color-text-heading)] mb-2">Project Name</h3>
               <input
@@ -160,7 +160,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
 
         {/* Color & Tags */}
         <section className="mb-6">
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
             <div className="flex gap-6">
               <div>
                 <h3 className="text-sm font-semibold text-[var(--color-text-heading)] mb-2">Color</h3>
@@ -184,7 +184,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
 
         {/* Template */}
         <section className="mb-6">
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-[var(--color-text-heading)] mb-2">Template</h3>
             <p className="text-sm text-[var(--color-text-muted)] mb-4">
               Available variables: <code className="px-1.5 py-0.5 rounded bg-sunset-50 text-sunset-600 text-xs">data</code> (current row),{" "}
@@ -207,7 +207,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
                   </div>
                 </details>
               </div>
-              <div className="flex-1 min-w-0 border border-[var(--color-border)] rounded-lg p-3 bg-white">
+              <div className="flex-1 min-w-0 border border-[var(--color-border)] rounded-lg p-3 bg-[var(--color-surface)]">
                 <h4 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Preview</h4>
                 {sampleRow ? (
                   <AnnotationProvider>
@@ -230,7 +230,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
               </button>
               <button
                 onClick={() => setShowTemplateDialog(true)}
-                className="px-4 py-2 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] hover:bg-gray-50 transition-all"
+                className="px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
               >
                 Load Template
               </button>
@@ -243,7 +243,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
 
         {/* Import Rows */}
         <section className="mb-6">
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-[var(--color-text-heading)] mb-2">Import Rows</h3>
             <p className="text-sm text-[var(--color-text-muted)] mb-3">
               Paste a JSON array of row objects to bulk-add rows to this project's dataset.
@@ -275,12 +275,12 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
 
         {/* ML Backend */}
         <section className="mb-6">
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-[var(--color-text-heading)] mb-2">ML Backend</h3>
             <div className="flex items-center gap-3 mb-4">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" checked={mlEnabled} onChange={(e) => setMlEnabled(e.target.checked)} className="sr-only peer" />
-                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-sunset-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
+                <div className="w-9 h-5 bg-[var(--color-surface-sunken)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-sunset-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
               </label>
               <span className="text-sm text-[var(--color-text)]">Enable ML auto-prefill</span>
             </div>
@@ -324,7 +324,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
         {datasetLoaded && (
           <section className="mb-6">
             {/* Danger Zone */}
-            <div className="bg-white rounded-xl border-2 border-red-300 p-5 shadow-sm">
+            <div className="bg-[var(--color-surface)] rounded-xl border-2 border-red-300 p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-red-600 mb-1">Danger Zone</h3>
               <p className="text-sm text-[var(--color-text-muted)] mb-4">
                 Deletes the project and all its annotations permanently. The dataset and

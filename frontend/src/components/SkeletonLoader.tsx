@@ -1,6 +1,6 @@
 export function SkeletonBar({ className = '' }: { className?: string }) {
   return (
-    <div className={`relative overflow-hidden rounded bg-gray-200 ${className}`}>
+    <div className={`relative overflow-hidden rounded bg-[var(--color-surface-sunken)] ${className}`}>
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
     </div>
   );
@@ -8,10 +8,10 @@ export function SkeletonBar({ className = '' }: { className?: string }) {
 
 export function SkeletonCard() {
   return (
-    <div className="p-[2px] rounded-xl bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 animate-fade-in">
-      <div className="bg-white rounded-[calc(0.75rem-2px)] p-5 space-y-3">
+    <div className="p-[2px] rounded-xl bg-gradient-to-r from-[var(--color-border)] via-[var(--color-surface-sunken)] to-[var(--color-border)] animate-fade-in">
+      <div className="bg-[var(--color-surface)] rounded-[calc(0.75rem-2px)] p-5 space-y-3">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-gray-200 relative overflow-hidden">
+          <div className="w-3 h-3 rounded-full bg-[var(--color-surface-sunken)] relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
           </div>
           <SkeletonBar className="h-4 w-1/2" />

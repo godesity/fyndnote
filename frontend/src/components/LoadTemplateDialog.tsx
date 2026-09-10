@@ -50,8 +50,8 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
                 border: "none",
                 fontSize: 13,
                 fontWeight: groupFilter === g ? 600 : 400,
-                background: groupFilter === g ? "#F97316" : "#f3f4f6",
-                color: groupFilter === g ? "#fff" : "#374151",
+                background: groupFilter === g ? "#F97316" : "var(--color-surface-sunken)",
+                color: groupFilter === g ? "#fff" : "var(--color-text)",
                 cursor: "pointer",
               }}
             >
@@ -70,7 +70,7 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
                   templates.length > 0 ? (
                     <div key={group} style={{ marginBottom: 12 }}>
                       <div style={{
-                        fontSize: 11, fontWeight: 600, color: "#9ca3af",
+                        fontSize: 11, fontWeight: 600, color: "var(--color-text-muted)",
                         textTransform: "uppercase", letterSpacing: 1,
                         marginBottom: 6, paddingLeft: 4,
                       }}>
@@ -99,11 +99,11 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
 
           {/* Right: preview panel */}
           <div style={{
-            flex: 1, borderLeft: "1px solid #eee", paddingLeft: 16,
+            flex: 1, borderLeft: "1px solid var(--color-border)", paddingLeft: 16,
             display: "flex", flexDirection: "column",
           }}>
             <div style={{
-              fontSize: 11, fontWeight: 600, color: "#9ca3af",
+              fontSize: 11, fontWeight: 600, color: "var(--color-text-muted)",
               textTransform: "uppercase", letterSpacing: 1, marginBottom: 8,
             }}>
               Preview
@@ -111,8 +111,8 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
             {selected ? (
               <>
                 <div style={{
-                  flex: 1, borderRadius: 8, border: "1px solid #e5e7eb",
-                  overflow: "auto", padding: 12, background: "#f9fafb",
+                  flex: 1, borderRadius: 8, border: "1px solid var(--color-border)",
+                  overflow: "auto", padding: 12, background: "var(--color-surface-secondary)",
                 }}>
                   <AnnotationProvider>
                     <LiveProvider
@@ -145,7 +145,7 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
             ) : (
               <div style={{
                 flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                color: "#9ca3af", fontSize: 14,
+                color: "var(--color-text-muted)", fontSize: 14,
               }}>
                 Select a template to preview
               </div>
@@ -201,16 +201,16 @@ function TemplateCard({
       style={{
         padding: "8px 12px",
         marginBottom: 4,
-        border: isSelected ? "2px solid #F97316" : "1px solid #ddd",
+        border: isSelected ? "2px solid #F97316" : "1px solid var(--color-border)",
         borderRadius: 6,
         cursor: "pointer",
-        background: isSelected ? "#fff7ed" : "#fff",
+        background: isSelected ? "var(--color-sunset-50)" : "var(--color-surface)",
       }}
       onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.borderColor = "#888"; }}
-      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = "#ddd"; }}
+      onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.borderColor = "var(--color-border)"; }}
     >
       <div style={{ fontWeight: 600, fontSize: 13 }}>{template.name}</div>
-      <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>
+      <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginTop: 2 }}>
         {template.description}
       </div>
     </div>

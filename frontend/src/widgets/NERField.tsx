@@ -108,7 +108,7 @@ export default function NERField({ name, text, entityTypes, defaultValue, colors
                     style={{
                       marginRight: 4, padding: '4px 10px',
                       fontWeight: activeEntity === et ? 'bold' : 'normal',
-                      border: activeEntity === et ? `2px solid ${c}` : '1px solid #ccc',
+                      border: activeEntity === et ? `2px solid ${c}` : '1px solid var(--color-border)',
                       borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 6,
                     }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: c, display: 'inline-block' }} />
@@ -118,10 +118,10 @@ export default function NERField({ name, text, entityTypes, defaultValue, colors
         })}
       </div>
       <div ref={containerRef} onMouseUp={handleSelect}
-           style={{ padding: 12, border: '1px solid #ccc', borderRadius: 4, lineHeight: 2.2, userSelect: 'text' }}>
+           style={{ padding: 12, border: '1px solid var(--color-border)', borderRadius: 4, lineHeight: 2.2, userSelect: 'text' }}>
         {parts}
       </div>
-      <p style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+      <p style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4 }}>
         Select text to tag as &quot;{activeEntity}&quot;. Click a tag to remove it.
       </p>
     </div>

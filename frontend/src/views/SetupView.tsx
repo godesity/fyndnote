@@ -161,7 +161,7 @@ export default function SetupView() {
             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-sunset-500 to-coral-500 text-white text-xs font-bold mr-2">1</span>
             Select Dataset
           </h3>
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
             <input
               value={datasetSearch}
               onChange={(e) => setDatasetSearch(e.target.value)}
@@ -172,7 +172,7 @@ export default function SetupView() {
               <select
                 value={selectedDataset}
                 onChange={(e) => loadSample(e.target.value)}
-                className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-white focus:outline-none focus:border-sunset-400"
+                className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface)] focus:outline-none focus:border-sunset-400"
               >
                 <option value="">-- Select --</option>
                 {datasets
@@ -188,7 +188,7 @@ export default function SetupView() {
               </select>
               <button
                 onClick={() => setShowLoadDialog(!showLoadDialog)}
-                className="px-4 py-2 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] hover:bg-gray-50 transition-all whitespace-nowrap"
+                className="px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all whitespace-nowrap"
               >
                 Load New
               </button>
@@ -212,7 +212,7 @@ export default function SetupView() {
                   </button>
                 </div>
                 <div>
-                  <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] cursor-pointer hover:bg-gray-50 transition-all">
+                  <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] cursor-pointer hover:bg-[var(--color-surface-sunken)] transition-all">
                     <span>Upload file</span>
                     <input type="file" accept=".csv,.json,.jsonl,.parquet" onChange={handleFileUpload} className="hidden" />
                   </label>
@@ -229,10 +229,10 @@ export default function SetupView() {
             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-sunset-500 to-coral-500 text-white text-xs font-bold mr-2">2</span>
             Edit Template
           </h3>
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
             <p className="text-sm text-[var(--color-text-muted)] mb-4">
               Available variables: <code className="px-1.5 py-0.5 rounded bg-sunset-50 text-sunset-600 text-xs">data</code> (current row), <code className="px-1.5 py-0.5 rounded bg-sunset-50 text-sunset-600 text-xs">annotations</code> (saved values).
-              Use any widget: <code className="px-1.5 py-0.5 rounded bg-gray-100 text-xs">SelectField</code>, <code className="px-1.5 py-0.5 rounded bg-gray-100 text-xs">TextField</code>, <code className="px-1.5 py-0.5 rounded bg-gray-100 text-xs">CheckboxGroup</code>, etc.
+              Use any widget: <code className="px-1.5 py-0.5 rounded bg-[var(--color-surface-secondary)] text-xs">SelectField</code>, <code className="px-1.5 py-0.5 rounded bg-[var(--color-surface-secondary)] text-xs">TextField</code>, <code className="px-1.5 py-0.5 rounded bg-[var(--color-surface-secondary)] text-xs">CheckboxGroup</code>, etc.
             </p>
             <div className="flex gap-4">
               <div className="flex-1 min-w-0">
@@ -246,7 +246,7 @@ export default function SetupView() {
                   </div>
                 </details>
               </div>
-              <div className="flex-1 min-w-0 border border-[var(--color-border)] rounded-lg p-3 bg-white">
+              <div className="flex-1 min-w-0 border border-[var(--color-border)] rounded-lg p-3 bg-[var(--color-surface)]">
                 <h4 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Preview</h4>
                   {sampleRow ? (
                     <AnnotationProvider>
@@ -270,7 +270,7 @@ export default function SetupView() {
               </button>
               <button
                 onClick={() => setShowTemplateDialog(true)}
-                className="px-4 py-2 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] hover:bg-gray-50 transition-all"
+                className="px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
               >
                 Load Template
               </button>
@@ -287,7 +287,7 @@ export default function SetupView() {
             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-sunset-500 to-coral-500 text-white text-xs font-bold mr-2">3</span>
             Create Project
           </h3>
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
             <div className="flex gap-4 items-start flex-wrap">
               <div className="flex-1 min-w-[200px]">
                 <label className="text-xs font-medium text-[var(--color-text-muted)] block mb-1">Project name</label>
@@ -319,7 +319,7 @@ export default function SetupView() {
             <div className="flex items-center gap-3">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input type="checkbox" checked={mlEnabled} onChange={(e) => setMlEnabled(e.target.checked)} className="sr-only peer" />
-                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-sunset-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
+                <div className="w-9 h-5 bg-[var(--color-surface-sunken)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-sunset-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
               </label>
               <span className="text-sm text-[var(--color-text)]">Enable ML auto-prefill</span>
             </div>
@@ -341,7 +341,7 @@ export default function SetupView() {
             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-sunset-500 to-coral-500 text-white text-xs font-bold mr-2">4</span>
             ML Backend <span className="text-xs text-[var(--color-text-muted)] font-normal">(optional)</span>
           </h3>
-          <div className="bg-white rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
             <div className="space-y-3">
               <div>
                 <label className="text-xs font-medium text-[var(--color-text-muted)] block mb-1">ML Backend URL</label>

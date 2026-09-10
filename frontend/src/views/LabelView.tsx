@@ -316,7 +316,7 @@ export default function LabelView({ projectId }: Props) {
               <span>Progress: {progressAnnotated} / {numRows} rows</span>
               <span>{pct}%</span>
             </div>
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-[var(--color-surface-sunken)] rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${pct}%`, background: projectColor }}
@@ -328,7 +328,7 @@ export default function LabelView({ projectId }: Props) {
             {/* Content area */}
             <div className="flex-1 min-w-0">
               {/* Labeling card */}
-              <div className="bg-white border border-[var(--color-border)] rounded-s-xl shadow-sm">
+              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-s-xl shadow-sm">
                 <div ref={previewRef} className="p-5 min-h-[300px]">
                   <LiveProvider
                     code={templateSource}
@@ -347,9 +347,9 @@ export default function LabelView({ projectId }: Props) {
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
                       isAnnotated
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
-                        : 'bg-gray-100 text-gray-500 border border-gray-200'
+                        : 'bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
                     }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${isAnnotated ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full ${isAnnotated ? 'bg-emerald-500' : 'bg-[var(--color-text-muted)]'}`} />
                       {isAnnotated ? 'Annotated' : 'Not annotated'}
                     </button>
                     {mlPrefilling && (
@@ -368,10 +368,10 @@ export default function LabelView({ projectId }: Props) {
 
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-sunset-50 border border-sunset-200 rounded-lg text-sm text-sunset-700 flex-1 min-w-0">
                     <span className="text-xs truncate">
-                      <kbd className="px-1 py-0.5 rounded bg-white border border-sunset-200 text-xs font-mono">1-9</kbd> select,
-                      <kbd className="px-1 py-0.5 rounded bg-white border border-sunset-200 text-xs font-mono ml-1">Enter</kbd> submit,
-                      <kbd className="px-1 py-0.5 rounded bg-white border border-sunset-200 text-xs font-mono ml-1">←</kbd>
-                      <kbd className="px-1 py-0.5 rounded bg-white border border-sunset-200 text-xs font-mono">→</kbd> nav
+                      <kbd className="px-1 py-0.5 rounded bg-[var(--color-surface)] border border-sunset-200 text-xs font-mono">1-9</kbd> select,
+                      <kbd className="px-1 py-0.5 rounded bg-[var(--color-surface)] border border-sunset-200 text-xs font-mono ml-1">Enter</kbd> submit,
+                      <kbd className="px-1 py-0.5 rounded bg-[var(--color-surface)] border border-sunset-200 text-xs font-mono ml-1">←</kbd>
+                      <kbd className="px-1 py-0.5 rounded bg-[var(--color-surface)] border border-sunset-200 text-xs font-mono">→</kbd> nav
                     </span>
                     <button
                       onClick={() => setShowShortcuts(true)}
@@ -399,7 +399,7 @@ export default function LabelView({ projectId }: Props) {
 
         {/* Guidelines drawer */}
         {showGuide && (
-          <div className="fixed inset-y-0 right-0 w-80 bg-white shadow-xl border-l border-[var(--color-border)] z-50 animate-slide-in">
+          <div className="fixed inset-y-0 right-0 w-80 bg-[var(--color-surface)] shadow-xl border-l border-[var(--color-border)] z-50 animate-slide-in">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
               <h3 className="font-semibold text-[var(--color-text-heading)] text-sm">Annotation Guidelines</h3>
               <button onClick={() => setShowGuide(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-lg leading-none">&times;</button>
@@ -417,18 +417,18 @@ export default function LabelView({ projectId }: Props) {
         {/* Shortcuts modal */}
         {showShortcuts && (
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 animate-fade-in" onClick={() => setShowShortcuts(false)}>
-            <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-[var(--color-surface)] rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 animate-fade-in" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-[var(--color-text-heading)]">Keyboard Shortcuts</h3>
                 <button onClick={() => setShowShortcuts(false)} className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] text-lg leading-none">&times;</button>
               </div>
               <div className="space-y-2.5 text-sm">
-                <div className="flex justify-between"><span>Select option 1-9</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">1-9</kbd></div>
-                <div className="flex justify-between"><span>Submit annotation</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">Enter</kbd></div>
-                <div className="flex justify-between"><span>Previous row</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">←</kbd></div>
-                <div className="flex justify-between"><span>Next row</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">→</kbd></div>
-                <div className="flex justify-between"><span>Toggle guidelines</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">G</kbd></div>
-                <div className="flex justify-between"><span>Back to projects</span> <kbd className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-xs font-mono">Esc</kbd></div>
+                <div className="flex justify-between"><span>Select option 1-9</span> <kbd className="px-2 py-0.5 rounded bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono">1-9</kbd></div>
+                <div className="flex justify-between"><span>Submit annotation</span> <kbd className="px-2 py-0.5 rounded bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono">Enter</kbd></div>
+                <div className="flex justify-between"><span>Previous row</span> <kbd className="px-2 py-0.5 rounded bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono">←</kbd></div>
+                <div className="flex justify-between"><span>Next row</span> <kbd className="px-2 py-0.5 rounded bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono">→</kbd></div>
+                <div className="flex justify-between"><span>Toggle guidelines</span> <kbd className="px-2 py-0.5 rounded bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono">G</kbd></div>
+                <div className="flex justify-between"><span>Back to projects</span> <kbd className="px-2 py-0.5 rounded bg-[var(--color-surface-secondary)] border border-[var(--color-border)] text-xs font-mono">Esc</kbd></div>
               </div>
             </div>
           </div>

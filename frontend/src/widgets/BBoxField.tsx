@@ -195,9 +195,9 @@ export default function BBoxField({ name, imageUrl, categories, defaultValue, co
           return (
             <button key={cat} onClick={() => setActiveCategory(cat)}
                     style={{
-                      marginRight: 4, padding: '4px 10px',
+                      marginRight: 4, padding: '4px 10px', background: 'var(--color-surface)', color: 'var(--color-text)',
                       fontWeight: activeCategory === cat ? 'bold' : 'normal',
-                      border: activeCategory === cat ? `2px solid ${c}` : '1px solid #ccc',
+                      border: activeCategory === cat ? `2px solid ${c}` : '1px solid var(--color-border)',
                       borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 6,
                     }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: c, display: 'inline-block' }} />
@@ -206,7 +206,7 @@ export default function BBoxField({ name, imageUrl, categories, defaultValue, co
           );
         })}
         <button onClick={() => setShowLabels((v) => !v)}
-                style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 4, border: '1px solid #ccc', cursor: 'pointer' }}>
+                style={{ marginLeft: 8, padding: '4px 10px', borderRadius: 4, border: '1px solid var(--color-border)', cursor: 'pointer', background: 'var(--color-surface)', color: 'var(--color-text)' }}>
           {showLabels ? 'Hide labels' : 'Show labels'}
         </button>
       </div>

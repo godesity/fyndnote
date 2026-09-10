@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-sunset-50: #FFF7ED;
   --color-sunset-100: #FFEDD5;
@@ -23,10 +25,25 @@
 
   --color-surface: #ffffff;
   --color-surface-secondary: #f9fafb;
+  --color-surface-sunken: #f3f4f6;
   --color-border: #e5e7eb;
   --color-text: #374151;
   --color-text-heading: #111827;
   --color-text-muted: #6b7280;
+}
+
+html.dark {
+  --color-surface: #0f172a;
+  --color-surface-secondary: #0b1120;
+  --color-surface-sunken: #1e293b;
+  --color-border: #334155;
+  --color-text: #cbd5e1;
+  --color-text-heading: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-sunset-50: #221510;
+  --color-sunset-100: #38230f;
+  --color-sunset-200: #52351a;
+  --color-sunset-600: #fdba74;
 }
 
 body {
@@ -34,6 +51,8 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--color-surface-secondary);
+  color: var(--color-text);
 }
 
 @keyframes shimmer {

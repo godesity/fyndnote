@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAnnotationContext } from '../context/AnnotationContext';
+import { cssVar, useThemeVersion } from '../theme';
 
 interface Segment {
   start: number;
@@ -68,6 +69,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
   const [playSegmentOnly, setPlaySegmentOnly] = useState<Segment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'range' | 'point'>(allowedModes.includes('range') ? 'range' : 'point');
+  const themeVersion = useThemeVersion();
   const audioRef = useRef<HTMLAudioElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -123,7 +125,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
     ctx.clearRect(0, 0, w, h);
 
     // background
-    ctx.fillStyle = '#f3f4f6';
+    ctx.fillStyle = cssVar('--color-surface-sunken', '#f3f4f6');
     ctx.fillRect(0, 0, w, h);
 
     // waveform bars
@@ -134,7 +136,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
     for (let i = 0; i < Math.min(totalBars, waveform.length); i++) {
       const barH = waveform[i] * mid * 0.9;
       const x = i * step + gap;
-      ctx.fillStyle = '#9ca3af';
+      ctx.fillStyle = cssVar('--color-text-muted', '#9ca3af');
       ctx.fillRect(x, mid - barH, barWidth, barH * 2);
     }
 
@@ -177,7 +179,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
       ctx.lineWidth = 2;
       ctx.stroke();
     }
-  }, [waveform, duration, segments, currentTime, colors]);
+  }, [waveform, duration, segments, currentTime, colors, themeVersion]);
 
   const mouseToTime = (clientX: number): number => {
     const canvas = canvasRef.current;
@@ -320,8 +322,8 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
                     style={{
                       padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 600,
                       border: 'none', cursor: 'pointer',
-                      background: active ? c : '#e5e7eb',
-                      color: active ? '#fff' : '#374151',
+                      background: active ? c : 'var(--color-surface-sunken)',
+                      color: active ? '#fff' : 'var(--color-text)',
                     }}>
               {label}
             </button>
@@ -329,13 +331,13 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
         })}
         {/* Range/Point toggle */}
         {allowedModes.length > 1 && (
-          <div style={{ marginLeft: 'auto', display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', borderRadius: 6, overflow: 'hidden', border: '1px solid var(--color-border)' }}>
             {allowedModes.includes('range') && (
               <button onClick={() => setMode('range')}
                       style={{
                         padding: '3px 8px', fontSize: 10, border: 'none', cursor: 'pointer',
-                        background: mode === 'range' ? '#F97316' : '#fff',
-                        color: mode === 'range' ? '#fff' : '#374151',
+                        background: mode === 'range' ? '#F97316' : 'var(--color-surface)',
+                        color: mode === 'range' ? '#fff' : 'var(--color-text)',
                       }}>
                 Range
               </button>
@@ -344,8 +346,8 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
               <button onClick={() => setMode('point')}
                       style={{
                         padding: '3px 8px', fontSize: 10, border: 'none', cursor: 'pointer',
-                        background: mode === 'point' ? '#F97316' : '#fff',
-                        color: mode === 'point' ? '#fff' : '#374151',
+                        background: mode === 'point' ? '#F97316' : 'var(--color-surface)',
+                        color: mode === 'point' ? '#fff' : 'var(--color-text)',
                       }}>
                 Point
               </button>
@@ -373,7 +375,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
 
       {/* Time labels */}
       {!error && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#6b7280', margin: '4px 0 8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: 'var(--color-text-muted)', margin: '4px 0 8px' }}>
           <span>{formatTime(0)}</span>
           <span>{formatTime(duration * 0.25)}</span>
           <span>{formatTime(duration * 0.5)}</span>
@@ -398,11 +400,11 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
                   }}>
             {playing ? '⏸' : '▶'}
           </button>
-          <span style={{ fontSize: 12, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ fontSize: 12, color: 'var(--color-text)', fontVariantNumeric: 'tabular-nums' }}>
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
           {playSegmentOnly && (
-            <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, background: '#fef3c7', color: '#92400e' }}>
+            <span style={{ fontSize: 11, padding: '3px 8px', borderRadius: 4, background: 'var(--color-surface-sunken)', color: 'var(--color-text)' }}>
               Playing segment: {playSegmentOnly.label}
             </span>
           )}
@@ -419,7 +421,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
               <div key={i}
                    style={{
                      display: 'flex', alignItems: 'center', gap: 8, fontSize: 12,
-                     background: '#f9fafb', padding: '5px 8px', borderRadius: 4, cursor: 'pointer',
+                     background: 'var(--color-surface-secondary)', padding: '5px 8px', borderRadius: 4, cursor: 'pointer',
                    }}
                    onClick={() => {
                      if (audioRef.current) {
@@ -433,8 +435,8 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
                   {isPoint ? `@ ${formatTime(seg.start)}` : `${formatTime(seg.start)} – ${formatTime(seg.end)}`}
                 </span>
                 <span style={{ fontWeight: 600, color: c }}>{seg.label}</span>
-                <span style={{ fontSize: 10, color: '#9ca3af', cursor: 'pointer' }}>▶</span>
-                <span style={{ fontSize: 10, color: '#9ca3af', cursor: 'pointer' }}
+                <span style={{ fontSize: 10, color: 'var(--color-text-muted)', cursor: 'pointer' }}>▶</span>
+                <span style={{ fontSize: 10, color: 'var(--color-text-muted)', cursor: 'pointer' }}
                       onClick={(e: React.MouseEvent) => { e.stopPropagation(); setSegments(prev => prev.filter((_, j) => j !== i)); }}>
                   ✕
                 </span>
@@ -446,7 +448,7 @@ export default function AudioSegmentField({ name, url, labels, colors: colorOver
 
       {/* Empty state */}
       {segments.length === 0 && !error && (
-        <div style={{ textAlign: 'center', padding: 12, color: '#9ca3af', fontSize: 12 }}>
+        <div style={{ textAlign: 'center', padding: 12, color: 'var(--color-text-muted)', fontSize: 12 }}>
           {allowedModes.length > 1
             ? `Click and drag on waveform to create a labeled segment (${mode} mode)`
             : mode === 'range'

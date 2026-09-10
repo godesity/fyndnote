@@ -27,8 +27,8 @@ export default function RatingField({ name, max, defaultValue }: Props) {
         <button key={i} onClick={() => setValue(i + 1)}
                 style={{
                   width: 32, height: 32,
-                  background: i < value ? '#ffc107' : '#eee',
-                  border: '1px solid #ccc', borderRadius: 4, cursor: 'pointer'
+                  background: i < value ? '#ffc107' : 'var(--color-surface-sunken)',
+                  border: '1px solid var(--color-border)', borderRadius: 4, cursor: 'pointer'
                 }}>
           {i + 1}
         </button>

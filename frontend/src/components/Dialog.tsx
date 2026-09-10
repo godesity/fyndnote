@@ -33,7 +33,7 @@ export default function Dialog({
     >
       <div
         style={{
-          background: "#fff", borderRadius: 8, padding: 24,
+          background: "var(--color-surface)", borderRadius: 8, padding: 24,
           minWidth, maxWidth: 900, width: "85vw",
           maxHeight: "85vh", display: "flex", flexDirection: "column", position: "relative",
         }}
@@ -44,11 +44,11 @@ export default function Dialog({
           style={{
             position: "absolute", top: 12, right: 12,
             border: "none", background: "none",
-            fontSize: 20, cursor: "pointer", color: "#666",
+            fontSize: 20, cursor: "pointer", color: "var(--color-text-muted)",
             lineHeight: 1, padding: "4px 8px", borderRadius: 4,
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#000")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#666")}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-text-heading)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text-muted)")}
         >
           ✕
         </button>

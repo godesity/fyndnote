@@ -208,7 +208,7 @@ export default function BrowseView({ projectId }: Props) {
         {loading ? (
           <div className="space-y-3">
             {[1,2,3].map(i => (
-              <div key={i} className="bg-white rounded-xl border border-[var(--color-border)] p-4">
+              <div key={i} className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4">
                 <SkeletonBar className="h-4 w-3/4 mb-2" />
                 <SkeletonBar className="h-3 w-1/2" />
               </div>
@@ -247,7 +247,7 @@ function DatasetDetailsSection({ details }: { details: any }) {
       <summary className="text-sm font-medium text-[var(--color-text-muted)] cursor-pointer hover:text-[var(--color-text)] select-none">
         Dataset: {d.name || d.source} · {d.num_rows.toLocaleString()} rows · {projects.length} {projects.length === 1 ? "project" : "projects"}
       </summary>
-      <div className="mt-3 bg-white rounded-xl border border-[var(--color-border)] p-4 shadow-sm space-y-3">
+      <div className="mt-3 bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4 shadow-sm space-y-3">
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
           <span className="text-[var(--color-text-muted)]">Source</span>
           <span className="text-[var(--color-text)] break-all">{d.source}</span>

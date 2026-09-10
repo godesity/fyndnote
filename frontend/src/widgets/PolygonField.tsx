@@ -228,8 +228,8 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
               onClick={() => setActiveCategory(cat)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 10px',
-                borderRadius: 4, border: activeCategory === cat ? '2px solid #F97316' : '1px solid #ccc',
-                background: '#fff', cursor: 'pointer',
+                borderRadius: 4, border: activeCategory === cat ? '2px solid #F97316' : '1px solid var(--color-border)',
+                background: 'var(--color-surface)', color: 'var(--color-text)', cursor: 'pointer',
               }}
             >
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: c, display: 'inline-block' }} />
@@ -245,14 +245,14 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
             onClick={() => setMode(m)}
             style={{
               padding: '2px 10px', borderRadius: 4,
-              border: mode === m ? '2px solid #F97316' : '1px solid #ccc',
-              background: '#fff', cursor: 'pointer', fontWeight: mode === m ? 600 : 400,
+              border: mode === m ? '2px solid #F97316' : '1px solid var(--color-border)',
+              background: 'var(--color-surface)', color: 'var(--color-text)', cursor: 'pointer', fontWeight: mode === m ? 600 : 400,
             }}
           >
             {m}
           </button>
         ))}
-        <button onClick={() => setShowLabels((v) => !v)} style={{ padding: '2px 10px', borderRadius: 4, border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>
+        <button onClick={() => setShowLabels((v) => !v)} style={{ padding: '2px 10px', borderRadius: 4, border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', cursor: 'pointer' }}>
           {showLabels ? 'Hide labels' : 'Show labels'}
         </button>
       </div>
@@ -374,7 +374,7 @@ export default function PolygonField({ name, imageUrl, categories, defaultValue,
           </svg>
         )}
       </div>
-      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{modeHint}</div>
+      <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4 }}>{modeHint}</div>
     </div>
   );
 }

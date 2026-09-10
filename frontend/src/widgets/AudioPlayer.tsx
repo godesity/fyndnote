@@ -71,7 +71,7 @@ export default function AudioPlayer({ url }: Props) {
       </button>
       <div onClick={handleSeek}
            style={{
-             flex: 1, height: 6, background: '#e5e7eb', borderRadius: 3, cursor: 'pointer',
+             flex: 1, height: 6, background: 'var(--color-border)', borderRadius: 3, cursor: 'pointer',
              position: 'relative',
            }}>
         <div style={{
@@ -81,12 +81,12 @@ export default function AudioPlayer({ url }: Props) {
         <div style={{
           position: 'absolute', left: `${pct}%`, top: -3,
           width: 12, height: 12, borderRadius: '50%',
-          background: '#F97316', border: '2px solid #fff',
+          background: '#F97316', border: '2px solid var(--color-surface)',
           boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
           transform: 'translateX(-50%)',
         }} />
       </div>
-      <span style={{ fontSize: 12, color: '#374151', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', flexShrink: 0 }}>
+      <span style={{ fontSize: 12, color: 'var(--color-text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', flexShrink: 0 }}>
         {formatTime(currentTime)} / {formatTime(duration)}
       </span>
     </div>

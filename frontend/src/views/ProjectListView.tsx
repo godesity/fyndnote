@@ -73,7 +73,7 @@ export default function ProjectListView() {
             )}
             <button
               onClick={logout}
-              className="px-3 py-2 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] hover:bg-gray-50 transition-all"
+              className="px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
             >
               Logout
             </button>
@@ -85,18 +85,18 @@ export default function ProjectListView() {
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
             placeholder="Filter by name..."
-            className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-white focus:outline-none focus:border-sunset-400 focus:ring-3 focus:ring-sunset-100 transition-all"
+            className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface)] focus:outline-none focus:border-sunset-400 focus:ring-3 focus:ring-sunset-100 transition-all"
           />
           <input
             value={tagsFilter}
             onChange={(e) => setTagsFilter(e.target.value)}
             placeholder="Filter by tag..."
-            className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-white focus:outline-none focus:border-sunset-400 focus:ring-3 focus:ring-sunset-100 transition-all"
+            className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface)] focus:outline-none focus:border-sunset-400 focus:ring-3 focus:ring-sunset-100 transition-all"
           />
         </div>
 
         {/* View toggle */}
-        <div className="flex items-center gap-1 mb-5 bg-white border border-[var(--color-border)] rounded-lg p-0.5 w-fit shadow-sm">
+        <div className="flex items-center gap-1 mb-5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-0.5 w-fit shadow-sm">
           <button
             onClick={() => setViewMode('grid')}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'grid' ? 'bg-gradient-to-r from-sunset-500 to-coral-500 text-white shadow-sm' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'}`}
@@ -119,7 +119,7 @@ export default function ProjectListView() {
           ) : (
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-14 rounded-lg bg-gray-100 animate-pulse" />
+                <div key={i} className="h-14 rounded-lg bg-[var(--color-surface-secondary)] animate-pulse" />
               ))}
             </div>
           )
@@ -169,14 +169,14 @@ export default function ProjectListView() {
                     </button>
                     <button
                       onClick={() => window.location.hash = `#/projects/${p.id}/browse`}
-                      className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] hover:bg-gray-50 transition-all"
+                      className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
                     >
                       Browse
                     </button>
                     {isAdmin && (
                       <button
                         onClick={() => window.location.hash = `#/projects/${p.id}/edit`}
-                        className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-text)] hover:bg-gray-50 transition-all"
+                        className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
                       >
                         Settings
                       </button>
@@ -188,7 +188,7 @@ export default function ProjectListView() {
           </div>
         ) : (
           /* ---- List view ---- */
-          <div className="bg-white rounded-lg border border-[var(--color-border)] overflow-hidden shadow-sm">
+          <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] overflow-hidden shadow-sm">
             <div className="divide-y divide-[var(--color-border)]">
             {filtered.map((p) => {
               const isOpen = expanded[p.id] || false;
@@ -216,7 +216,7 @@ export default function ProjectListView() {
                     )}
                     <button
                       onClick={() => toggleExpand(p.id)}
-                      className="p-1 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-gray-100 transition-all"
+                      className="p-1 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
                       title="Actions"
                     >
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -237,14 +237,14 @@ export default function ProjectListView() {
                         </button>
                         <button
                           onClick={() => window.location.hash = `#/projects/${p.id}/browse`}
-                          className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-white text-xs text-[var(--color-text)] hover:bg-gray-50 transition-all"
+                          className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-xs text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
                         >
                           Browse
                         </button>
                         {isAdmin && (
                           <button
                             onClick={() => window.location.hash = `#/projects/${p.id}/edit`}
-                            className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-white text-xs text-[var(--color-text)] hover:bg-gray-50 transition-all"
+                            className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-xs text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
                           >
                             Settings
                           </button>

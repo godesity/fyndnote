@@ -20,7 +20,7 @@ export default function AnnotationStatusBadge({ byMe, byAny, annotators }: Props
     );
   }
   return (
-    <span className="px-2 py-0.5 rounded-full bg-gray-50 text-gray-400 border border-gray-200 text-xs whitespace-nowrap">
+    <span className="px-2 py-0.5 rounded-full bg-[var(--color-surface-secondary)] text-[var(--color-text-muted)] border border-[var(--color-border)] text-xs whitespace-nowrap">
       Unannotated
     </span>
   );

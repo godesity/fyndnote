@@ -22,7 +22,7 @@ export default function SelectField({ name, labels, defaultValue }: Props) {
 
   return (
     <select value={value} onChange={(e) => setValue(e.target.value)}
-            className="my-2 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-white cursor-pointer">
+            className="my-2 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface)] cursor-pointer">
       {labels.map((l) => (
         <option key={l} value={l}>{l}</option>
       ))}
