@@ -1,9 +1,16 @@
 from fastapi import APIRouter, HTTPException
 
 from ..database import get_db
-from ..schemas import LoginRequest, LoginResponse
+from ..services import keycloak_service as kc
+from ..schemas import AuthConfig, LoginRequest, LoginResponse
 
 router = APIRouter(tags=["auth"])
+
+
+@router.get("/auth/config", response_model=AuthConfig)
+def auth_config():
+    """Tell the SPA whether to offer SSO or the local user-id login form."""
+    return AuthConfig(sso_enabled=kc.enabled())
 
 
 @router.post("/auth/login", response_model=LoginResponse)

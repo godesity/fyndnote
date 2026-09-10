@@ -65,6 +65,11 @@ Opens at `http://localhost:5173`.
 
 ## Single Sign-On (Keycloak, MinIO-style OIDC)
 
+By default (`SSO_ENABLED=false`) the login screen shows a **User ID** form that
+authenticates against the `fyndnote_users` table — seeded from `data/users.json`
+(or the wheel's bundled seed). No passwords; this is the local mode. SSO is an
+opt-in layer on top:
+
 fyndnote can authenticate through Keycloak using the standard OpenID Connect
 Authorization Code flow — the same pattern MinIO uses for its web console.
 The backend validates Keycloak-issued JWTs **statelessly** against the realm's
@@ -178,7 +183,8 @@ All endpoints under `/api/v1`:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST   | `/auth/login` | Login by user ID |
+| POST   | `/auth/login` | Login by user ID (local mode) |
+| GET    | `/auth/config` | Whether SSO is enabled (drives the login screen) |
 | GET    | `/datasets` | List loaded datasets |
 | POST   | `/datasets/load` | Load a HF dataset |
 | GET    | `/datasets/{id}/rows/{idx}` | Get a row |

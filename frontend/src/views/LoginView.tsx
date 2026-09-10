@@ -1,16 +1,32 @@
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 
 export default function LoginView() {
-  const { login } = useAuth();
+  const { login, loginWithUserId, ssoEnabled } = useAuth();
   const [error, setError] = useState('');
+  const [userId, setUserId] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const handleLogin = async () => {
     try {
       await login();
     } catch {
       setError('Single sign-on is not available.');
+    }
+  };
+
+  const handleUserIdLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    const id = userId.trim();
+    if (!id || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await loginWithUserId(id);
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'Unknown user.');
+      setBusy(false);
     }
   };
 
@@ -54,12 +70,32 @@ export default function LoginView() {
             </div>
 
             <div className="space-y-4">
-              <button
-                onClick={handleLogin}
-                className="w-full py-2.5 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white font-medium text-sm hover:from-sunset-600 hover:to-coral-600 transition-all shadow-sm"
-              >
-                Sign in with SSO
-              </button>
+              {ssoEnabled === null ? null : ssoEnabled ? (
+                <button
+                  onClick={handleLogin}
+                  className="w-full py-2.5 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white font-medium text-sm hover:from-sunset-600 hover:to-coral-600 transition-all shadow-sm"
+                >
+                  Sign in with SSO
+                </button>
+              ) : (
+                <form onSubmit={handleUserIdLogin} className="space-y-3">
+                  <input
+                    type="text"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    placeholder="User ID (e.g. alice)"
+                    autoFocus
+                    className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-secondary)] text-[var(--color-text)] text-sm placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-sunset-100 focus:border-sunset-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy || !userId.trim()}
+                    className="w-full py-2.5 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white font-medium text-sm hover:from-sunset-600 hover:to-coral-600 transition-all shadow-sm disabled:opacity-50"
+                  >
+                    {busy ? 'Signing in…' : 'Sign in'}
+                  </button>
+                </form>
+              )}
               {error && (
                 <p className="text-red-500 text-sm text-center">{error}</p>
               )}

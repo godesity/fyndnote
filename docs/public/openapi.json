@@ -5,6 +5,28 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/auth/config": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Auth Config",
+        "description": "Tell the SPA whether to offer SSO or the local user-id login form.",
+        "operationId": "auth_config_api_v1_auth_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthConfig"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -1693,6 +1715,20 @@
           "data"
         ],
         "title": "AnnotateRequest"
+      },
+      "AuthConfig": {
+        "properties": {
+          "sso_enabled": {
+            "type": "boolean",
+            "title": "Sso Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sso_enabled"
+        ],
+        "title": "AuthConfig",
+        "description": "Login capabilities the SPA should offer (SSO vs. local user-id login)."
       },
       "Body_upload_dataset_api_v1_datasets_upload_post": {
         "properties": {

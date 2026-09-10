@@ -38,6 +38,7 @@ export const api = {
     request<{ user_id: string; name: string; global_role: string; project_roles: Record<string, string> | null }>(
       '/auth/login', { method: 'POST', body: JSON.stringify({ user_id: userId }) }
     ),
+  authConfig: () => request<{ sso_enabled: boolean }>('/auth/config'),
   me: (token: string) =>
     request<{ user: User }>('/sso/me', { headers: { Authorization: `Bearer ${token}` } }),
   ssoCallback: (code: string, state: string) =>

@@ -33,3 +33,8 @@ Project roles are stored per user per project and control what a user can do ins
 ## Login
 
 Login is by **user ID** only (no password in the default setup). The backend returns the user's global role and the mapping of project IDs to project roles. The frontend then shows only the projects you are allowed to open.
+
+By default (`SSO_ENABLED=false`) the login screen shows this user-ID form. Set
+`SSO_ENABLED=true` (plus the `KEYCLOAK_*` vars, see [Install](/install)) to swap
+it for the **Sign in with SSO** button — the screen asks the backend via
+`GET /api/v1/auth/config` which mode to show.

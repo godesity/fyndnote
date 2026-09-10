@@ -14,6 +14,12 @@ class LoginResponse(BaseModel):
     project_roles: dict[str, str] | None = None
 
 
+class AuthConfig(BaseModel):
+    """Login capabilities the SPA should offer (SSO vs. local user-id login)."""
+
+    sso_enabled: bool
+
+
 class DatasetOut(BaseModel):
     id: str
     name: str
