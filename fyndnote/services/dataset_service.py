@@ -15,7 +15,7 @@ from datasets import Audio, Dataset, load_dataset
 from datasets import Image as HfImage
 from PIL import Image as PILImage
 
-from config import (
+from ..config import (
     DATASETS_DIR,
     DATASETS_UPLOAD_DIR,
     DISK_USAGE_THRESHOLD,
@@ -25,8 +25,8 @@ from config import (
     S3_CACHE_PREFIX,
     S3_ENDPOINT_URL,
 )
-from database import get_db
-from services.s3_cache import S3BackedCache
+from ..database import get_db
+from .s3_cache import S3BackedCache
 
 logger = logging.getLogger(__name__)
 

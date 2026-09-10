@@ -1,7 +1,9 @@
 import os
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+_PKG_PARENT = Path(__file__).resolve().parent.parent
+_IN_REPO = (_PKG_PARENT / "data").is_dir()  # source checkout vs site-packages
+ROOT = Path(os.getenv("FYNDNOTE_HOME") or (_PKG_PARENT if _IN_REPO else Path.home() / ".fyndnote"))
 DATA_DIR = ROOT / "data"
 DATABASE_PATH = DATA_DIR / "labeling.db"
 

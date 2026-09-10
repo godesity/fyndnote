@@ -1,15 +1,15 @@
-from database import init_db
+from fyndnote.database import init_db
 
 def test_list_datasets_empty():
     from fastapi.testclient import TestClient
-    from main import app
+    from fyndnote.main import app
     client = TestClient(app)
     resp = client.get("/api/v1/datasets")
     assert resp.status_code == 200
 
 def test_load_dataset():
     from fastapi.testclient import TestClient
-    from main import app
+    from fyndnote.main import app
     client = TestClient(app)
     resp = client.post("/api/v1/datasets/load", json={"source": "stanfordnlp/imdb", "split": "train"})
     assert resp.status_code == 200
@@ -20,11 +20,11 @@ def test_load_dataset():
 def test_load_http_csv():
     init_db()
     from unittest.mock import patch, MagicMock
-    from services.dataset_service import DatasetService
+    from fyndnote.services.dataset_service import DatasetService
     mock_resp = MagicMock()
     mock_resp.raise_for_status.return_value = None
     mock_resp.iter_content.return_value = [b"text,label\nhello,0\nworld,1\n"]
-    with patch("services.dataset_service.requests.get", return_value=mock_resp):
+    with patch("fyndnote.services.dataset_service.requests.get", return_value=mock_resp):
         meta = DatasetService.load("https://example.com/data.csv")
     assert meta["source_type"] == "http"
     assert meta["source_format"] == "csv"
@@ -32,7 +32,7 @@ def test_load_http_csv():
 
 def test_upload_csv():
     from fastapi.testclient import TestClient
-    from main import app
+    from fyndnote.main import app
     client = TestClient(app)
     content = b"text,label\nhello,0\nworld,1\n"
     resp = client.post("/api/v1/datasets/upload", files={"file": ("test.csv", content, "text/csv")})
@@ -43,7 +43,7 @@ def test_upload_csv():
 
 def test_upload_unsupported_format():
     from fastapi.testclient import TestClient
-    from main import app
+    from fyndnote.main import app
     client = TestClient(app)
     content = b"test"
     resp = client.post("/api/v1/datasets/upload", files={"file": ("test.xlsx", content, "application/octet-stream")})
@@ -53,7 +53,7 @@ def test_load_file_csv(tmp_path):
     init_db()
     f = tmp_path / "test.csv"
     f.write_text("text,label\nhello,0\nworld,1\n")
-    from services.dataset_service import DatasetService
+    from fyndnote.services.dataset_service import DatasetService
     meta = DatasetService.load(f"file://{f}")
     assert meta["source_type"] == "file"
     assert meta["num_rows"] == 2
@@ -104,7 +104,7 @@ def test_dataset_details(client):
     client.post(f"/api/v1/projects/{p_b}/annotate", json={"row_index": 1, "user_id": "alice", "data": {"l": "a3"}})
 
     # ML predictions: 1 for A, 2 for B
-    from database import get_db
+    from fyndnote.database import get_db
     db = get_db()
     for pid, count in ((p_a, 1), (p_b, 2)):
         for row in range(count):

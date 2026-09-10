@@ -97,7 +97,7 @@ class TestFilterAPI:
 
 def _seed_ml_annotations(client, pid, rows, label="cat", annotator="ml-model"):
     import json
-    from database import get_db
+    from fyndnote.database import get_db
     db = get_db()
     for idx in rows:
         db.execute(

@@ -1,16 +1,15 @@
-"""Seed the database with a few demo projects for development."""
+"""Seed the database with a few demo projects for development.
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+Run from the repo root:
+    uv run python -m fyndnote.tools.seed_db
+"""
 
 import uuid
 
-from database import get_db, init_db, seed_from_json
-from services.annotation_service import AnnotationService
-from services.dataset_service import DatasetService
-from services.template_service import TemplateService
+from fyndnote.database import get_db, init_db, seed_from_json
+from fyndnote.services.annotation_service import AnnotationService
+from fyndnote.services.dataset_service import DatasetService
+from fyndnote.services.template_service import TemplateService
 
 # 1. Reset DB
 db = get_db()

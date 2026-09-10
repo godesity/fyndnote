@@ -1,6 +1,6 @@
 def test_create_and_get_template():
     from fastapi.testclient import TestClient
-    from main import app
+    from fyndnote.main import app
     client = TestClient(app)
     resp = client.post("/api/v1/templates", json={
         "name": "test", "source": "function Foo() { return null; }"

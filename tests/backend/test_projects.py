@@ -1,11 +1,11 @@
-from database import get_db
-from database import init_db, seed_from_json
+from fyndnote.database import get_db
+from fyndnote.database import init_db, seed_from_json
 
 def test_create_project_and_submit_annotation():
     init_db()
     seed_from_json()
     from fastapi.testclient import TestClient
-    from main import app
+    from fyndnote.main import app
     client = TestClient(app)
 
     # Create a template first
@@ -151,7 +151,7 @@ def _make_project(client):
 
 
 def test_delete_annotation_single_user(client):
-    from services.annotation_service import AnnotationService
+    from fyndnote.services.annotation_service import AnnotationService
 
     pid = _make_project(client)
     AnnotationService.submit_annotation(pid, 0, "alice", {"sentiment": "positive"})
@@ -167,7 +167,7 @@ def test_delete_annotation_single_user(client):
 
 
 def test_delete_annotations_for_row(client):
-    from services.annotation_service import AnnotationService
+    from fyndnote.services.annotation_service import AnnotationService
 
     pid = _make_project(client)
     AnnotationService.submit_annotation(pid, 0, "alice", {"a": 1})
@@ -182,7 +182,7 @@ def test_delete_annotations_for_row(client):
 
 
 def test_delete_all_annotations_for_project(client):
-    from services.annotation_service import AnnotationService
+    from fyndnote.services.annotation_service import AnnotationService
 
     pid = _make_project(client)
     AnnotationService.submit_annotation(pid, 0, "alice", {"a": 1})
@@ -191,7 +191,7 @@ def test_delete_all_annotations_for_project(client):
 
     n = AnnotationService.delete_all_annotations(pid)
     assert n == 3
-    from database import get_db
+    from fyndnote.database import get_db
     db = get_db()
     try:
         assert db.execute(
@@ -202,10 +202,10 @@ def test_delete_all_annotations_for_project(client):
 
 
 def test_delete_ml_annotation_for_row(client):
-    from services.annotation_service import AnnotationService
+    from fyndnote.services.annotation_service import AnnotationService
 
     pid = _make_project(client)
-    from database import get_db
+    from fyndnote.database import get_db
     db = get_db()
     db.execute(
         "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
@@ -227,10 +227,10 @@ def test_delete_ml_annotation_for_row(client):
 
 
 def test_delete_all_ml_annotations_for_project(client):
-    from services.annotation_service import AnnotationService
+    from fyndnote.services.annotation_service import AnnotationService
 
     pid = _make_project(client)
-    from database import get_db
+    from fyndnote.database import get_db
     db = get_db()
     db.execute(
         "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
@@ -265,7 +265,7 @@ def test_delete_annotation_endpoint(client):
         "row_index": 0, "user_id": "bob", "data": {"sentiment": "neutral"}
     })
     # seed ML annotations directly (ml-prefill needs an ml_enabled project)
-    from database import get_db
+    from fyndnote.database import get_db
     db = get_db()
     db.execute(
         "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",
@@ -283,7 +283,7 @@ def test_delete_annotation_endpoint(client):
     assert resp.status_code == 200 and resp.json()["status"] == "deleted"
     assert resp.json()["rows"] == 1
     # remaining: bob only
-    from services.annotation_service import AnnotationService
+    from fyndnote.services.annotation_service import AnnotationService
     assert AnnotationService.get_annotation(pid, 0, "alice") is None
     assert AnnotationService.get_annotation(pid, 0, "bob") is not None
 
@@ -329,7 +329,7 @@ def test_bulk_clear_annotations_filtered(client):
     assert resp.json()["rows"] == 1
 
     # row 0 cleared, row 1 still annotated
-    from services.annotation_service import AnnotationService
+    from fyndnote.services.annotation_service import AnnotationService
     assert AnnotationService.get_annotation(pid, 0, "alice") is None
     assert AnnotationService.get_annotation(pid, 1, "alice") is not None
 
@@ -342,7 +342,7 @@ def test_bulk_clear_annotations_all(client):
     assert resp.status_code == 200
     assert resp.json()["rows"] == 2
 
-    from services.annotation_service import AnnotationService
+    from fyndnote.services.annotation_service import AnnotationService
     assert AnnotationService.get_annotation(pid, 0, "alice") is None
     assert AnnotationService.get_annotation(pid, 1, "alice") is None
 
@@ -353,7 +353,7 @@ def test_bulk_clear_ml_annotations(client):
         "row_index": 0, "user_id": "alice", "data": {"sentiment": "positive"}
     })
     # seed an ML annotation directly via the DB (no ML backend needed)
-    from database import get_db
+    from fyndnote.database import get_db
     db = get_db()
     db.execute(
         "INSERT INTO fyndnote_ml_annotations (project_id, row_index, annotator, data) VALUES (?, ?, ?, ?)",

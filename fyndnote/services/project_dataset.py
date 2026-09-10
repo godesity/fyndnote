@@ -4,10 +4,10 @@ from datetime import UTC, datetime
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from config import PROJECTS_DIR
-from database import get_db
-from services.annotation_service import AnnotationService
-from services.dataset_service import DatasetService
+from ..config import PROJECTS_DIR
+from ..database import get_db
+from .annotation_service import AnnotationService
+from .dataset_service import DatasetService
 
 
 def _project_dir(pid: str):

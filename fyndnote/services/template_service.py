@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config import TEMPLATES_DIR
+from ..config import TEMPLATES_DIR
 
 
 class TemplateService:

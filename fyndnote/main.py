@@ -8,7 +8,8 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from database import init_db, seed_from_json
+from .config import _IN_REPO
+from .database import init_db, seed_from_json
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
 
@@ -37,14 +38,29 @@ def startup():
 
 
 # Import routers after app creation to avoid circular imports
-from routers import auth, datasets, projects, sso, templates
+from .routers import auth, datasets, projects, sso, templates
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=Path(__file__).resolve().parent / "static"),
+    name="static",
+)
+
+_pkg = Path(__file__).resolve().parent
+
+
+def _dist_path(env_var: str, packaged: Path, dev: Path) -> Path:
+    """Env override wins; prefer live build output in a source checkout; else packaged."""
+    if os.getenv(env_var):
+        return Path(os.environ[env_var])
+    if _IN_REPO:
+        return dev
+    return packaged
 
 # Serve the built VitePress docs site (public; no auth) under /fyndnote.
-repo_root = Path(__file__).resolve().parent.parent
-docs_dist = Path(
-    os.getenv("DOCS_DIST", str(repo_root / "docs" / ".vitepress" / "dist"))
+repo_root = _pkg.parent
+docs_dist = _dist_path(
+    "DOCS_DIST", _pkg / "web" / "docs", repo_root / "docs" / ".vitepress" / "dist"
 )
 if docs_dist.is_dir():
     app.mount(
@@ -59,7 +75,9 @@ app.include_router(projects.router, prefix="/api/v1")
 app.include_router(sso.router, prefix="/api/v1")
 
 # Serve built frontend as static files
-frontend_dist = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+frontend_dist = _dist_path(
+    "FRONTEND_DIST", _pkg / "web" / "frontend", repo_root / "frontend" / "dist"
+)
 if frontend_dist.is_dir():
     app.mount(
         "/assets",

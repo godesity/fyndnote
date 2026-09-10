@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "fyndnote"
+version = "0.1.0"
+description = "General-purpose ML dataset annotation tool (FastAPI + React)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [{ name = "Go Desity" }]
+dependencies = [
+    "fastapi>=0.141.1",
+    "pydantic>=2.13.4",
+    "uvicorn>=0.52.3",
+    "datasets>=3.5.0",
+    "pyarrow>=15.0.0",
+    "Pillow>=10.0.0",
+    "requests>=2.31.0",
+    "python-multipart>=0.0.32",
+    "boto3>=1.34.0",
+    "cryptography>=42.0.0",
+    "itsdangerous>=2.2.0",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.1"]
+
+[project.scripts]
+fyndnote = "fyndnote.cli:main"
+
+[dependency-groups]
+dev = ["httpx>=0.28.1", "pytest>=9.1.1", "ruff>=0.16.4"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["fyndnote"]
+
+# fyndnote/web/** is gitignored generated content — force it into both artifacts.
+[tool.hatch.build]
+artifacts = ["fyndnote/web/**"]

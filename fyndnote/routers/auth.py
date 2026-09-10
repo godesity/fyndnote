@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from database import get_db
-from schemas import LoginRequest, LoginResponse
+from ..database import get_db
+from ..schemas import LoginRequest, LoginResponse
 
 router = APIRouter(tags=["auth"])
 

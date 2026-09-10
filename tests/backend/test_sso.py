@@ -2,14 +2,14 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from main import app as _app
+from fyndnote.main import app as _app
 
 # Force SSO enabled for these tests regardless of the environment.
 @pytest.fixture(autouse=True)
 def sso_enabled(monkeypatch):
-    import config
+    import fyndnote.config as config
     monkeypatch.setattr(config, "SSO_ENABLED", True)
-    import routers.sso as sso
+    import fyndnote.routers.sso as sso
     monkeypatch.setattr(sso.kc, "SSO_ENABLED", True)
 
 

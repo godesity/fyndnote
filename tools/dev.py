@@ -11,7 +11,6 @@ import threading
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-BACKEND_DIR = os.path.join(ROOT, "backend")
 FRONTEND_DIR = os.path.join(ROOT, "frontend")
 MOCK_ML_DIR = os.path.join(ROOT, "mock-ml-backend")
 
@@ -100,7 +99,7 @@ def main():
             sys.exit(1)
 
     if want_backend:
-        ok = run_install("backend", BACKEND_DIR, "uv", "sync")
+        ok = run_install("backend", ROOT, "uv", "sync")
         if not ok:
             sys.exit(1)
 
@@ -109,7 +108,7 @@ def main():
         if not ok:
             sys.exit(1)
 
-    be = start_server("backend", BACKEND_DIR, "uv", "run", "uvicorn", "main:app", "--reload", "--port", "8000") if want_backend else None
+    be = start_server("backend", ROOT, "uv", "run", "uvicorn", "fyndnote.main:app", "--reload", "--port", "8000") if want_backend else None
     fe = start_server("frontend", FRONTEND_DIR, "npm", "run", "dev") if want_frontend else None
     ml = start_server("mock-ml", MOCK_ML_DIR, "uv", "run", "uvicorn", "main:app", "--reload", "--port", "8081") if want_mock_ml else None
 

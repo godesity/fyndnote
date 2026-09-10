@@ -18,7 +18,7 @@ from urllib.parse import urlencode
 
 import requests
 
-from config import (
+from ..config import (
     KEYCLOAK_CLIENT_ID,
     KEYCLOAK_CLIENT_SECRET,
     KEYCLOAK_REALM,

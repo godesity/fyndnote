@@ -13,9 +13,9 @@ from fastapi import APIRouter, Header, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from starlette.requests import Request
 
-from config import SSO_APP_ORIGIN, SSO_REDIRECT_URI
-from database import get_db
-from services import keycloak_service as kc
+from ..config import SSO_APP_ORIGIN, SSO_REDIRECT_URI
+from ..database import get_db
+from ..services import keycloak_service as kc
 
 router = APIRouter(tags=["sso"])
 

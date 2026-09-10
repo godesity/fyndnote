@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
-from main import app as _app
-from database import init_db, seed_from_json
+from fyndnote.main import app as _app
+from fyndnote.database import init_db, seed_from_json
 
 @pytest.fixture(autouse=True)
 def setup_db():

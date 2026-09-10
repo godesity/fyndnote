@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter, HTTPException, Response
 
-from schemas import (
+from ..schemas import (
     AnnotateRequest,
     BrowseRowsRequest,
     BulkClearRequest,
@@ -9,17 +9,17 @@ from schemas import (
     MLBatchRequest,
     MLPrefillRequest,
 )
-from services.annotation_service import AnnotationService
-from services.dataset_service import DatasetService
-from services.ml_service import batch_prefill, get_ml_annotation, prefill_row
-from services.template_service import TemplateService
+from ..services.annotation_service import AnnotationService
+from ..services.dataset_service import DatasetService
+from ..services.ml_service import batch_prefill, get_ml_annotation, prefill_row
+from ..services.template_service import TemplateService
 
 router = APIRouter()
 
 
 def _can_clear(pid: str, user_id: str) -> bool:
     """Only system admins and project admins may bulk-clear annotations/predictions."""
-    from database import get_db
+    from ..database import get_db
 
     db = get_db()
     user = db.execute(
@@ -115,7 +115,7 @@ def browse_rows(pid: str, body: BrowseRowsRequest):
 def import_rows(pid: str, body: BulkRowsIn):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
-    from services.project_dataset import ProjectDatasetService
+    from ..services.project_dataset import ProjectDatasetService
 
     try:
         n = ProjectDatasetService.append_rows(pid, body.rows)
@@ -129,7 +129,7 @@ def next_row(pid: str, user_id: str):
     p = AnnotationService.get_project(pid)
     if not p:
         raise HTTPException(status_code=404, detail="project not found")
-    from services.project_dataset import ProjectDatasetService
+    from ..services.project_dataset import ProjectDatasetService
 
     meta = ProjectDatasetService.get_meta(pid)
     if meta is not None:
@@ -221,7 +221,7 @@ def delete_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
         raise HTTPException(status_code=404, detail="project not found")
     if not _can_clear(pid, user_id):
         raise HTTPException(status_code=403, detail="insufficient role")
-    from services.annotation_service import _resolve_matching_indices
+    from ..services.annotation_service import _resolve_matching_indices
 
     indices = _resolve_matching_indices(pid, user_id, body.filter)
     n = AnnotationService.delete_annotations_for_rows(pid, indices)
@@ -234,7 +234,7 @@ def delete_ml_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
         raise HTTPException(status_code=404, detail="project not found")
     if not _can_clear(pid, user_id):
         raise HTTPException(status_code=403, detail="insufficient role")
-    from services.annotation_service import _resolve_matching_indices
+    from ..services.annotation_service import _resolve_matching_indices
 
     indices = _resolve_matching_indices(pid, user_id, body.filter)
     n = AnnotationService.delete_ml_annotations_for_rows(pid, indices)

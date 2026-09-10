@@ -8,9 +8,9 @@ from datetime import datetime, timedelta, timezone
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from config import DATABASE_TYPE
-from database import get_db
-from services.dataset_service import DatasetService
+from ..config import DATABASE_TYPE
+from ..database import get_db
+from .dataset_service import DatasetService
 
 
 def _apply_row_index_filter(indices: list[int], expr) -> list[int]:
@@ -472,7 +472,7 @@ def _resolve_matching_indices(pid: str, user_id: str, filter_exprs: list) -> lis
 
     ds_id = project["dataset_id"]
     ds = DatasetService._load_ds(ds_id)
-    from services.project_dataset import ProjectDatasetService
+    from .project_dataset import ProjectDatasetService
 
     meta = ProjectDatasetService.get_meta(pid)
     if meta is not None:
@@ -844,7 +844,7 @@ class AnnotationService:
         if not project:
             return None
         ds_id = project["dataset_id"]
-        from services.project_dataset import ProjectDatasetService
+        from .project_dataset import ProjectDatasetService
 
         meta = ProjectDatasetService.get_meta(pid)
         if meta is not None:
@@ -872,7 +872,7 @@ class AnnotationService:
         db.close()
         if not salt:
             return None
-        from services.project_dataset import ProjectDatasetService
+        from .project_dataset import ProjectDatasetService
 
         meta = ProjectDatasetService.get_meta(pid)
         if meta is not None:
@@ -913,7 +913,7 @@ class AnnotationService:
 
         ds_id = project["dataset_id"]
         ds = DatasetService._load_ds(ds_id)
-        from services.project_dataset import ProjectDatasetService
+        from .project_dataset import ProjectDatasetService
 
         meta = ProjectDatasetService.get_meta(pid)
         if meta is not None:

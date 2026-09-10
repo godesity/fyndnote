@@ -1,6 +1,6 @@
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile
 
-from services.dataset_service import DatasetService
+from ..services.dataset_service import DatasetService
 
 router = APIRouter()
 

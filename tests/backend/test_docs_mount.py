@@ -17,7 +17,7 @@ def docs_client(tmp_path, monkeypatch):
     )
 
     monkeypatch.setenv("DOCS_DIST", str(docs_dir))
-    import main
+    import fyndnote.main as main
 
     importlib.reload(main)
     client = TestClient(main.app)

@@ -3,8 +3,8 @@ import tempfile
 
 import pytest
 
-from services.annotation_service import AnnotationService
-from services.project_dataset import ProjectDatasetService, _frag_dir
+from fyndnote.services.annotation_service import AnnotationService
+from fyndnote.services.project_dataset import ProjectDatasetService, _frag_dir
 
 CSV_ROWS = [
     {"id": 1, "text": "hello", "score": 0.5},

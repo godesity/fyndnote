@@ -1,7 +1,8 @@
 import re
 import sqlite3
+from pathlib import Path
 
-from config import DATABASE_PATH, DATABASE_TYPE, DATABASE_URL
+from .config import DATABASE_PATH, DATABASE_TYPE, DATABASE_URL
 
 if DATABASE_TYPE == "postgres":
     import psycopg
@@ -210,6 +211,8 @@ def get_db():
 
 
 def init_db():
+    if DATABASE_TYPE == "sqlite":
+        DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     db = get_db()
     if DATABASE_TYPE == "sqlite":
         db.execute("PRAGMA journal_mode=WAL")
@@ -256,6 +259,8 @@ def seed_from_json():
     import json
 
     seed_file = DATABASE_PATH.parent / "users.json"
+    if not seed_file.exists():
+        seed_file = Path(__file__).resolve().parent / "_data" / "users.json"
     if not seed_file.exists():
         return
     db = get_db()

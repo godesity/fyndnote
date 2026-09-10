@@ -3,8 +3,8 @@ from datetime import UTC, datetime
 
 import httpx
 
-from database import get_db
-from services.dataset_service import DatasetService
+from ..database import get_db
+from .dataset_service import DatasetService
 
 ML_TIMEOUT = 15.0
 

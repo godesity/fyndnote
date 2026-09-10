@@ -1,7 +1,7 @@
 """Generate the OpenAPI/Swagger JSON for the fyndnote docs site.
 
-Run from the backend directory:
-    uv run python tools/gen_openapi.py
+Run from the repo root:
+    uv run python -m fyndnote.tools.gen_openapi
 
 Writes the FastAPI app's OpenAPI schema to docs/public/openapi.json,
 which is committed and rendered by the Scalar reference viewer in the docs site.
@@ -9,14 +9,11 @@ Regenerate this file whenever the API surface changes.
 """
 
 import json
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from fyndnote.main import app
 
-import main
-
-spec = main.app.openapi()
+spec = app.openapi()
 
 out = Path(__file__).resolve().parents[2] / "docs" / "public" / "openapi.json"
 out.parent.mkdir(parents=True, exist_ok=True)

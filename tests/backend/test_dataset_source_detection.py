@@ -1,5 +1,5 @@
 import pytest
-from services.dataset_service import _detect_source
+from fyndnote.services.dataset_service import _detect_source
 
 
 def test_detect_http_csv():
