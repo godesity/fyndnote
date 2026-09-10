@@ -13,7 +13,6 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - MAX_CACHED_DATASETS=1
       - DISK_USAGE_THRESHOLD=0.1
-      - DOCS_DIST=/app/docs/dist
       # Empty = SQLite (default). For the pg profile use:
       #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/fyndnote docker compose --profile pg up
       - DATABASE_URL=${DATABASE_URL:-}

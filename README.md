@@ -38,9 +38,8 @@ EOF
 ### 2. Start the backend
 
 ```bash
-cd backend
 uv sync
-uv run uvicorn main:app --reload --port 8000
+uv run uvicorn fyndnote.main:app --reload --port 8000
 ```
 
 The API is served at `http://localhost:8000/api/v1`. Open `http://localhost:8000/docs` for Swagger.
@@ -128,26 +127,30 @@ The docs live in `docs/` and are built with [VitePress](https://vitepress.dev/).
 
 - **Standalone dev:** `npm run docs:dev` → `http://localhost:5173/fyndnote/`
 - **In the app:** `npm run docs:build` once, then open `/fyndnote/` inside the
-  running app (dev server or Docker — the Docker image builds the docs
-  automatically and sets `DOCS_DIST`).
+  running app (dev server, Docker, or the installed wheel — the published wheel
+  bundles the built docs under `fyndnote/web/docs`).
 
 ## Project Structure
 
 ```
-backend/
-  main.py                     # FastAPI entry point, CORS, lifespan
-  config.py                   # Path constants
-  database.py                 # SQLite schema init + seeding
-  schemas.py                  # Pydantic models
+fyndnote/                       # Python package (pip-installable)
+  main.py                       # FastAPI entry point, CORS, lifespan
+  cli.py                        # `fyndnote` console script
+  config.py                     # Path/env constants (FYNDNOTE_HOME aware)
+  database.py                   # SQLite schema init + seeding
+  schemas.py                    # Pydantic models
   routers/
-    auth.py                   # POST /auth/login
-    datasets.py               # Dataset loading + row access
-    templates.py              # Template CRUD
-    projects.py               # Projects, annotation, export
+    auth.py                     # POST /auth/login
+    datasets.py                 # Dataset loading + row access
+    templates.py                # Template CRUD
+    projects.py                 # Projects, annotation, export
   services/
-    dataset_service.py        # HF datasets load + cache
-    template_service.py       # JSON file CRUD
-    annotation_service.py     # SQLite queries
+    dataset_service.py          # HF datasets load + cache
+    template_service.py         # JSON file CRUD
+    annotation_service.py       # SQLite queries
+  tools/                        # gen_openapi, seed_db helpers
+  _data/users.json              # bundled seed users (fallback)
+  web/                          # built frontend/docs (generated; wheel data)
 frontend/
   src/
     api/client.ts             # API client
@@ -193,17 +196,36 @@ All endpoints under `/api/v1`:
 | GET    | `/projects/{id}/annotations/export` | Export as Parquet |
 | DELETE | `/projects/{id}` | Delete project |
 
+## Install from PyPI
+
+```bash
+pipx install fyndnote    # or: pip install fyndnote
+fyndnote --port 8000
+```
+
+The wheel bundles the built web app and docs, so a single `pip install` serves the
+SPA at `/`, the API at `/api/v1` and the docs at `/fyndnote`. Data (SQLite DB,
+datasets, templates) lives in `~/.fyndnote` by default; point it elsewhere with
+`--data-dir <path>` or the `FYNDNOTE_HOME` env var. For PostgreSQL support use
+the `fyndnote[postgres]` extra.
+
+To build and publish from a checkout:
+
+```bash
+uv run python tools/build_wheel.py   # builds frontend+docs, then dist/*.whl + sdist
+uv publish                            # requires UV_PUBLISH_TOKEN
+```
+
 ## Running Tests
 
 ```bash
-cd backend
-rm -f ../data/labeling.db
-uv run python -m pytest ../tests/backend/ -v
+rm -f data/labeling.db
+uv run python -m pytest tests/backend/ -v
 ```
 
 ## Development
 
 Hot-reload is built in:
 
-- **Backend:** `uv run uvicorn main:app --reload --port 8000` (auto-restarts on changes)
+- **Backend:** `uv run uvicorn fyndnote.main:app --reload --port 8000` (repo root; auto-restarts on changes)
 - **Frontend:** `npm run dev` (Vite HMR — instant updates in browser)

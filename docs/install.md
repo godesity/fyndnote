@@ -115,7 +115,7 @@ docker run -d --name fyndnote \
 - `data/datasets/` — Hugging Face dataset cache / uploads.
 - `data/templates/` — template JSON files.
 
-The image copies a default `data/users.json` into `/app/data`, but the bind-mount (`./data:/app/data`) overrides it — put your own `users.json` on the host before first run (see [Quick Start](/guide/)).
+The wheel ships a default seed user file inside the package (`fyndnote/_data/users.json`), used only when no `users.json` exists in the data dir. With the bind-mount (`./data:/app/data`), put your own `users.json` on the host before first run (see [Quick Start](/guide/)).
 
 ## Stopping
 
@@ -128,3 +128,17 @@ docker stop fyndnote
 ```
 
 To reset everything, delete the `data/` folder and run again — the DB is recreated from `users.json`.
+
+## Install from PyPI
+
+```bash
+pipx install fyndnote    # or: pip install fyndnote
+fyndnote --port 8000
+```
+
+The wheel bundles the built web app and the docs site, so one install serves the
+SPA at `/`, the API at `/api/v1` and the docs at `/fyndnote` — no Docker or Node
+required. Data (SQLite DB, datasets, templates) lives in `~/.fyndnote` by
+default; choose another location with `--data-dir <path>` or the `FYNDNOTE_HOME`
+environment variable. PostgreSQL support comes from the `fyndnote[postgres]`
+extra plus a `DATABASE_URL` env var.

@@ -31,4 +31,4 @@ Build a general-purpose ML dataset annotation tool with FastAPI backend, React f
 - `data/users.json` tracked; `data/{labeling.db,datasets/,templates/}` in .gitignore
 
 ## How to run
-See `README.md`. Quick start: `cd backend && uv run uvicorn main:app --reload` + `cd frontend && npm run dev`
+See `README.md`. Quick start: `uv run uvicorn fyndnote.main:app --reload` (repo root) + `cd frontend && npm run dev`
