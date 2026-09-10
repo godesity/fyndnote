@@ -78,6 +78,12 @@
 .fyndnote-screenshots img {
   display: block;
   width: 100%;
+  /* Source shots have wildly different heights (848–3419px); uniform 16:10
+     tiles anchored to the top keep every card the same height and keep the
+     app chrome visible. */
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top;
   border-radius: 12px;
   border: 1px solid var(--vp-c-divider);
   box-shadow: 0 4px 16px rgb(0 0 0 / 0.08);

@@ -62,10 +62,3 @@ Full walkthrough: [User Guide](/guide/).
 
 </div>
 
-## Quick start
-
-1. **Sign in** — SSO (or the seeded dev users).
-2. **New Project** — admins load a dataset and pick a template with live preview.
-3. **Load a dataset** — e.g. `stanfordnlp/imdb`, then create the project and start labeling.
-
-[Docker installation](/install) · [Create your first project](/guide/create-project)
