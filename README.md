@@ -222,6 +222,22 @@ uv run python tools/build_wheel.py   # builds frontend+docs, then dist/*.whl + s
 uv publish                            # requires UV_PUBLISH_TOKEN
 ```
 
+### Install from a git URL
+
+```bash
+pip install "git+https://github.com/godesity/fyndnote.git"        # public, https
+pip install "git+ssh://git@github.com/godesity/fyndnote.git@main" # private, ssh key
+```
+
+A custom hatchling build hook runs `npm ci` + the vite/vitepress builds inside
+pip's build step, so git installs ship the UI too (needs `node`, `npm` and `git`
+on PATH; it triggers automatically, no extra flags). To skip the web build on a
+node-less machine (API-only wheel):
+
+```bash
+FYNDNOTE_SKIP_WEB_BUILD=1 pip install "git+https://github.com/godesity/fyndnote.git"
+```
+
 ## Running Tests
 
 ```bash

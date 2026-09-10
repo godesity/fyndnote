@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir uv
 COPY --from=frontend /app/frontend/dist ./frontend/dist
 COPY --from=docs /app/docs/.vitepress/dist ./docs/.vitepress/dist
 
-COPY pyproject.toml LICENSE README.md .python-version ./
+COPY pyproject.toml LICENSE README.md .python-version hatch_build.py ./
 COPY fyndnote/ ./fyndnote/
 COPY tools/ ./tools/
 

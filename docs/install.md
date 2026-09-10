@@ -142,3 +142,17 @@ required. Data (SQLite DB, datasets, templates) lives in `~/.fyndnote` by
 default; choose another location with `--data-dir <path>` or the `FYNDNOTE_HOME`
 environment variable. PostgreSQL support comes from the `fyndnote[postgres]`
 extra plus a `DATABASE_URL` env var.
+
+## Install from a git URL
+
+```bash
+pip install "git+https://github.com/godesity/fyndnote.git"          # public
+pip install "git+ssh://git@github.com/godesity/fyndnote.git@main"   # private (ssh key)
+```
+
+A PEP 517 build hook builds the SPA and the docs site with npm during the wheel
+build, so a git install ships the same UI as the PyPI wheel. Requirements on the
+installing machine: `git`, `node` and `npm` on PATH. Builds take a few minutes
+the first time (`npm ci`). On a machine without Node, set
+`FYNDNOTE_SKIP_WEB_BUILD=1` to build an API-only package, or install a
+pre-built wheel from a release instead.
