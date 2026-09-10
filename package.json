@@ -6,6 +6,7 @@
   "scripts": {
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
+    "build:wheel": "uv run python tools/build_wheel.py",
     "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
