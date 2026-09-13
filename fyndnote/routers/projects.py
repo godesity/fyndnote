@@ -8,32 +8,35 @@ from ..schemas import (
     BulkRowsIn,
     MLBatchRequest,
     MLPrefillRequest,
+    ProjectMemberCandidate,
+    ProjectMemberIn,
+    ProjectMemberOut,
 )
 from ..services.annotation_service import AnnotationService
 from ..services.dataset_service import DatasetService
 from ..services.ml_service import batch_prefill, get_ml_annotation, prefill_row
+from ..services.permission_service import PROJECT_ROLES, PermissionService
 from ..services.template_service import TemplateService
 
 router = APIRouter()
 
 
-def _can_clear(pid: str, user_id: str) -> bool:
-    """Only system admins and project admins may bulk-clear annotations/predictions."""
-    from ..database import get_db
+def _require_member_view(pid: str, user_id: str) -> None:
+    if not PermissionService.can_view_project(pid, user_id):
+        raise HTTPException(status_code=403, detail="insufficient role")
 
-    db = get_db()
-    user = db.execute(
-        "SELECT global_role FROM fyndnote_users WHERE id = ?", (user_id,)
-    ).fetchone()
-    if user and user["global_role"] == "system_admin":
-        db.close()
-        return True
-    perm = db.execute(
-        "SELECT role FROM fyndnote_project_permissions WHERE user_id = ? AND project_id = ?",
-        (user_id, pid),
-    ).fetchone()
-    db.close()
-    return bool(perm and perm["role"] == "project_admin")
+
+def _require_project_manager(pid: str, user_id: str) -> None:
+    """403 unless ``user_id`` may configure the project (incl. its members)."""
+    if not PermissionService.can_manage_project(pid, user_id):
+        raise HTTPException(status_code=403, detail="insufficient role")
+
+
+def _require_project(pid: str) -> dict:
+    project = AnnotationService.get_project(pid)
+    if not project:
+        raise HTTPException(status_code=404, detail="project not found")
+    return project
 
 
 @router.get("/projects")
@@ -60,10 +63,12 @@ def create_project(body: dict):
 
 
 @router.put("/projects/{pid}")
-def update_project(pid: str, body: dict):
+def update_project(pid: str, body: dict, user_id: str):
     name = body.get("name")
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
+    _require_project(pid)
+    _require_project_manager(pid, user_id)
     p = AnnotationService.update_project(
         pid,
         name,
@@ -100,6 +105,9 @@ def get_project(pid: str, user_id: str):
         "annotation_fields": annotation_fields,
         "num_rows": ds_meta["num_rows"] if ds_meta else 0,
         "progress": progress,
+        "my_role": PermissionService.effective_role(pid, user_id),
+        "can_manage": PermissionService.can_manage_project(pid, user_id),
+        "can_view": PermissionService.can_view_project(pid, user_id),
     }
 
 
@@ -196,6 +204,51 @@ def get_annotation(pid: str, row_index: int, user_id: str):
     return ann
 
 
+@router.get("/projects/{pid}/members", response_model=list[ProjectMemberOut])
+def list_members(pid: str, user_id: str):
+    _require_project(pid)
+    _require_member_view(pid, user_id)
+    return PermissionService.list_members(pid)
+
+
+@router.get("/projects/{pid}/member-candidates", response_model=list[ProjectMemberCandidate])
+def list_member_candidates(pid: str, user_id: str, q: str = ""):
+    _require_project(pid)
+    _require_project_manager(pid, user_id)
+    return PermissionService.list_candidates(pid, q)
+
+
+@router.put("/projects/{pid}/members", status_code=200)
+def set_member(pid: str, body: ProjectMemberIn):
+    """Add a user to the project, or change an existing member's role."""
+    if body.role not in PROJECT_ROLES:
+        raise HTTPException(status_code=400, detail=f"role must be one of {PROJECT_ROLES}")
+    _require_project(pid)
+    _require_project_manager(pid, body.actor)
+    if PermissionService.assign_role(pid, body.user_id, body.role) is None:
+        raise HTTPException(status_code=404, detail="user not found")
+    return {"status": "ok", "user_id": body.user_id, "role": body.role}
+
+
+@router.delete("/projects/{pid}/members/{member_id}")
+def remove_member(pid: str, member_id: str, user_id: str):
+    _require_project(pid)
+    _require_project_manager(pid, user_id)
+    if PermissionService.get_project_role(pid, member_id) == "project_admin":
+        # Never strand a project without an admin, unless the caller is a
+        # global admin (who can always manage the project afterwards).
+        if (
+            PermissionService.count_admins(pid) <= 1
+            and not PermissionService.is_system_admin(user_id)
+        ):
+            raise HTTPException(
+                status_code=409, detail="project must keep at least one project admin"
+            )
+    if not PermissionService.revoke(pid, member_id):
+        raise HTTPException(status_code=404, detail="not a project member")
+    return {"status": "removed", "user_id": member_id}
+
+
 @router.get("/projects/{pid}/annotations/export")
 def export_annotations(pid: str, format: str = "parquet"):
     data = AnnotationService.export_annotations(pid, format=format)
@@ -207,20 +260,18 @@ def export_annotations(pid: str, format: str = "parquet"):
 
 
 @router.delete("/projects/{pid}")
-def delete_project(pid: str):
+def delete_project(pid: str, user_id: str):
+    _require_project_manager(pid, user_id)
     if not AnnotationService.delete_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
     return {"status": "deleted"}
-
-
 
 
 @router.delete("/projects/{pid}/annotations/bulk")
 def delete_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
-    if not _can_clear(pid, user_id):
-        raise HTTPException(status_code=403, detail="insufficient role")
+    _require_project_manager(pid, user_id)
     from ..services.annotation_service import _resolve_matching_indices
 
     indices = _resolve_matching_indices(pid, user_id, body.filter)
@@ -232,8 +283,7 @@ def delete_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
 def delete_ml_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
-    if not _can_clear(pid, user_id):
-        raise HTTPException(status_code=403, detail="insufficient role")
+    _require_project_manager(pid, user_id)
     from ..services.annotation_service import _resolve_matching_indices
 
     indices = _resolve_matching_indices(pid, user_id, body.filter)

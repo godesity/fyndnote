@@ -141,3 +141,22 @@ class MLAnnotationOut(BaseModel):
     annotator: str
     data: dict[str, Any]
     created_at: str
+
+
+class ProjectMemberOut(BaseModel):
+    user_id: str
+    name: str
+    global_role: str
+    role: str
+
+
+class ProjectMemberCandidate(BaseModel):
+    user_id: str
+    name: str
+    global_role: str
+
+
+class ProjectMemberIn(BaseModel):
+    user_id: str
+    role: str = "annotator"
+    actor: str

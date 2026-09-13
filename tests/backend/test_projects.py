@@ -116,13 +116,13 @@ def test_delete_project(client):
     assert client.get(f"/api/v1/projects/{pid}?user_id=alice").status_code == 200
 
     # Delete
-    d_resp = client.delete(f"/api/v1/projects/{pid}")
+    d_resp = client.delete(f"/api/v1/projects/{pid}?user_id=alice")
     assert d_resp.status_code == 200
     assert d_resp.json() == {"status": "deleted"}
 
     # Project gone; annotations gone with it
     assert client.get(f"/api/v1/projects/{pid}?user_id=alice").status_code == 404
-    assert client.delete(f"/api/v1/projects/{pid}").status_code == 404
+    assert client.delete(f"/api/v1/projects/{pid}?user_id=alice").status_code == 404
 
     # Child rows actually gone (FK enforcement is off on runtime connections,
     # so orphaned rows would otherwise survive invisibly)

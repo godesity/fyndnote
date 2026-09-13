@@ -1,12 +1,14 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import { LiveProvider, LiveEditor, LivePreview, LiveError } from "react-live";
 import { themes } from "prism-react-renderer";
 import { api } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import * as widgets from "../widgets";
 import { AnnotationProvider } from "../context/AnnotationContext";
 import BreadcrumbNav from "../components/BreadcrumbNav";
 import LoadTemplateDialog from "../components/LoadTemplateDialog";
 import DeleteProjectDialog from "../components/DeleteProjectDialog";
+import ProjectMembers from "../components/ProjectMembers";
 import WidgetDocs from "../components/WidgetDocs";
 import InstructionsButton from "../components/InstructionsButton";
 
@@ -24,6 +26,7 @@ function extractColumns(source: string): Set<string> {
 }
 
 export default function EditProjectView({ projectId }: { projectId: string }) {
+  const { user } = useAuth();
   const [templateSource, setTemplateSource] = useState("");
   const [originalSource, setOriginalSource] = useState("");
   const [templateId, setTemplateId] = useState<string | null>(null);
@@ -44,11 +47,22 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
-
+  // Server-side verdict for the signed-in user; the settings page is reachable
+  // by URL, so gating must not be client-trusted (the routes enforce it too).
+  const [access, setAccess] = useState<{
+    loading: boolean;
+    canManage: boolean;
+    role: string | null;
+  }>({ loading: true, canManage: false, role: null });
   useEffect(() => {
     const load = async () => {
-      const user = JSON.parse(sessionStorage.getItem("auth_user") || "{}");
+      if (!user) return;
       const project = await api.getProject(projectId, user.user_id);
+      setAccess({
+        loading: false,
+        canManage: !!project.can_manage,
+        role: project.my_role ?? null,
+      });
       setProjectName(project.name);
       setProjectColor(project.color || "#F97316");
       setProjectTags(project.tags || "");
@@ -65,7 +79,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
       setDatasetLoaded(true);
     };
     load();
-  }, [projectId]);
+  }, [projectId, user]);
 
   const handleSave = async () => {
     if (!templateId) return;
@@ -87,7 +101,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
 
     if (proceed) {
       await api.updateProject(projectId, projectName, projectColor, projectTags, projectInstructions,
-        mlEnabled, mlUrl, mlAnnotator, mlMode);
+        mlEnabled, mlUrl, mlAnnotator, mlMode, user?.user_id);
       await api.updateTemplate(templateId, templateSource);
       window.location.hash = "#/projects";
     }
@@ -129,6 +143,43 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
     }
   };
 
+  if (!user) return null;
+
+  const shell = (children: ReactNode) => (
+    <div className="min-h-screen bg-[var(--color-surface-secondary)]">
+      <BreadcrumbNav
+        crumbs={[
+          { label: "Projects", href: "#/projects" },
+          { label: access.loading ? "Settings" : projectName || "Settings" },
+        ]}
+      />
+      <div className="max-w-5xl mx-auto px-6 py-10 animate-fade-in">{children}</div>
+    </div>
+  );
+
+  if (access.loading) {
+    return shell(
+      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6 shadow-sm">
+        <p className="text-sm text-[var(--color-text-muted)]">Loading project settings…</p>
+      </div>
+    );
+  }
+
+  if (!access.canManage) {
+    return shell(
+      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-[var(--color-text-heading)] mb-2">
+          Project settings need the project admin role
+        </h2>
+        <p className="text-sm text-[var(--color-text-muted)]">
+          {access.role === "annotator"
+            ? `You are an annotator on ${projectName || "this project"} and can label rows, but only a project admin can change its settings. Ask a project admin or global admin to upgrade your role.`
+            : `You are not a member of ${projectName || "this project"} yet. Ask a project admin or global admin to add you.`}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--color-surface-secondary)]">
       <BreadcrumbNav crumbs={[
@@ -142,6 +193,8 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-[var(--color-text-heading)]">Settings: {projectName}</h2>
         </div>
+
+
 
         {/* Project Name */}
         <section className="mb-6">
@@ -180,6 +233,11 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
               </div>
             </div>
           </div>
+        </section>
+
+        {/* Members */}
+        <section className="mb-6">
+          <ProjectMembers projectId={projectId} userId={user.user_id} />
         </section>
 
         {/* Template */}
@@ -344,6 +402,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
           <DeleteProjectDialog
             projectName={projectName}
             projectId={projectId}
+            actor={user.user_id}
             onClose={() => setShowDeleteDialog(false)}
           />
         )}

@@ -516,6 +516,15 @@
               "type": "string",
               "title": "Pid"
             }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
           }
         ],
         "requestBody": {
@@ -606,6 +615,15 @@
             "schema": {
               "type": "string",
               "title": "Pid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
             }
           }
         ],
@@ -1072,6 +1090,221 @@
                   "type": "null"
                 }
               ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{pid}/members": {
+      "get": {
+        "summary": "List Members",
+        "operationId": "list_members_api_v1_projects__pid__members_get",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectMemberOut"
+                  },
+                  "title": "Response List Members Api V1 Projects  Pid  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Set Member",
+        "description": "Add a user to the project, or change an existing member's role.",
+        "operationId": "set_member_api_v1_projects__pid__members_put",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectMemberIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{pid}/member-candidates": {
+      "get": {
+        "summary": "List Member Candidates",
+        "operationId": "list_member_candidates_api_v1_projects__pid__member_candidates_get",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pid"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectMemberCandidate"
+                  },
+                  "title": "Response List Member Candidates Api V1 Projects  Pid  Member Candidates Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{pid}/members/{member_id}": {
+      "delete": {
+        "summary": "Remove Member",
+        "operationId": "remove_member_api_v1_projects__pid__members__member_id__delete",
+        "parameters": [
+          {
+            "name": "pid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Pid"
+            }
+          },
+          {
+            "name": "member_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Member Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
               "title": "User Id"
             }
           }
@@ -1929,6 +2162,80 @@
           "row_index"
         ],
         "title": "MLPrefillRequest"
+      },
+      "ProjectMemberCandidate": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "global_role": {
+            "type": "string",
+            "title": "Global Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "name",
+          "global_role"
+        ],
+        "title": "ProjectMemberCandidate"
+      },
+      "ProjectMemberIn": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": "annotator"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "actor"
+        ],
+        "title": "ProjectMemberIn"
+      },
+      "ProjectMemberOut": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "global_role": {
+            "type": "string",
+            "title": "Global Role"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "name",
+          "global_role",
+          "role"
+        ],
+        "title": "ProjectMemberOut"
       },
       "TemplateCreate": {
         "properties": {

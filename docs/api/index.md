@@ -35,13 +35,25 @@ The fyndnote backend exposes a REST API under the base path **`/api/v1`**. The f
 |--------|------|-------------|
 | GET | `/projects` | List projects (role-aware). |
 | POST | `/projects` | Create a project. |
-| GET | `/projects/{id}` | Project detail + progress. |
-| PUT | `/projects/{id}` | Update a project. |
-| DELETE | `/projects/{id}` | Delete a project. |
+| GET | `/projects/{id}` | Project detail + progress + `my_role` / `can_manage` / `can_view`. |
+| PUT | `/projects/{id}` | Update a project (requires a project admin). |
+| DELETE | `/projects/{id}` | Delete a project (requires a project admin). |
 | GET | `/projects/{id}/next-row` | Next unannotated row. |
 | POST | `/projects/{id}/annotate` | Submit an annotation. |
 | GET | `/projects/{id}/annotations/{row}` | Read an annotation. |
 | GET | `/projects/{id}/annotations/export` | Export annotations (parquet). |
+
+### Project members
+
+Membership is managed from the project **Settings** page. `user_id` identifies the
+acting user; project admins and global (`system_admin`) users may manage members.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/projects/{id}/members` | List members with their project role (members only). |
+| GET | `/projects/{id}/member-candidates` | Search non-members to add (admins only). |
+| PUT | `/projects/{id}/members` | Add a user or change their role (admins only). |
+| DELETE | `/projects/{id}/members/{user}` | Remove a member (admins only; keeps ≥1 project admin). |
 
 ### AI prefill
 

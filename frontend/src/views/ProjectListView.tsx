@@ -40,6 +40,9 @@ export default function ProjectListView() {
   if (!user) return null;
 
   const isAdmin = user.global_role === 'system_admin';
+  // Settings entry point: global admins see it everywhere; project admins on
+  // the projects where list_projects reported their project_admin role.
+  const canConfigure = (p: Project) => isAdmin || p.role === 'project_admin';
 
   const filtered = projects.filter((p) => {
     if (nameFilter && !p.name.toLowerCase().includes(nameFilter.toLowerCase())) return false;
@@ -173,7 +176,7 @@ export default function ProjectListView() {
                     >
                       Browse
                     </button>
-                    {isAdmin && (
+                    {canConfigure(p) && (
                       <button
                         onClick={() => window.location.hash = `#/projects/${p.id}/edit`}
                         className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
@@ -241,7 +244,7 @@ export default function ProjectListView() {
                         >
                           Browse
                         </button>
-                        {isAdmin && (
+                        {canConfigure(p) && (
                           <button
                             onClick={() => window.location.hash = `#/projects/${p.id}/edit`}
                             className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-xs text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"

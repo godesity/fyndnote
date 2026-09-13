@@ -5,10 +5,12 @@ import { api, ApiError } from "../api/client";
 interface Props {
   projectName: string;
   projectId: string;
+  /** Signed-in user; the backend requires a project admin to delete. */
+  actor: string;
   onClose: () => void;
 }
 
-export default function DeleteProjectDialog({ projectName, projectId, onClose }: Props) {
+export default function DeleteProjectDialog({ projectName, projectId, actor, onClose }: Props) {
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export default function DeleteProjectDialog({ projectName, projectId, onClose }:
     setDeleting(true);
     setError(null);
     try {
-      await api.deleteProject(projectId);
+      await api.deleteProject(projectId, actor);
       window.location.hash = "#/projects";
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));

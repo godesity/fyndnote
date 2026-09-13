@@ -15,8 +15,24 @@ Project roles are stored per user per project and control what a user can do ins
 
 | Role | Meaning |
 |------|---------|
-| `project_admin` | Manage the project (rename, configure, delete). |
+| `project_admin` | Manage the project (rename, configure, delete) and manage its members. |
 | `annotator` | Label rows in the project. |
+
+## Managing members
+
+Membership is edited on the project **Settings** page (project list → **Settings**),
+in the **Members** section: search a user by id or name, pick a project role, and add
+them; change a role from the dropdown or remove someone with **Remove**.
+
+Only a `project_admin` of that project — or any `system_admin` — may open the
+settings page or change membership. `annotator`s see a message explaining they need
+the `project_admin` role instead. A global `system_admin` can always manage a
+project, even after its last project admin is removed, so a project can never be
+stranded without someone who can manage it (removing the last `project_admin` by a
+peer returns `409`).
+
+The same rules are enforced by the API, not just the UI — see
+[API → Project members](/api/#project-members).
 
 ## Seed file format
 
