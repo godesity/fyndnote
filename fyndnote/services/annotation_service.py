@@ -355,9 +355,17 @@ def _apply_ml_annotation_meta_filter(
             ).fetchall()
         }
         # One row per row_index, so count is either 0 or 1.
-        if (op == "=" and val == 0) or (op == "<" and val == 1) or (op == "<=" and val == 0):
+        if (
+            (op == "=" and val == 0)
+            or (op == "<" and val == 1)
+            or (op == "<=" and val == 0)
+        ):
             return [i for i in project_indices if i not in present]
-        if (op == "=" and val == 1) or (op == ">" and val == 0) or (op == ">=" and val == 1):
+        if (
+            (op == "=" and val == 1)
+            or (op == ">" and val == 0)
+            or (op == ">=" and val == 1)
+        ):
             return [i for i in project_indices if i in present]
         return project_indices
 
@@ -370,7 +378,9 @@ def _apply_ml_annotation_meta_filter(
               AND row_index IN ({placeholders})
               AND annotator = ?
         """
-        matched = {r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()}
+        matched = {
+            r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()
+        }
         return [i for i in project_indices if i in matched]
 
     elif expr.field in ("predictions.created_at", "predictions.updated_at"):
@@ -384,7 +394,9 @@ def _apply_ml_annotation_meta_filter(
               AND row_index IN ({placeholders})
               AND {col} {op} ?
         """
-        matched = {r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()}
+        matched = {
+            r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()
+        }
         return [i for i in project_indices if i in matched]
 
     return project_indices
@@ -547,13 +559,16 @@ class AnnotationService:
         ml_url: str = "",
         ml_annotator: str = "",
         ml_mode: str = "on_navigate",
+        ml_type: str = "external",
+        dspy_model: str = "",
+        dspy_api_base: str = "",
         user_id: str | None = None,
     ) -> dict:
         db = get_db()
         pid = str(uuid.uuid4())
         salt = hashlib.sha256(f"{pid}:{name}".encode()).hexdigest()[:16]
         db.execute(
-            "INSERT INTO fyndnote_projects (id, name, dataset_id, template_id, salt, color, tags, instructions, ml_enabled, ml_url, ml_annotator, ml_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO fyndnote_projects (id, name, dataset_id, template_id, salt, color, tags, instructions, ml_enabled, ml_url, ml_annotator, ml_mode, ml_type, dspy_model, dspy_api_base) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 pid,
                 name,
@@ -567,6 +582,9 @@ class AnnotationService:
                 ml_url,
                 ml_annotator,
                 ml_mode,
+                ml_type,
+                dspy_model,
+                dspy_api_base,
             ),
         )
         # Grant the creator access to the project so it shows up in /projects
@@ -594,7 +612,12 @@ class AnnotationService:
         ml_url: str | None = None,
         ml_annotator: str | None = None,
         ml_mode: str | None = None,
+        ml_type: str | None = None,
+        dspy_model: str | None = None,
+        dspy_api_base: str | None = None,
     ) -> dict | None:
+        if ml_type is not None and ml_type not in ("external", "dspy"):
+            raise ValueError(f"invalid ml_type: {ml_type!r}")
         db = get_db()
         sets = "name = ?"
         params = [name]
@@ -619,32 +642,52 @@ class AnnotationService:
         if ml_mode is not None:
             sets += ", ml_mode = ?"
             params.append(ml_mode)
+        if ml_type is not None:
+            sets += ", ml_type = ?"
+            params.append(ml_type)
+        if dspy_model is not None:
+            sets += ", dspy_model = ?"
+            params.append(dspy_model)
+        if dspy_api_base is not None:
+            sets += ", dspy_api_base = ?"
+            params.append(dspy_api_base)
         params.append(pid)
         db.execute(f"UPDATE fyndnote_projects SET {sets} WHERE id = ?", tuple(params))
         db.commit()
-        p = db.execute("SELECT * FROM fyndnote_projects WHERE id = ?", (pid,)).fetchone()
+        p = db.execute(
+            "SELECT * FROM fyndnote_projects WHERE id = ?", (pid,)
+        ).fetchone()
         db.close()
         return dict(p) if p else None
 
     @staticmethod
     def delete_project(pid: str) -> bool:
         db = get_db()
-        row = db.execute("SELECT 1 FROM fyndnote_projects WHERE id = ?", (pid,)).fetchone()
+        row = db.execute(
+            "SELECT 1 FROM fyndnote_projects WHERE id = ?", (pid,)
+        ).fetchone()
         if not row:
             db.close()
             return False
         db.execute("DELETE FROM fyndnote_annotations WHERE project_id = ?", (pid,))
         db.execute("DELETE FROM fyndnote_ml_annotations WHERE project_id = ?", (pid,))
-        db.execute("DELETE FROM fyndnote_project_permissions WHERE project_id = ?", (pid,))
+        db.execute(
+            "DELETE FROM fyndnote_project_permissions WHERE project_id = ?", (pid,)
+        )
         db.execute("DELETE FROM fyndnote_projects WHERE id = ?", (pid,))
         db.commit()
         db.close()
+        from ..config import DSPY_DIR
+
+        (DSPY_DIR / f"{pid}.json").unlink(missing_ok=True)
         return True
 
     @staticmethod
     def get_project(pid: str) -> dict | None:
         db = get_db()
-        p = db.execute("SELECT * FROM fyndnote_projects WHERE id = ?", (pid,)).fetchone()
+        p = db.execute(
+            "SELECT * FROM fyndnote_projects WHERE id = ?", (pid,)
+        ).fetchone()
         db.close()
         return dict(p) if p else None
 
@@ -771,7 +814,9 @@ class AnnotationService:
     @staticmethod
     def delete_all_annotations(pid: str) -> int:
         db = get_db()
-        cur = db.execute("DELETE FROM fyndnote_annotations WHERE project_id = ?", (pid,))
+        cur = db.execute(
+            "DELETE FROM fyndnote_annotations WHERE project_id = ?", (pid,)
+        )
         db.commit()
         db.close()
         return cur.rowcount
@@ -790,7 +835,9 @@ class AnnotationService:
     @staticmethod
     def delete_all_ml_annotations(pid: str) -> int:
         db = get_db()
-        cur = db.execute("DELETE FROM fyndnote_ml_annotations WHERE project_id = ?", (pid,))
+        cur = db.execute(
+            "DELETE FROM fyndnote_ml_annotations WHERE project_id = ?", (pid,)
+        )
         db.commit()
         db.close()
         return cur.rowcount

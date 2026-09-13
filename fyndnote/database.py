@@ -250,6 +250,9 @@ def _migrate(db):
         ("ml_url", "TEXT DEFAULT ''"),
         ("ml_annotator", "TEXT DEFAULT ''"),
         ("ml_mode", "TEXT DEFAULT 'on_navigate'"),
+        ("ml_type", "TEXT DEFAULT 'external'"),
+        ("dspy_model", "TEXT DEFAULT ''"),
+        ("dspy_api_base", "TEXT DEFAULT ''"),
     ]:
         if col not in existing:
             db.execute(f"ALTER TABLE fyndnote_projects ADD COLUMN {col} {coltype}")

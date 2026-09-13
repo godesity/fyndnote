@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import httpx
 
 from ..database import get_db
+from . import dspy_service
 from .dataset_service import DatasetService
 
 ML_TIMEOUT = 15.0
@@ -21,6 +22,13 @@ def call_ml_backend(url: str, row_data: dict) -> dict | None:
             return annotation
     except Exception:
         return None
+
+
+def _call_backend(project: dict, row_data: dict) -> dict | None:
+    """Dispatch to the project's ML backend type (external HTTP or DSPy)."""
+    if project.get("ml_type") == "dspy":
+        return dspy_service.predict(project, row_data)
+    return call_ml_backend(project["ml_url"], row_data)
 
 
 def get_ml_annotation(pid: str, row_index: int) -> dict | None:
@@ -54,7 +62,7 @@ def prefill_row(pid: str, row_index: int) -> dict:
         }
 
     row = DatasetService.get_row(project["dataset_id"], row_index)
-    annotation = call_ml_backend(project["ml_url"], row)
+    annotation = _call_backend(project, row)
     if annotation is None:
         return {"row_index": row_index, "annotation": None, "annotator": None}
 
@@ -100,7 +108,7 @@ def batch_prefill(pid: str, row_indices: list[int] | None = None) -> dict:
         if idx in existing:
             continue
         row = DatasetService.get_row(project["dataset_id"], idx)
-        annotation = call_ml_backend(project["ml_url"], row)
+        annotation = _call_backend(project, row)
         if annotation is not None:
             db = get_db()
             now = datetime.now(UTC).isoformat()
@@ -120,16 +128,20 @@ def batch_prefill(pid: str, row_indices: list[int] | None = None) -> dict:
 def _get_project_settings(pid: str) -> dict | None:
     db = get_db()
     p = db.execute(
-        "SELECT dataset_id, ml_enabled, ml_url, ml_annotator, ml_mode FROM fyndnote_projects WHERE id = ?",
+        "SELECT id, dataset_id, ml_enabled, ml_url, ml_annotator, ml_mode, ml_type, dspy_model, dspy_api_base FROM fyndnote_projects WHERE id = ?",
         (pid,),
     ).fetchone()
     db.close()
     if not p:
         return None
     return {
+        "id": p["id"],
         "dataset_id": p["dataset_id"],
         "ml_enabled": bool(p["ml_enabled"]),
         "ml_url": p["ml_url"],
         "ml_annotator": p["ml_annotator"],
         "ml_mode": p["ml_mode"],
+        "ml_type": p["ml_type"] or "external",
+        "dspy_model": p["dspy_model"] or "",
+        "dspy_api_base": p["dspy_api_base"] or "",
     }

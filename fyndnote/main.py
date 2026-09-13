@@ -38,7 +38,7 @@ def startup():
 
 
 # Import routers after app creation to avoid circular imports
-from .routers import auth, datasets, projects, sso, templates
+from .routers import auth, datasets, dspy, projects, sso, templates
 
 app.mount(
     "/static",
@@ -57,6 +57,7 @@ def _dist_path(env_var: str, packaged: Path, dev: Path) -> Path:
         return dev
     return packaged
 
+
 # Serve the built VitePress docs site (public; no auth) under /fyndnote.
 repo_root = _pkg.parent
 docs_dist = _dist_path(
@@ -72,6 +73,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(templates.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
+app.include_router(dspy.router, prefix="/api/v1")
 app.include_router(sso.router, prefix="/api/v1")
 
 # Serve built frontend as static files

@@ -32,6 +32,62 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export interface DspyField {
+  name: string;
+  source: string;
+  kind?: string;
+  desc: string;
+  options?: string[];
+  max?: number | null;
+  enabled?: boolean;
+}
+
+export interface DspyConfig {
+  version: number;
+  instruction: string;
+  input_fields: DspyField[];
+  output_fields: DspyField[];
+  program_state: unknown;
+  tuned_at: string | null;
+  train_metrics: Record<string, unknown> | null;
+  n_demos: number;
+  derived_from: string;
+  model: string;
+  api_base: string;
+  annotator: string;
+  ml_enabled: boolean;
+  ml_mode: string;
+  ml_type: string;
+  llm_key_set: boolean;
+  unsupported: string[];
+}
+
+export interface DspyUpdateBody {
+  instruction?: string;
+  model?: string;
+  api_base?: string;
+  input_fields?: DspyField[];
+  output_fields?: DspyField[];
+}
+
+export interface DspyTestResult {
+  inputs: Record<string, string>;
+  fields: { name: string; desc: string; kind: string; value: unknown }[];
+  annotation: Record<string, unknown>;
+  instruction: string;
+  tuned: boolean;
+}
+
+export interface DspyTrainResult {
+  status: string;
+  score: number;
+  n_demos: number;
+  instruction: string;
+  optimizer: string;
+  train_size: number;
+  val_size: number;
+}
+
 export const api = {
   base: BASE,
   login: (userId: string) =>
@@ -82,13 +138,15 @@ export const api = {
   listProjects: (userId: string) =>
     request<{ projects: any[] }>(`/projects?user_id=${userId}`),
   createProject: (name: string, datasetId: string, templateId: string, color?: string, tags?: string, instructions?: string,
-    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string, userId?: string) =>
-    request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode, user_id: userId }) }),
+    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string, userId?: string,
+    mlType?: string, dspyModel?: string, dspyApiBase?: string) =>
+    request<any>('/projects', { method: 'POST', body: JSON.stringify({ name, dataset_id: datasetId, template_id: templateId, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode, user_id: userId, ml_type: mlType, dspy_model: dspyModel, dspy_api_base: dspyApiBase }) }),
   getProject: (id: string, userId: string) =>
     request<any>(`/projects/${id}?user_id=${userId}`),
   updateProject: (id: string, name: string, color?: string, tags?: string, instructions?: string,
-    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string) =>
-    request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode }) }),
+    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string,
+    mlType?: string, dspyModel?: string, dspyApiBase?: string) =>
+    request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode, ml_type: mlType, dspy_model: dspyModel, dspy_api_base: dspyApiBase }) }),
   deleteProject: (id: string) =>
     request<any>(`/projects/${id}`, { method: 'DELETE' }),
   nextRow: (projectId: string, userId: string) =>
@@ -117,6 +175,18 @@ export const api = {
   mlBatch: (projectId: string, rowIndices?: number[]) =>
     request<{ total: number; succeeded: number; failed: number }>(
       `/projects/${projectId}/ml-batch`, { method: 'POST', body: JSON.stringify({ row_indices: rowIndices ?? null }) }),
+  dspyConfig: (pid: string) =>
+    request<DspyConfig>(`/projects/${pid}/dspy`),
+  dspyUpdate: (pid: string, body: DspyUpdateBody) =>
+    request<DspyConfig>(`/projects/${pid}/dspy`, { method: 'PUT', body: JSON.stringify(body) }),
+  dspyDerive: (pid: string) =>
+    request<DspyConfig>(`/projects/${pid}/dspy/derive`, { method: 'POST', body: '{}' }),
+  dspyTest: (pid: string, rowIndex: number) =>
+    request<DspyTestResult>(`/projects/${pid}/dspy/test`, { method: 'POST', body: JSON.stringify({ row_index: rowIndex }) }),
+  dspyTrain: (pid: string, optimizer: string, maxExamples: number) =>
+    request<DspyTrainResult>(`/projects/${pid}/dspy/train`, { method: 'POST', body: JSON.stringify({ optimizer, max_examples: maxExamples }) }),
+  dspyReset: (pid: string) =>
+    request<DspyConfig>(`/projects/${pid}/dspy/reset`, { method: 'POST', body: '{}' }),
   getMLAnnotation: (projectId: string, rowIndex: number) =>
     request<{ row_index: number; annotator: string; data: Record<string, any>; created_at: string }>(
       `/projects/${projectId}/ml-annotations/${rowIndex}`),

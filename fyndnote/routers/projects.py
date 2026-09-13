@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException, Response
 
 from ..schemas import (
@@ -54,6 +53,9 @@ def create_project(body: dict):
         ml_url=body.get("ml_url", ""),
         ml_annotator=body.get("ml_annotator", ""),
         ml_mode=body.get("ml_mode", "on_navigate"),
+        ml_type=body.get("ml_type", "external"),
+        dspy_model=body.get("dspy_model", ""),
+        dspy_api_base=body.get("dspy_api_base", ""),
         user_id=body.get("user_id"),
     )
     return p
@@ -64,17 +66,23 @@ def update_project(pid: str, body: dict):
     name = body.get("name")
     if not name:
         raise HTTPException(status_code=400, detail="name is required")
-    p = AnnotationService.update_project(
-        pid,
-        name,
-        color=body.get("color"),
-        tags=body.get("tags"),
-        instructions=body.get("instructions"),
-        ml_enabled=body.get("ml_enabled"),
-        ml_url=body.get("ml_url"),
-        ml_annotator=body.get("ml_annotator"),
-        ml_mode=body.get("ml_mode"),
-    )
+    try:
+        p = AnnotationService.update_project(
+            pid,
+            name,
+            color=body.get("color"),
+            tags=body.get("tags"),
+            instructions=body.get("instructions"),
+            ml_enabled=body.get("ml_enabled"),
+            ml_url=body.get("ml_url"),
+            ml_annotator=body.get("ml_annotator"),
+            ml_mode=body.get("ml_mode"),
+            ml_type=body.get("ml_type"),
+            dspy_model=body.get("dspy_model"),
+            dspy_api_base=body.get("dspy_api_base"),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     if not p:
         raise HTTPException(status_code=404, detail="project not found")
     return p
@@ -154,7 +162,9 @@ def next_row(pid: str, user_id: str):
     try:
         row = serve(idx)
     except Exception:
-        raise HTTPException(status_code=404, detail="dataset source no longer available")
+        raise HTTPException(
+            status_code=404, detail="dataset source no longer available"
+        )
     return {"index": idx, "row": row}
 
 
@@ -213,8 +223,6 @@ def delete_project(pid: str):
     return {"status": "deleted"}
 
 
-
-
 @router.delete("/projects/{pid}/annotations/bulk")
 def delete_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
     if not AnnotationService.get_project(pid):
@@ -239,6 +247,7 @@ def delete_ml_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
     indices = _resolve_matching_indices(pid, user_id, body.filter)
     n = AnnotationService.delete_ml_annotations_for_rows(pid, indices)
     return {"status": "deleted", "rows": n}
+
 
 @router.delete("/projects/{pid}/annotations/{row_index}")
 def delete_annotation(pid: str, row_index: int, user_id: str | None = None):

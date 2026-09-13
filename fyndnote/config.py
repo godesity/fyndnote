@@ -3,7 +3,10 @@ from pathlib import Path
 
 _PKG_PARENT = Path(__file__).resolve().parent.parent
 _IN_REPO = (_PKG_PARENT / "data").is_dir()  # source checkout vs site-packages
-ROOT = Path(os.getenv("FYNDNOTE_HOME") or (_PKG_PARENT if _IN_REPO else Path.home() / ".fyndnote"))
+ROOT = Path(
+    os.getenv("FYNDNOTE_HOME")
+    or (_PKG_PARENT if _IN_REPO else Path.home() / ".fyndnote")
+)
 DATA_DIR = ROOT / "data"
 DATABASE_PATH = DATA_DIR / "labeling.db"
 
@@ -46,3 +49,11 @@ SSO_REDIRECT_URI = os.getenv("SSO_REDIRECT_URI", "http://localhost:8000/api/v1/s
 # SPA origin the backend redirects to with the token after a successful exchange.
 SSO_APP_ORIGIN = os.getenv("SSO_APP_ORIGIN", "http://localhost:8000")
 SSO_AUDIENCE = os.getenv("SSO_AUDIENCE", "fyndnote-app")
+
+# ---------------------------------------------------------------------------
+# DSPy ML backend (OpenAI-compatible LLM endpoint)
+# ---------------------------------------------------------------------------
+LLM_API_KEY = os.getenv("FYNDNOTE_LLM_API_KEY", "")
+LLM_API_BASE = os.getenv("FYNDNOTE_LLM_API_BASE", "")
+DSPY_DEFAULT_MODEL = os.getenv("FYNDNOTE_LLM_MODEL", "openai/gpt-4o-mini")
+DSPY_DIR = DATA_DIR / "dspy"

@@ -141,3 +141,20 @@ class MLAnnotationOut(BaseModel):
     annotator: str
     data: dict[str, Any]
     created_at: str
+
+
+class DspyTestRequest(BaseModel):
+    row_index: int
+
+
+class DspyTrainRequest(BaseModel):
+    optimizer: str = "mipro"
+    max_examples: int = 50
+
+
+class DspyConfigUpdate(BaseModel):
+    instruction: str | None = None
+    model: str | None = None
+    api_base: str | None = None
+    input_fields: list[dict[str, Any]] | None = None
+    output_fields: list[dict[str, Any]] | None = None
