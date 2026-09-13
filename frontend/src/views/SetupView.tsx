@@ -9,6 +9,7 @@ import BreadcrumbNav from "../components/BreadcrumbNav";
 import LoadTemplateDialog from "../components/LoadTemplateDialog";
 import WidgetDocs from "../components/WidgetDocs";
 import InstructionsButton from "../components/InstructionsButton";
+import DatasetPicker, { type DatasetMeta } from "../components/DatasetPicker";
 
 const scope = { ...widgets, useState, useCallback };
 const editorTheme = themes.oneLight;
@@ -52,7 +53,7 @@ const TemplateEditor = memo(function TemplateEditor({
 
 export default function SetupView() {
   const { user } = useAuth();
-  const [datasets, setDatasets] = useState<any[]>([]);
+  const [datasets, setDatasets] = useState<DatasetMeta[]>([]);
   const [selectedDataset, setSelectedDataset] = useState("");
   const [templateSource, setTemplateSource] = useState(DEFAULT_TEMPLATE);
   const [templateId, setTemplateId] = useState<string | null>(null);
@@ -66,27 +67,30 @@ export default function SetupView() {
   const [mlMode, setMlMode] = useState("on_navigate");
   const [sampleRow, setSampleRow] = useState<any>(null);
   const [validated] = useState(false);
-  const [loadInput, setLoadInput] = useState("");
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
-  const [datasetSearch, setDatasetSearch] = useState("");
   const [sampleError, setSampleError] = useState<string | null>(null);
+  const [datasetsLoading, setDatasetsLoading] = useState(true);
+  const [sampleLoading, setSampleLoading] = useState(false);
 
   useEffect(() => {
-    api.listDatasets().then((res) => setDatasets(res.datasets));
+    api
+      .listDatasets()
+      .then((res) => setDatasets(res.datasets as DatasetMeta[]))
+      .finally(() => setDatasetsLoading(false));
   }, []);
 
   const loadSample = async (dsId: string) => {
     setSelectedDataset(dsId);
     setSampleError(null);
+    setSampleLoading(true);
     try {
       const row = await api.getRow(dsId, 0);
       setSampleRow(row.row);
     } catch {
       setSampleRow(null);
       setSampleError("Failed to load sample row — dataset source may no longer be available");
+    } finally {
+      setSampleLoading(false);
     }
   };
 
@@ -106,40 +110,6 @@ export default function SetupView() {
     window.location.hash = '#/projects';
   };
 
-  const handleLoad = async () => {
-    if (!loadInput.trim()) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const meta = await api.loadDataset(loadInput.trim());
-      setLoadInput("");
-      setShowLoadDialog(false);
-      const res = await api.listDatasets();
-      setDatasets(res.datasets);
-      await loadSample(meta.id);
-    } catch (err: any) {
-      setLoadError(err.message || "Failed to load dataset");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const meta = await api.uploadDataset(file);
-      const res = await api.listDatasets();
-      setDatasets(res.datasets);
-      await loadSample(meta.id);
-    } catch (err: any) {
-      setLoadError(err.message || "Failed to upload dataset");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSelectTemplate = (tpl: { source: string }) => {
     setTemplateSource(tpl.source);
@@ -162,64 +132,16 @@ export default function SetupView() {
             Select Dataset
           </h3>
           <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
-            <input
-              value={datasetSearch}
-              onChange={(e) => setDatasetSearch(e.target.value)}
-              placeholder="Filter datasets..."
-              className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm mb-3 focus:outline-none focus:border-sunset-400 focus:ring-3 focus:ring-sunset-100"
+            <DatasetPicker
+              value={selectedDataset}
+              datasets={datasets}
+              datasetsLoading={datasetsLoading}
+              sampleStatus={sampleLoading ? "loading" : sampleError ? "error" : selectedDataset ? "ready" : "idle"}
+              sampleError={sampleError}
+              onSelect={loadSample}
+              onDatasetsLoaded={setDatasets}
+              onRetrySample={() => loadSample(selectedDataset)}
             />
-            <div className="flex gap-2">
-              <select
-                value={selectedDataset}
-                onChange={(e) => loadSample(e.target.value)}
-                className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm bg-[var(--color-surface)] focus:outline-none focus:border-sunset-400"
-              >
-                <option value="">-- Select --</option>
-                {datasets
-                  .filter((d) => {
-                    const q = datasetSearch.toLowerCase();
-                    return !q || (d.name && d.name.toLowerCase().includes(q)) || d.source.toLowerCase().includes(q);
-                  })
-                  .map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name || d.source} ({d.num_rows} rows)
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setShowLoadDialog(!showLoadDialog)}
-                className="px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all whitespace-nowrap"
-              >
-                Load New
-              </button>
-            </div>
-
-            {showLoadDialog && (
-              <div className="mt-4 p-4 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface-secondary)] animate-fade-in">
-                <div className="flex gap-2 mb-3">
-                  <input
-                    value={loadInput}
-                    onChange={(e) => setLoadInput(e.target.value)}
-                    placeholder="HF dataset ID, HTTP URL, or file:// path"
-                    className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:border-sunset-400"
-                  />
-                  <button
-                    onClick={handleLoad}
-                    disabled={loading || !loadInput.trim()}
-                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white text-sm font-medium hover:from-sunset-600 hover:to-coral-600 disabled:opacity-50 transition-all"
-                  >
-                    {loading ? "Loading..." : "Load"}
-                  </button>
-                </div>
-                <div>
-                  <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] cursor-pointer hover:bg-[var(--color-surface-sunken)] transition-all">
-                    <span>Upload file</span>
-                    <input type="file" accept=".csv,.json,.jsonl,.parquet" onChange={handleFileUpload} className="hidden" />
-                  </label>
-                </div>
-                {loadError && <p className="text-red-500 text-sm mt-2">{loadError}</p>}
-              </div>
-            )}
           </div>
         </section>
 
