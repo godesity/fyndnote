@@ -56,6 +56,9 @@ def create_project(body: dict):
         ml_url=body.get("ml_url", ""),
         ml_annotator=body.get("ml_annotator", ""),
         ml_mode=body.get("ml_mode", "on_navigate"),
+        ml_type=body.get("ml_type", "external"),
+        dspy_model=body.get("dspy_model", ""),
+        dspy_api_base=body.get("dspy_api_base", ""),
         user_id=body.get("user_id"),
     )
     return p
@@ -68,17 +71,23 @@ def update_project(pid: str, body: dict, user_id: str):
         raise HTTPException(status_code=400, detail="name is required")
     _require_project(pid)
     _require_project_manager(pid, user_id)
-    p = AnnotationService.update_project(
-        pid,
-        name,
-        color=body.get("color"),
-        tags=body.get("tags"),
-        instructions=body.get("instructions"),
-        ml_enabled=body.get("ml_enabled"),
-        ml_url=body.get("ml_url"),
-        ml_annotator=body.get("ml_annotator"),
-        ml_mode=body.get("ml_mode"),
-    )
+    try:
+        p = AnnotationService.update_project(
+            pid,
+            name,
+            color=body.get("color"),
+            tags=body.get("tags"),
+            instructions=body.get("instructions"),
+            ml_enabled=body.get("ml_enabled"),
+            ml_url=body.get("ml_url"),
+            ml_annotator=body.get("ml_annotator"),
+            ml_mode=body.get("ml_mode"),
+            ml_type=body.get("ml_type"),
+            dspy_model=body.get("dspy_model"),
+            dspy_api_base=body.get("dspy_api_base"),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     if not p:
         raise HTTPException(status_code=404, detail="project not found")
     return p

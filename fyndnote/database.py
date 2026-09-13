@@ -155,6 +155,9 @@ fyndnote_projects = Table(
     Column("ml_url", _defaultable_text, server_default=text("''")),
     Column("ml_annotator", _defaultable_text, server_default=text("''")),
     Column("ml_mode", _defaultable_text, server_default=text("'on_navigate'")),
+    Column("ml_type", _defaultable_text, server_default=text("'external'")),
+    Column("dspy_model", _defaultable_text, server_default=text("''")),
+    Column("dspy_api_base", _defaultable_text, server_default=text("''")),
     Column("created_at", _ts_text, server_default=_now()),
 )
 
@@ -518,7 +521,15 @@ def get_db() -> _DB:
 # ---------------------------------------------------------------------------
 
 #: columns added after the first release (for databases created earlier)
-_MIGRATION_COLUMNS = ("ml_enabled", "ml_url", "ml_annotator", "ml_mode")
+_MIGRATION_COLUMNS = (
+    "ml_enabled",
+    "ml_url",
+    "ml_annotator",
+    "ml_mode",
+    "ml_type",
+    "dspy_model",
+    "dspy_api_base",
+)
 
 
 def init_db() -> None:

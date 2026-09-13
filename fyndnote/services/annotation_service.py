@@ -433,13 +433,16 @@ class AnnotationService:
         ml_url: str = "",
         ml_annotator: str = "",
         ml_mode: str = "on_navigate",
+        ml_type: str = "external",
+        dspy_model: str = "",
+        dspy_api_base: str = "",
         user_id: str | None = None,
     ) -> dict:
         db = get_db()
         pid = str(uuid.uuid4())
         salt = hashlib.sha256(f"{pid}:{name}".encode()).hexdigest()[:16]
         db.execute(
-            "INSERT INTO fyndnote_projects (id, name, dataset_id, template_id, salt, color, tags, instructions, ml_enabled, ml_url, ml_annotator, ml_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO fyndnote_projects (id, name, dataset_id, template_id, salt, color, tags, instructions, ml_enabled, ml_url, ml_annotator, ml_mode, ml_type, dspy_model, dspy_api_base) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 pid,
                 name,
@@ -453,6 +456,9 @@ class AnnotationService:
                 ml_url,
                 ml_annotator,
                 ml_mode,
+                ml_type,
+                dspy_model,
+                dspy_api_base,
             ),
         )
         # Grant the creator access to the project so it shows up in /projects
@@ -480,7 +486,12 @@ class AnnotationService:
         ml_url: str | None = None,
         ml_annotator: str | None = None,
         ml_mode: str | None = None,
+        ml_type: str | None = None,
+        dspy_model: str | None = None,
+        dspy_api_base: str | None = None,
     ) -> dict | None:
+        if ml_type is not None and ml_type not in ("external", "dspy"):
+            raise ValueError(f"invalid ml_type: {ml_type!r}")
         db = get_db()
         sets = "name = ?"
         params = [name]
@@ -505,6 +516,15 @@ class AnnotationService:
         if ml_mode is not None:
             sets += ", ml_mode = ?"
             params.append(ml_mode)
+        if ml_type is not None:
+            sets += ", ml_type = ?"
+            params.append(ml_type)
+        if dspy_model is not None:
+            sets += ", dspy_model = ?"
+            params.append(dspy_model)
+        if dspy_api_base is not None:
+            sets += ", dspy_api_base = ?"
+            params.append(dspy_api_base)
         params.append(pid)
         db.execute(f"UPDATE fyndnote_projects SET {sets} WHERE id = ?", tuple(params))
         db.commit()
@@ -531,6 +551,9 @@ class AnnotationService:
         db.execute("DELETE FROM fyndnote_projects WHERE id = ?", (pid,))
         db.commit()
         db.close()
+        from ..config import DSPY_DIR
+
+        (DSPY_DIR / f"{pid}.json").unlink(missing_ok=True)
         return True
 
     @staticmethod

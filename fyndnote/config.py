@@ -63,3 +63,11 @@ SSO_REDIRECT_URI = os.getenv("SSO_REDIRECT_URI", "http://localhost:8000/api/v1/s
 # SPA origin the backend redirects to with the token after a successful exchange.
 SSO_APP_ORIGIN = os.getenv("SSO_APP_ORIGIN", "http://localhost:8000")
 SSO_AUDIENCE = os.getenv("SSO_AUDIENCE", "fyndnote-app")
+
+# ---------------------------------------------------------------------------
+# DSPy ML backend (OpenAI-compatible LLM endpoint)
+# ---------------------------------------------------------------------------
+LLM_API_KEY = os.getenv("FYNDNOTE_LLM_API_KEY", "")
+LLM_API_BASE = os.getenv("FYNDNOTE_LLM_API_BASE", "")
+DSPY_DEFAULT_MODEL = os.getenv("FYNDNOTE_LLM_MODEL", "openai/gpt-4o-mini")
+DSPY_DIR = DATA_DIR / "dspy"

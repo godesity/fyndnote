@@ -94,7 +94,7 @@ def startup():
 
 
 # Import routers after app creation to avoid circular imports
-from .routers import auth, datasets, projects, sso, templates
+from .routers import auth, datasets, dspy, projects, sso, templates
 
 app.mount(
     "/static",
@@ -129,6 +129,7 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(datasets.router, prefix="/api/v1")
 app.include_router(templates.router, prefix="/api/v1")
 app.include_router(projects.router, prefix="/api/v1")
+app.include_router(dspy.router, prefix="/api/v1")
 app.include_router(sso.router, prefix="/api/v1")
 
 # Serve built frontend as static files
