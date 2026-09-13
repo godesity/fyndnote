@@ -10,6 +10,21 @@ export interface User {
   sso_roles?: string[];
 }
 
+export type ProjectRole = 'project_admin' | 'annotator';
+
+export interface ProjectMember {
+  user_id: string;
+  name: string;
+  global_role: string;
+  role: ProjectRole;
+}
+
+export interface ProjectMemberCandidate {
+  user_id: string;
+  name: string;
+  global_role: string;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -87,10 +102,28 @@ export const api = {
   getProject: (id: string, userId: string) =>
     request<any>(`/projects/${id}?user_id=${userId}`),
   updateProject: (id: string, name: string, color?: string, tags?: string, instructions?: string,
-    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string) =>
-    request<any>(`/projects/${id}`, { method: 'PUT', body: JSON.stringify({ name, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode }) }),
-  deleteProject: (id: string) =>
-    request<any>(`/projects/${id}`, { method: 'DELETE' }),
+    mlEnabled?: boolean, mlUrl?: string, mlAnnotator?: string, mlMode?: string, actor?: string) =>
+    request<any>(`/projects/${id}?user_id=${encodeURIComponent(actor ?? '')}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, color, tags, instructions, ml_enabled: mlEnabled, ml_url: mlUrl, ml_annotator: mlAnnotator, ml_mode: mlMode }),
+    }),
+  deleteProject: (id: string, actor: string) =>
+    request<any>(`/projects/${id}?user_id=${encodeURIComponent(actor)}`, { method: 'DELETE' }),
+  listProjectMembers: (pid: string, userId: string) =>
+    request<ProjectMember[]>(`/projects/${pid}/members?user_id=${encodeURIComponent(userId)}`),
+  listMemberCandidates: (pid: string, userId: string, q = '') =>
+    request<ProjectMemberCandidate[]>(
+      `/projects/${pid}/member-candidates?user_id=${encodeURIComponent(userId)}&q=${encodeURIComponent(q)}`
+    ),
+  setProjectMember: (pid: string, user_id: string, role: ProjectRole, actor: string) =>
+    request<any>(`/projects/${pid}/members`, {
+      method: 'PUT',
+      body: JSON.stringify({ user_id, role, actor }),
+    }),
+  removeProjectMember: (pid: string, memberId: string, actor: string) =>
+    request<any>(`/projects/${pid}/members/${encodeURIComponent(memberId)}?user_id=${encodeURIComponent(actor)}`, {
+      method: 'DELETE',
+    }),
   nextRow: (projectId: string, userId: string) =>
     request<{ index: number | null; row: Record<string, any> | null }>(`/projects/${projectId}/next-row?user_id=${userId}`),
   getProjectRow: (projectId: string, rowIndex: number, userId: string) =>
