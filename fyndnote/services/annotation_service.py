@@ -3,13 +3,12 @@ import json
 import random
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from ..config import DATABASE_TYPE
-from ..database import get_db
+from ..database import get_db, json_num_expr, json_path_expr, numeric_compare
 from .dataset_service import DatasetService
 
 
@@ -110,7 +109,7 @@ def _parse_time_value(val: str) -> str:
     if m:
         amount = int(m.group(1))
         unit = m.group(2)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if unit == "m":
             threshold = now - timedelta(minutes=amount)
         elif unit == "h":
@@ -125,123 +124,73 @@ def _parse_time_value(val: str) -> str:
     return val
 
 
+def _json_filter_fragment(col: str, field_name: str, op: str, val):
+    """Return ``(fragment, params)`` for a JSON-field comparison.
+
+    ``params`` fills the fragment's ``?`` placeholders (JSON path first);
+    ``None`` marks an unsupported operator. Rendering JSON access through
+    :mod:`fyndnote.database` keeps one query per filter instead of a
+    hand-written branch per backend.
+    """
+    text_expr, path = json_path_expr(col, field_name)
+    num_expr, num_path = json_num_expr(col, field_name)
+
+    numeric = None
+    try:
+        numeric = float(val) if "." in str(val) else int(val)
+    except (TypeError, ValueError):
+        pass
+
+    if op == "~=":
+        return f"{text_expr} LIKE ?", [path, f"%{val}%"]
+    if op in ("=", "!="):
+        if numeric is None:
+            return f"{text_expr} {op} ?", [path, val]
+        return numeric_compare(num_expr, op), [num_path, numeric]
+    if op in (">", ">=", "<", "<="):
+        if numeric is None:
+            return None
+        return numeric_compare(num_expr, op), [num_path, float(val)]
+    return None
+
+
+def _apply_json_data_filter(
+    db, table: str, project_indices: list[int], field_name: str, op, val, pid: str
+) -> list[int]:
+    """Narrow ``project_indices`` to rows whose JSON ``data`` column matches."""
+    if not project_indices:
+        return project_indices
+    built = _json_filter_fragment("data", field_name, op, val)
+    if built is None:
+        return project_indices
+    fragment, extra = built
+    placeholders = ",".join("?" * len(project_indices))
+    sql = f"""
+        SELECT DISTINCT row_index FROM {table}
+        WHERE project_id = ?
+          AND row_index IN ({placeholders})
+          AND {fragment}
+    """
+    matched = {
+        r[0] for r in db.execute(sql, [pid] + project_indices + extra).fetchall()
+    }
+    return [i for i in project_indices if i in matched]
+
+
 def _apply_annotation_data_filter(
     db, project_indices: list[int], expr, pid: str
 ) -> list[int]:
     if not project_indices or not expr.field.startswith("annotation."):
         return project_indices
-    field_name = expr.field[len("annotation.") :]
-    json_path = f"$.{field_name}"
-    op = expr.operator
-    val = expr.value
-    placeholders = ",".join("?" * len(project_indices))
-    pg_path = "{" + field_name.replace(".", ",") + "}"
-
-    # SQLite: json_extract returns the typed JSON value. PG: #>> returns text, so numeric
-    # comparisons need an explicit cast to match SQLite's implicit affinity coercion.
-    if DATABASE_TYPE == "postgres":
-        if op == "~=":
-            sql = f"""
-                SELECT DISTINCT row_index FROM fyndnote_annotations
-                WHERE project_id = ?
-                  AND row_index IN ({placeholders})
-                  AND data::jsonb #>> ? LIKE ?
-            """
-            params = [pid] + project_indices + [pg_path, f"%{val}%"]
-        elif op == "=":
-            try:
-                num_val = float(val) if "." in val else int(val)
-                sql = f"""
-                    SELECT DISTINCT row_index FROM fyndnote_annotations
-                    WHERE project_id = ?
-                      AND row_index IN ({placeholders})
-                      AND CAST(data::jsonb #>> ? AS NUMERIC) = ?
-                """
-                params = [pid] + project_indices + [pg_path, num_val]
-            except (ValueError, TypeError):
-                sql = f"""
-                    SELECT DISTINCT row_index FROM fyndnote_annotations
-                    WHERE project_id = ?
-                      AND row_index IN ({placeholders})
-                      AND data::jsonb #>> ? = ?
-                """
-                params = [pid] + project_indices + [pg_path, val]
-        elif op == "!=":
-            try:
-                num_val = float(val) if "." in val else int(val)
-                sql = f"""
-                    SELECT DISTINCT row_index FROM fyndnote_annotations
-                    WHERE project_id = ?
-                      AND row_index IN ({placeholders})
-                      AND CAST(data::jsonb #>> ? AS NUMERIC) != ?
-                """
-                params = [pid] + project_indices + [pg_path, num_val]
-            except (ValueError, TypeError):
-                sql = f"""
-                    SELECT DISTINCT row_index FROM fyndnote_annotations
-                    WHERE project_id = ?
-                      AND row_index IN ({placeholders})
-                      AND data::jsonb #>> ? != ?
-                """
-                params = [pid] + project_indices + [pg_path, val]
-        elif op in (">", ">=", "<", "<="):
-            sql = f"""
-                SELECT DISTINCT row_index FROM fyndnote_annotations
-                WHERE project_id = ?
-                  AND row_index IN ({placeholders})
-                  AND CAST(data::jsonb #>> ? AS NUMERIC) {op} ?
-            """
-            params = [pid] + project_indices + [pg_path, float(val)]
-        else:
-            return project_indices
-        matched = {r[0] for r in db.execute(sql, params).fetchall()}
-        return [i for i in project_indices if i in matched]
-
-    if op == "~=":
-        sql = f"""
-            SELECT DISTINCT row_index FROM fyndnote_annotations
-            WHERE project_id = ?
-              AND row_index IN ({placeholders})
-              AND json_extract(data, ?) LIKE ?
-        """
-        params = [pid] + project_indices + [json_path, f"%{val}%"]
-    elif op == "=":
-        sql = f"""
-            SELECT DISTINCT row_index FROM fyndnote_annotations
-            WHERE project_id = ?
-              AND row_index IN ({placeholders})
-              AND json_extract(data, ?) = ?
-        """
-        try:
-            num_val = float(val) if "." in val else int(val)
-            params = [pid] + project_indices + [json_path, num_val]
-        except (ValueError, TypeError):
-            params = [pid] + project_indices + [json_path, val]
-    elif op == "!=":
-        sql = f"""
-            SELECT DISTINCT row_index FROM fyndnote_annotations
-            WHERE project_id = ?
-              AND row_index IN ({placeholders})
-              AND json_extract(data, ?) != ?
-        """
-        try:
-            num_val = float(val) if "." in val else int(val)
-            params = [pid] + project_indices + [json_path, num_val]
-        except (ValueError, TypeError):
-            params = [pid] + project_indices + [json_path, val]
-    elif op in (">", ">=", "<", "<="):
-        sql = f"""
-            SELECT DISTINCT row_index FROM fyndnote_annotations
-            WHERE project_id = ?
-              AND row_index IN ({placeholders})
-              AND CAST(json_extract(data, ?) AS REAL) {op} ?
-        """
-        params = [pid] + project_indices + [json_path, float(val)]
-    else:
-        return project_indices
-
-    matched = {r[0] for r in db.execute(sql, params).fetchall()}
-    return [i for i in project_indices if i in matched]
+    return _apply_json_data_filter(
+        db,
+        "fyndnote_annotations",
+        project_indices,
+        expr.field[len("annotation.") :],
+        expr.operator,
+        expr.value,
+        pid,
+    )
 
 
 def _apply_ml_annotation_data_filter(
@@ -250,90 +199,15 @@ def _apply_ml_annotation_data_filter(
     """Filter rows by values inside the ML annotation (prediction) JSON data."""
     if not project_indices or not expr.field.startswith("prediction."):
         return project_indices
-    field_name = expr.field[len("prediction.") :]
-    json_path = f"$.{field_name}"
-    op = expr.operator
-    val = expr.value
-    placeholders = ",".join("?" * len(project_indices))
-    pg_path = "{" + field_name.replace(".", ",") + "}"
-
-    if DATABASE_TYPE == "postgres":
-        if op == "~=":
-            sql = f"""
-                SELECT DISTINCT row_index FROM fyndnote_ml_annotations
-                WHERE project_id = ?
-                  AND row_index IN ({placeholders})
-                  AND data::jsonb #>> ? LIKE ?
-            """
-            params = [pid] + project_indices + [pg_path, f"%{val}%"]
-        elif op == "=":
-            try:
-                num_val = float(val) if "." in val else int(val)
-                sql = f"""
-                    SELECT DISTINCT row_index FROM fyndnote_ml_annotations
-                    WHERE project_id = ?
-                      AND row_index IN ({placeholders})
-                      AND CAST(data::jsonb #>> ? AS NUMERIC) = ?
-                """
-                params = [pid] + project_indices + [pg_path, num_val]
-            except (ValueError, TypeError):
-                sql = f"""
-                    SELECT DISTINCT row_index FROM fyndnote_ml_annotations
-                    WHERE project_id = ?
-                      AND row_index IN ({placeholders})
-                      AND data::jsonb #>> ? = ?
-                """
-                params = [pid] + project_indices + [pg_path, val]
-        elif op in (">", ">=", "<", "<="):
-            sql = f"""
-                SELECT DISTINCT row_index FROM fyndnote_ml_annotations
-                WHERE project_id = ?
-                  AND row_index IN ({placeholders})
-                  AND CAST(data::jsonb #>> ? AS NUMERIC) {op} ?
-            """
-            params = [pid] + project_indices + [pg_path, float(val)]
-        else:
-            return project_indices
-    else:
-        if op == "~=":
-            sql = f"""
-                SELECT DISTINCT row_index FROM fyndnote_ml_annotations
-                WHERE project_id = ?
-                  AND row_index IN ({placeholders})
-                  AND json_extract(data, ?) LIKE ?
-            """
-            params = [pid] + project_indices + [json_path, f"%{val}%"]
-        elif op == "=":
-            try:
-                num_val = float(val) if "." in val else int(val)
-                sql = f"""
-                    SELECT DISTINCT row_index FROM fyndnote_ml_annotations
-                    WHERE project_id = ?
-                      AND row_index IN ({placeholders})
-                      AND json_extract(data, ?) = ?
-                """
-                params = [pid] + project_indices + [json_path, num_val]
-            except (ValueError, TypeError):
-                sql = f"""
-                    SELECT DISTINCT row_index FROM fyndnote_ml_annotations
-                    WHERE project_id = ?
-                      AND row_index IN ({placeholders})
-                      AND json_extract(data, ?) = ?
-                """
-                params = [pid] + project_indices + [json_path, val]
-        elif op in (">", ">=", "<", "<="):
-            sql = f"""
-                SELECT DISTINCT row_index FROM fyndnote_ml_annotations
-                WHERE project_id = ?
-                  AND row_index IN ({placeholders})
-                  AND CAST(json_extract(data, ?) AS REAL) {op} ?
-            """
-            params = [pid] + project_indices + [json_path, float(val)]
-        else:
-            return project_indices
-
-    matched = {r[0] for r in db.execute(sql, params).fetchall()}
-    return [i for i in project_indices if i in matched]
+    return _apply_json_data_filter(
+        db,
+        "fyndnote_ml_annotations",
+        project_indices,
+        expr.field[len("prediction.") :],
+        expr.operator,
+        expr.value,
+        pid,
+    )
 
 
 def _apply_ml_annotation_meta_filter(
@@ -355,9 +229,17 @@ def _apply_ml_annotation_meta_filter(
             ).fetchall()
         }
         # One row per row_index, so count is either 0 or 1.
-        if (op == "=" and val == 0) or (op == "<" and val == 1) or (op == "<=" and val == 0):
+        if (
+            (op == "=" and val == 0)
+            or (op == "<" and val == 1)
+            or (op == "<=" and val == 0)
+        ):
             return [i for i in project_indices if i not in present]
-        if (op == "=" and val == 1) or (op == ">" and val == 0) or (op == ">=" and val == 1):
+        if (
+            (op == "=" and val == 1)
+            or (op == ">" and val == 0)
+            or (op == ">=" and val == 1)
+        ):
             return [i for i in project_indices if i in present]
         return project_indices
 
@@ -370,7 +252,9 @@ def _apply_ml_annotation_meta_filter(
               AND row_index IN ({placeholders})
               AND annotator = ?
         """
-        matched = {r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()}
+        matched = {
+            r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()
+        }
         return [i for i in project_indices if i in matched]
 
     elif expr.field in ("predictions.created_at", "predictions.updated_at"):
@@ -384,7 +268,9 @@ def _apply_ml_annotation_meta_filter(
               AND row_index IN ({placeholders})
               AND {col} {op} ?
         """
-        matched = {r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()}
+        matched = {
+            r[0] for r in db.execute(sql, [pid] + project_indices + [val]).fetchall()
+        }
         return [i for i in project_indices if i in matched]
 
     return project_indices
@@ -622,20 +508,26 @@ class AnnotationService:
         params.append(pid)
         db.execute(f"UPDATE fyndnote_projects SET {sets} WHERE id = ?", tuple(params))
         db.commit()
-        p = db.execute("SELECT * FROM fyndnote_projects WHERE id = ?", (pid,)).fetchone()
+        p = db.execute(
+            "SELECT * FROM fyndnote_projects WHERE id = ?", (pid,)
+        ).fetchone()
         db.close()
         return dict(p) if p else None
 
     @staticmethod
     def delete_project(pid: str) -> bool:
         db = get_db()
-        row = db.execute("SELECT 1 FROM fyndnote_projects WHERE id = ?", (pid,)).fetchone()
+        row = db.execute(
+            "SELECT 1 FROM fyndnote_projects WHERE id = ?", (pid,)
+        ).fetchone()
         if not row:
             db.close()
             return False
         db.execute("DELETE FROM fyndnote_annotations WHERE project_id = ?", (pid,))
         db.execute("DELETE FROM fyndnote_ml_annotations WHERE project_id = ?", (pid,))
-        db.execute("DELETE FROM fyndnote_project_permissions WHERE project_id = ?", (pid,))
+        db.execute(
+            "DELETE FROM fyndnote_project_permissions WHERE project_id = ?", (pid,)
+        )
         db.execute("DELETE FROM fyndnote_projects WHERE id = ?", (pid,))
         db.commit()
         db.close()
@@ -644,7 +536,9 @@ class AnnotationService:
     @staticmethod
     def get_project(pid: str) -> dict | None:
         db = get_db()
-        p = db.execute("SELECT * FROM fyndnote_projects WHERE id = ?", (pid,)).fetchone()
+        p = db.execute(
+            "SELECT * FROM fyndnote_projects WHERE id = ?", (pid,)
+        ).fetchone()
         db.close()
         return dict(p) if p else None
 
@@ -720,7 +614,7 @@ class AnnotationService:
     @staticmethod
     def submit_annotation(pid: str, row_index: int, user_id: str, data: dict):
         db = get_db()
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         db.execute(
             """
             INSERT INTO fyndnote_annotations (project_id, row_index, user_id, data, created_at, updated_at)
@@ -771,7 +665,9 @@ class AnnotationService:
     @staticmethod
     def delete_all_annotations(pid: str) -> int:
         db = get_db()
-        cur = db.execute("DELETE FROM fyndnote_annotations WHERE project_id = ?", (pid,))
+        cur = db.execute(
+            "DELETE FROM fyndnote_annotations WHERE project_id = ?", (pid,)
+        )
         db.commit()
         db.close()
         return cur.rowcount
@@ -790,7 +686,9 @@ class AnnotationService:
     @staticmethod
     def delete_all_ml_annotations(pid: str) -> int:
         db = get_db()
-        cur = db.execute("DELETE FROM fyndnote_ml_annotations WHERE project_id = ?", (pid,))
+        cur = db.execute(
+            "DELETE FROM fyndnote_ml_annotations WHERE project_id = ?", (pid,)
+        )
         db.commit()
         db.close()
         return cur.rowcount

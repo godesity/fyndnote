@@ -3,14 +3,18 @@ from pathlib import Path
 
 _PKG_PARENT = Path(__file__).resolve().parent.parent
 _IN_REPO = (_PKG_PARENT / "data").is_dir()  # source checkout vs site-packages
-ROOT = Path(os.getenv("FYNDNOTE_HOME") or (_PKG_PARENT if _IN_REPO else Path.home() / ".fyndnote"))
+ROOT = Path(
+    os.getenv("FYNDNOTE_HOME")
+    or (_PKG_PARENT if _IN_REPO else Path.home() / ".fyndnote")
+)
 DATA_DIR = ROOT / "data"
 DATABASE_PATH = DATA_DIR / "labeling.db"
 
-# Set DATABASE_URL to use PostgreSQL instead of SQLite, e.g.:
+# Set DATABASE_URL to use a server database instead of SQLite, e.g.
 #   DATABASE_URL=postgresql://user:pass@localhost:5432/fyndnote
+# Any SQLAlchemy dialect works (postgresql, mysql, mariadb, …); see
+# fyndnote/database.py for the dialect-specific SQL codegen.
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
-DATABASE_TYPE = "postgres" if DATABASE_URL else "sqlite"
 DATASETS_DIR = DATA_DIR / "datasets"
 PROJECTS_DIR = DATASETS_DIR / "projects"
 DATASETS_UPLOAD_DIR = DATA_DIR / "datasets" / "uploads"
