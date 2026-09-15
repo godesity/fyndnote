@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Dialog from "./Dialog";
 import { LiveProvider, LivePreview, LiveError } from "react-live";
 import { themes } from "prism-react-renderer";
-import { PREDEFINED_TEMPLATES } from "../predefinedTemplates";
+import {
+  PREDEFINED_TEMPLATES,
+  applyAttributeRenames,
+} from "../predefinedTemplates";
 import type { PredefinedTemplate } from "../predefinedTemplates";
 import * as widgets from "../widgets";
 import { AnnotationProvider } from "../context/AnnotationContext";
@@ -20,7 +23,21 @@ interface Props {
 export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("All");
   const [selected, setSelected] = useState<PredefinedTemplate | null>(null);
+  // Attribute name overrides, keyed by the template's default attribute key.
+  const [renames, setRenames] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    setRenames({});
+  }, [selected?.name]);
+
+  // Source/preview data with the user's attribute renames applied. The preview
+  // always renders this, so it reflects the exact template that gets loaded.
+  const effective = selected
+    ? applyAttributeRenames(selected, renames)
+    : { source: "", data: {}, annotations: {} };
+  const effectiveTemplate: PredefinedTemplate = selected
+    ? { ...selected, ...effective }
+    : ({} as PredefinedTemplate);
   const filtered = groupFilter === "All"
     ? PREDEFINED_TEMPLATES
     : PREDEFINED_TEMPLATES.filter((t) => t.group === groupFilter);
@@ -110,14 +127,52 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
             </div>
             {selected ? (
               <>
+                {selected.attributes && selected.attributes.length > 0 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{
+                      fontSize: 11, fontWeight: 600, color: "var(--color-text-muted)",
+                      textTransform: "uppercase", letterSpacing: 1, marginBottom: 6,
+                    }}>
+                      Attributes
+                    </div>
+                    {selected.attributes.map((attr) => (
+                      <div key={`${attr.kind}:${attr.key}`} style={{
+                        display: "flex", alignItems: "center", gap: 8, marginBottom: 6,
+                      }}>
+                        <span style={{
+                          flex: "0 0 130px", fontSize: 12, color: "var(--color-text-muted)",
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>
+                          {attr.label}
+                        </span>
+                        <span style={{ fontSize: 12, fontFamily: "monospace", color: "var(--color-text-muted)" }}>
+                          {attr.kind === "data" ? "data." : "annotations."}
+                        </span>
+                        <input
+                          value={renames[attr.key] ?? attr.key}
+                          onChange={(e) =>
+                            setRenames((r) => ({ ...r, [attr.key]: e.target.value }))
+                          }
+                          placeholder={attr.key}
+                          style={{
+                            flex: 1, padding: "4px 8px", fontSize: 13,
+                            fontFamily: "monospace",
+                            border: "1px solid var(--color-border)", borderRadius: 6,
+                            background: "var(--color-surface)", color: "var(--color-text)",
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div style={{
                   flex: 1, borderRadius: 8, border: "1px solid var(--color-border)",
                   overflow: "auto", padding: 12, background: "var(--color-surface-secondary)",
                 }}>
                   <AnnotationProvider>
                     <LiveProvider
-                      code={selected.source}
-                      scope={{ ...scope, data: selected.data, annotations: selected.annotations }}
+                      code={effective.source}
+                      scope={{ ...scope, data: effective.data, annotations: effective.annotations }}
                       theme={themes.oneLight}
                     >
                       <LivePreview />
@@ -126,7 +181,7 @@ export default function LoadTemplateDialog({ onSelect, onClose }: Props) {
                   </AnnotationProvider>
                 </div>
                 <button
-                  onClick={() => { onSelect(selected); onClose(); }}
+                  onClick={() => { onSelect(effectiveTemplate); onClose(); }}
                   style={{
                     marginTop: 12,
                     padding: "8px 20px",
