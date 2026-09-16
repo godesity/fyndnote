@@ -1005,7 +1005,7 @@ class AnnotationService:
         if not template_source:
             return []
         names = re.findall(
-            r"<(?:SelectField|TextField|CheckboxGroup|RatingField|NERField|BBoxField)"
+            r"<(?:SelectField|TextField|CheckboxGroup|RatingField|NERField|BBoxField|PolygonField|AudioSegmentField)"
             r'\s[^>]*?name="([^"]+)"',
             template_source,
         )
