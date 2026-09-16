@@ -56,16 +56,32 @@ This:
 
 ### Env vars used by compose
 
-| Var                     | Default                 | Purpose                                |
-| ----------------------- | ----------------------- | -------------------------------------- |
-| `S3_CACHE_ENABLED`      | `true`                  | Enable the S3-backed dataset cache     |
-| `S3_CACHE_BUCKET`       | `label-tool-cache`      | MinIO bucket name                      |
-| `S3_CACHE_PREFIX`       | `datasets-cache`        | Object key prefix                      |
+| Var                     | Default          | Purpose                                       |
+| ----------------------- | ---------------- | --------------------------------------------- |
+| `S3_CACHE_ENABLED`      | `true`           | Enable the S3-backed dataset cache            |
+| `S3_CACHE_BUCKET`       | `label-tool-cache` | MinIO bucket name                           |
+| `S3_CACHE_PREFIX`       | `datasets-cache` | Object key prefix                             |
 | `S3_ENDPOINT_URL`       | `http://localhost:9000` | MinIO endpoint                         |
-| `AWS_ACCESS_KEY_ID`     | `minioadmin`            | MinIO root user                        |
-| `AWS_SECRET_ACCESS_KEY` | `minioadmin`            | MinIO root password                    |
-| `MAX_CACHED_DATASETS`   | `1`                     | LRU cache size                         |
-| `DISK_USAGE_THRESHOLD`  | `0.1`                   | Evict cold cache above this disk ratio |
+| `AWS_ACCESS_KEY_ID`     | `minioadmin`     | MinIO root user                               |
+| `AWS_SECRET_ACCESS_KEY` | `minioadmin`     | MinIO root password                           |
+| `MAX_CACHED_DATASETS`   | `1`              | LRU cache size                                |
+| `DISK_USAGE_THRESHOLD`  | `0.1`            | Evict cold cache above this disk ratio        |
+| `MAX_UPLOAD_BYTES`      | 2 GiB            | Per-file upload cap (413 above it)            |
+| `MAX_CONCURRENT_UPLOADS`| `2`              | Parallel upload conversions                   |
+| `MAX_UPLOAD_WAIT_SECONDS` | `900`          | Queue wait for a conversion slot before 503   |
+| `FYNDNOTE_MEM_LIMIT`    | `3g`             | Hard container memory ceiling (`mem_limit`)   |
+| `FYNDNOTE_MEMSWAP_LIMIT`| = mem limit      | Total mem+swap ceiling; equal means no swap   |
+
+The app container runs under a hard `mem_limit`, so an oversized import is OOM-killed
+and restarted rather than swapping the host. That ceiling is only real because
+`memswap_limit` is pinned to the same value — Docker otherwise allows mem+swap to
+reach 2× `mem_limit`, and pyarrow would quietly spill past it. Keep the three upload
+knobs and the limit in proportion — roughly
+`FYNDNOTE_MEM_LIMIT >= 400 MB + MAX_CONCURRENT_UPLOADS × MAX_UPLOAD_BYTES / 2`,
+the formula the app checks at boot (`check_memory_budget`) and warns about in the
+log when the two disagree. Raising `MAX_UPLOAD_BYTES` to 8 GiB, for instance, wants
+`MAX_CONCURRENT_UPLOADS=1` and a `6g` limit. See
+[Large uploads](/api/#large-uploads) for what each costs.
 
 ## Option B — Plain Docker CLI
 
@@ -80,6 +96,8 @@ Run without S3 (local-only mode):
 ```bash
 docker run -d --name fyndnote \
   -p 8000:8000 \
+  --memory=3g \
+  --memory-swap=3g \
   -v "$(pwd)/data:/app/data" \
   -e S3_CACHE_ENABLED=false \
   fyndnote
@@ -96,8 +114,13 @@ docker run -d --name minio \
   -e MINIO_ROOT_PASSWORD=minioadmin \
   minio/minio server /data --console-address ":9001"
 
+```
+
+```bash
 docker run -d --name fyndnote \
   -p 8000:8000 \
+  --memory=3g \
+  --memory-swap=3g \
   -v "$(pwd)/data:/app/data" \
   -e S3_CACHE_ENABLED=true \
   -e S3_CACHE_BUCKET=label-tool-cache \

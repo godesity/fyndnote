@@ -13,6 +13,17 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - MAX_CACHED_DATASETS=1
       - DISK_USAGE_THRESHOLD=0.1
+      # Upload budget. Each in-flight upload costs a spooled copy on disk plus a
+      # pyarrow conversion in RAM (measured: a 1.1 GB CSV adds ~280 MB on top of
+      # a ~175 MB baseline, so a conversion is bounded by the file size, not the
+      # whole payload). Size the two together:
+      #   mem_limit >= ~350 MB + MAX_CONCURRENT_UPLOADS x 0.5 x MAX_UPLOAD_BYTES
+      # With the defaults below (2 GiB x 2) that is ~2.5 GiB, so FYNDNOTE_MEM_LIMIT
+      # defaults to 3g. Raise MAX_CONCURRENT_UPLOADS only with a matching limit,
+      # otherwise the OOM killer takes down the whole container mid-upload.
+      - MAX_UPLOAD_BYTES=${MAX_UPLOAD_BYTES:-2147483648}
+      - MAX_CONCURRENT_UPLOADS=${MAX_CONCURRENT_UPLOADS:-2}
+      - MAX_UPLOAD_WAIT_SECONDS=${MAX_UPLOAD_WAIT_SECONDS:-900}
       # Empty = SQLite (default). For the pg profile use:
       - DATABASE_URL=postgresql://postgres:postgres@localhost:5432/fyndnote
       #- DATABASE_URL=${DATABASE_URL:-}
@@ -25,6 +36,18 @@ services:
       - SSO_REDIRECT_URI=${SSO_REDIRECT_URI:-http://localhost:8000/api/v1/sso}
     volumes:
       - ./data:/app/data
+    # Hard ceiling so an oversized import cannot take down the host: the OOM
+    # killer reaps this container (restart: unless-stopped brings it back) instead
+    # of the whole machine. Kept coherent with MAX_UPLOAD_BYTES x
+    # MAX_CONCURRENT_UPLOADS by the sizing rule above, and cross-checked at boot
+    # by check_memory_budget(), which logs a warning when they disagree.
+    mem_limit: ${FYNDNOTE_MEM_LIMIT:-3g}
+    # Equal to mem_limit means no swap, which is what makes the cap a real
+    # ceiling: Docker otherwise defaults total mem+swap to 2x mem_limit, so
+    # pyarrow would quietly spill to disk and the container would sail past 3g.
+    # Raise this alone if you would rather survive a conversion spike by spilling
+    # (slow) than by being killed.
+    memswap_limit: ${FYNDNOTE_MEMSWAP_LIMIT:-${FYNDNOTE_MEM_LIMIT:-3g}}
     depends_on:
       minio:
         condition: service_healthy
