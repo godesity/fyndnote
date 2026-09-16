@@ -1,3 +1,11 @@
+export interface TemplateAttribute {
+  // Identifier as it appears in the template source: `data.<key>` or
+  // `<obj>.<key>` (annotation widget `name` + defaultValue lookup).
+  key: string;
+  kind: "data" | "annotation";
+  label: string;
+}
+
 export interface PredefinedTemplate {
   name: string;
   description: string;
@@ -5,6 +13,50 @@ export interface PredefinedTemplate {
   source: string;
   data: Record<string, any>;
   annotations: Record<string, any>;
+  // Temporary attribute names shown in the Load Template dialog. Renaming one
+  // rewrites the template source so it reads the user's own column names.
+  attributes?: TemplateAttribute[];
+}
+
+const VALID_KEY = /^[A-Za-z_]\w*$/;
+
+// Applies user-supplied attribute renames (original key -> new key) to a
+// template in one pass: rewrites `data.<key>`, `annotations?.<key>`, and
+// `name="<key>"` in the source, and remaps the sample data/annotation keys so
+// the preview keeps working. Invalid identifiers are ignored (key unchanged).
+export function applyAttributeRenames(
+  tpl: PredefinedTemplate,
+  renames: Record<string, string>
+): { source: string; data: Record<string, any>; annotations: Record<string, any> } {
+  const map: Record<string, string> = {};
+  for (const attr of tpl.attributes ?? []) {
+    const next = (renames[attr.key] ?? "").trim();
+    if (next && next !== attr.key && VALID_KEY.test(next)) map[attr.key] = next;
+  }
+  if (Object.keys(map).length === 0) {
+    return { source: tpl.source, data: tpl.data, annotations: tpl.annotations };
+  }
+
+  let source = tpl.source.replace(
+    /\bdata\.([A-Za-z_]\w*)/g,
+    (m, k) => (map[k] ? `data.${map[k]}` : m)
+  );
+  source = source.replace(
+    /\bannotations\?\.([A-Za-z_]\w*)/g,
+    (m, k) => (map[k] ? `annotations?.${map[k]}` : m)
+  );
+  source = source.replace(
+    /name="([A-Za-z_]\w*)"/g,
+    (m, k) => (map[k] ? `name="${map[k]}"` : m)
+  );
+
+  return { source, data: renameKeys(tpl.data, map), annotations: renameKeys(tpl.annotations, map) };
+}
+
+function renameKeys(obj: Record<string, any>, map: Record<string, string>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) out[map[k] ?? k] = v;
+  return out;
 }
 
 const TEXT_CLASSIFICATION = `<div style={{ padding: 20 }}>
@@ -118,6 +170,10 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
     data: { text: "This product is amazing! I love the new design." },
     annotations: { sentiment: "positive" },
     source: TEXT_CLASSIFICATION,
+    attributes: [
+      { key: "text", kind: "data", label: "Input text" },
+      { key: "sentiment", kind: "annotation", label: "Sentiment" },
+    ],
   },
   {
     name: "Image BBox",
@@ -126,6 +182,10 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
     data: { image_url: "./labeling_template/image-sample.png" },
     annotations: { objects: [] },
     source: IMAGE_BBOX,
+    attributes: [
+      { key: "image_url", kind: "data", label: "Image URL" },
+      { key: "objects", kind: "annotation", label: "Objects" },
+    ],
   },
   {
     name: "Image Polygon",
@@ -164,6 +224,10 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
       ],
     },
     source: IMAGE_POLYGON,
+    attributes: [
+      { key: "image_url", kind: "data", label: "Image URL" },
+      { key: "objects", kind: "annotation", label: "Objects" },
+    ],
   },
   {
     name: "NER",
@@ -178,6 +242,10 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
       ],
     },
     source: NER,
+    attributes: [
+      { key: "text", kind: "data", label: "Input text" },
+      { key: "entities", kind: "annotation", label: "Entities" },
+    ],
   },
   {
     name: "Free Text",
@@ -186,6 +254,11 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
     data: { text: "A cat sitting on a windowsill watching the rain." },
     annotations: { response: "The image depicts a domestic cat perched on a windowsill, gazing outward at the rainfall." },
     source: FREE_TEXT,
+    attributes: [
+      { key: "text", kind: "data", label: "Input text" },
+      { key: "input", kind: "data", label: "Fallback input" },
+      { key: "response", kind: "annotation", label: "Response" },
+    ],
   },
   {
     name: "Rating + Checkbox",
@@ -194,6 +267,11 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
     data: { text: "This article was very helpful for understanding the topic." },
     annotations: { rating: 4, tags: ["informative"] },
     source: RATING_CHECKBOX,
+    attributes: [
+      { key: "text", kind: "data", label: "Input text" },
+      { key: "rating", kind: "annotation", label: "Rating" },
+      { key: "tags", kind: "annotation", label: "Categories" },
+    ],
   },
   {
     name: "Audio Segments",
@@ -202,6 +280,10 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
     data: { audio_url: "./labeling_template/audio-sample.mp3" },
     annotations: { segments: [] },
     source: AUDIO_SEGMENTS,
+    attributes: [
+      { key: "audio_url", kind: "data", label: "Audio URL" },
+      { key: "segments", kind: "annotation", label: "Segments" },
+    ],
   },
   {
     name: "Audio Playback",
@@ -210,5 +292,9 @@ export const PREDEFINED_TEMPLATES: PredefinedTemplate[] = [
     data: { audio_url: "./labeling_template/audio-sample.mp3" },
     annotations: { classification: "speech" },
     source: AUDIO_PLAYBACK,
+    attributes: [
+      { key: "audio_url", kind: "data", label: "Audio URL" },
+      { key: "classification", kind: "annotation", label: "Classification" },
+    ],
   },
 ];

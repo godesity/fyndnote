@@ -54,6 +54,8 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
     canManage: boolean;
     role: string | null;
   }>({ loading: true, canManage: false, role: null });
+  const [showCode, setShowCode] = useState(false);
+
   useEffect(() => {
     const load = async () => {
       if (!user) return;
@@ -244,12 +246,21 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
         <section className="mb-6">
           <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 shadow-sm">
             <h3 className="text-sm font-semibold text-[var(--color-text-heading)] mb-2">Template</h3>
-            <p className="text-sm text-[var(--color-text-muted)] mb-4">
-              Available variables: <code className="px-1.5 py-0.5 rounded bg-sunset-50 text-sunset-600 text-xs">data</code> (current row),{" "}
-              <code className="px-1.5 py-0.5 rounded bg-sunset-50 text-sunset-600 text-xs">annotations</code> (saved values).
-            </p>
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Available variables: <code className="px-1.5 py-0.5 rounded bg-sunset-50 text-sunset-600 text-xs">data</code> (current row),{" "}
+                <code className="px-1.5 py-0.5 rounded bg-sunset-50 text-sunset-600 text-xs">annotations</code> (saved values).
+              </p>
+              <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0">
+                <span className="relative inline-flex items-center">
+                  <input type="checkbox" checked={showCode} onChange={(e) => setShowCode(e.target.checked)} className="sr-only peer" />
+                  <div className="w-9 h-5 bg-[var(--color-surface-sunken)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-sunset-500 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all" />
+                </span>
+                <span className="text-sm text-[var(--color-text)]">Show code</span>
+              </label>
+            </div>
             <div className="flex gap-4">
-              <div className="flex-1 min-w-0">
+              <div className={`min-w-0 ${showCode ? "flex-1" : "hidden"}`}>
                 <AnnotationProvider>
                   <LiveProvider code={templateSource} scope={{ ...scope, data: sampleRow || {}, annotations: {} }} theme={editorTheme}>
                     <LiveEditor onChange={setTemplateSource} style={{ textAlign: 'left' }} />
