@@ -14,8 +14,8 @@ services:
       - MAX_CACHED_DATASETS=1
       - DISK_USAGE_THRESHOLD=0.1
       # Empty = SQLite (default). For the pg profile use:
-      #   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/fyndnote docker compose --profile pg up
-      - DATABASE_URL=${DATABASE_URL:-}
+      - DATABASE_URL=postgresql://postgres:postgres@localhost:5432/fyndnote
+      #- DATABASE_URL=${DATABASE_URL:-}
       # Keycloak SSO (MinIO-style OpenID Connect). Disabled by default.
       - SSO_ENABLED=${SSO_ENABLED:-false}
       - KEYCLOAK_URL=${KEYCLOAK_URL:-http://localhost:8080}

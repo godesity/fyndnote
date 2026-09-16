@@ -138,10 +138,13 @@ fyndnote --port 8000
 
 The wheel bundles the built web app and the docs site, so one install serves the
 SPA at `/`, the API at `/api/v1` and the docs at `/fyndnote` — no Docker or Node
-required. Data (SQLite DB, datasets, templates) lives in `~/.fyndnote` by
+required. Data (database, datasets, templates) lives in `~/.fyndnote` by
 default; choose another location with `--data-dir <path>` or the `FYNDNOTE_HOME`
-environment variable. PostgreSQL support comes from the `fyndnote[postgres]`
-extra plus a `DATABASE_URL` env var.
+environment variable. SQLite is the default and needs no setup. Set
+`DATABASE_URL` to any SQLAlchemy URL to use another database — plus its driver,
+e.g. `pip install "fyndnote[postgres]"` for
+`DATABASE_URL=postgresql://user:pass@localhost:5432/fyndnote` (MySQL and MariaDB
+work the same way with `mysql+pymysql://…`).
 
 ## Install from a git URL
 

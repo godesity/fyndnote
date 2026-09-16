@@ -8,7 +8,7 @@ A general-purpose ML dataset annotation tool. Define labeling interfaces via res
 |--------------------|---------------------------|
 | Backend            | Python + FastAPI + uvicorn|
 | Data Loading       | Hugging Face `datasets`   |
-| Storage            | SQLite + JSON files       |
+| Storage            | SQLAlchemy (SQLite default)|
 | Export             | Parquet (PyArrow)         |
 | Frontend           | React 19 + TypeScript 6   |
 | Templating         | react-live sandbox        |
@@ -142,7 +142,7 @@ fyndnote/                       # Python package (pip-installable)
   main.py                       # FastAPI entry point, CORS, lifespan
   cli.py                        # `fyndnote` console script
   config.py                     # Path/env constants (FYNDNOTE_HOME aware)
-  database.py                   # SQLite schema init + seeding
+  database.py                   # SQLAlchemy schema, dialect SQL, seeding
   schemas.py                    # Pydantic models
   routers/
     auth.py                     # POST /auth/login
@@ -152,7 +152,7 @@ fyndnote/                       # Python package (pip-installable)
   services/
     dataset_service.py          # HF datasets load + cache
     template_service.py         # JSON file CRUD
-    annotation_service.py       # SQLite queries
+    annotation_service.py       # Annotation/filter queries
   tools/                        # gen_openapi, seed_db helpers
   _data/users.json              # bundled seed users (fallback)
   web/                          # built frontend/docs (generated; wheel data)
@@ -210,10 +210,11 @@ fyndnote --port 8000
 ```
 
 The wheel bundles the built web app and docs, so a single `pip install` serves the
-SPA at `/`, the API at `/api/v1` and the docs at `/fyndnote`. Data (SQLite DB,
+SPA at `/`, the API at `/api/v1` and the docs at `/fyndnote`. Data (database,
 datasets, templates) lives in `~/.fyndnote` by default; point it elsewhere with
-`--data-dir <path>` or the `FYNDNOTE_HOME` env var. For PostgreSQL support use
-the `fyndnote[postgres]` extra.
+`--data-dir <path>` or the `FYNDNOTE_HOME` env var. SQLite needs no setup; set
+`DATABASE_URL` to any SQLAlchemy URL (plus its driver, e.g. the
+`fyndnote[postgres]` extra) to run on PostgreSQL, MySQL or MariaDB instead.
 
 To build and publish from a checkout:
 
