@@ -102,6 +102,7 @@ export default withMermaid(defineConfig({
             { text: 'Browse & Filters', link: '/guide/browsing' },
             { text: 'AI Prefill', link: '/guide/ai-prefill' },
             { text: 'Export', link: '/guide/export' },
+            { text: 'Import from Label Studio', link: '/guide/migrate-labelstudio' },
           ],
         },
       ],

@@ -206,7 +206,8 @@ All endpoints under `/api/v1`:
 
 ```bash
 pipx install fyndnote    # or: pip install fyndnote
-fyndnote --port 8000
+fyndnote serve --port 8000          # or the legacy short form: fyndnote --port 8000
+fyndnote migrate --input export.json --user alice   # import a Label Studio export
 ```
 
 The wheel bundles the built web app and docs, so a single `pip install` serves the
