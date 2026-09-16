@@ -15,7 +15,7 @@ def test_create_project_and_submit_annotation():
     tid = tresp.json()["id"]
 
     # Load dataset
-    dresp = client.post("/api/v1/datasets/load", json={"source": "stanfordnlp/imdb", "split": "train"})
+    dresp = client.post("/api/v1/datasets/load?user_id=alice", json={"source": "stanfordnlp/imdb", "split": "train"})
     did = dresp.json()["id"]
 
     # Create project
@@ -38,7 +38,7 @@ def test_create_project_and_submit_annotation():
 
 
 def test_browse_rows_all(client):
-    ds_resp = client.post("/api/v1/datasets/load", json={"source": "stanfordnlp/imdb", "split": "train"})
+    ds_resp = client.post("/api/v1/datasets/load?user_id=alice", json={"source": "stanfordnlp/imdb", "split": "train"})
     ds_id = ds_resp.json()["id"]
 
     t_resp = client.post("/api/v1/templates", json={"name": "test", "source": "<div>{data.text}</div>"})
@@ -65,7 +65,7 @@ def test_browse_rows_all(client):
 
 
 def test_browse_rows_annotated_filter(client):
-    ds_resp = client.post("/api/v1/datasets/load", json={"source": "stanfordnlp/imdb", "split": "train"})
+    ds_resp = client.post("/api/v1/datasets/load?user_id=alice", json={"source": "stanfordnlp/imdb", "split": "train"})
     ds_id = ds_resp.json()["id"]
     t_resp = client.post("/api/v1/templates", json={"name": "test", "source": "<div>{data.text}</div>"})
     t_id = t_resp.json()["id"]
@@ -100,7 +100,7 @@ def test_browse_rows_annotated_filter(client):
 
 
 def test_delete_project(client):
-    ds_resp = client.post("/api/v1/datasets/load", json={"source": "stanfordnlp/imdb", "split": "train"})
+    ds_resp = client.post("/api/v1/datasets/load?user_id=alice", json={"source": "stanfordnlp/imdb", "split": "train"})
     ds_id = ds_resp.json()["id"]
     t_resp = client.post("/api/v1/templates", json={"name": "del-tpl", "source": "<div>{data.text}</div>"})
     t_id = t_resp.json()["id"]
@@ -141,7 +141,7 @@ def test_delete_project(client):
 
 
 def _make_project(client):
-    dresp = client.post("/api/v1/datasets/load", json={"source": "stanfordnlp/imdb", "split": "train"})
+    dresp = client.post("/api/v1/datasets/load?user_id=alice", json={"source": "stanfordnlp/imdb", "split": "train"})
     did = dresp.json()["id"]
     tresp = client.post("/api/v1/templates", json={"name": "tpl", "source": "<div>{data.text}</div>"})
     tid = tresp.json()["id"]

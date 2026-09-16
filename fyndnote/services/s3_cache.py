@@ -119,3 +119,30 @@ class S3BackedCache:
             return resp.get("KeyCount", 0) > 0
         except Exception:
             return False
+
+    def delete_prefix(self, ds_id: str) -> int:
+        """Delete every object under ``{prefix}/{ds_id}/``. Returns objects removed."""
+        prefix = self._ds_prefix(ds_id)
+        removed = 0
+        try:
+            paginator = self._client.get_paginator("list_objects_v2")
+            for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+                keys = [{"Key": obj["Key"]} for obj in page.get("Contents", [])]
+                if not keys:
+                    continue
+                self._client.delete_objects(
+                    Bucket=self.bucket, Delete={"Objects": keys}
+                )
+                removed += len(keys)
+        except Exception:
+            logger.exception("Failed to delete objects for %s", ds_id)
+            raise
+        if removed:
+            logger.info(
+                "Deleted %d objects for %s from s3://%s/%s",
+                removed,
+                ds_id,
+                self.bucket,
+                prefix,
+            )
+        return removed

@@ -5,7 +5,7 @@ def _setup_project(client):
     })
     tid = t_resp.json()["id"]
 
-    d_resp = client.post("/api/v1/datasets/load", json={
+    d_resp = client.post("/api/v1/datasets/load?user_id=alice", json={
         "source": "stanfordnlp/imdb", "split": "train"
     })
     did = d_resp.json()["id"]

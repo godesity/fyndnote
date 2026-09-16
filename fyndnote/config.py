@@ -33,6 +33,19 @@ S3_ENDPOINT_URL = os.getenv("S3_ENDPOINT_URL") or None
 MAX_CACHED_DATASETS = int(os.getenv("MAX_CACHED_DATASETS", "10"))
 DISK_USAGE_THRESHOLD = float(os.getenv("DISK_USAGE_THRESHOLD", "0.9"))
 
+# Upload limits. MAX_UPLOAD_BYTES bounds a single uploaded file (checked twice:
+# from Content-Length before any byte is written, and again from the spooled
+# part on disk). MAX_CONCURRENT_UPLOADS bounds how many uploads may be parsed at
+# once — each one costs a file copy plus a full pyarrow conversion, so without a
+# cap N simultaneous uploads scale RAM and disk with N.
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(2 * 1024**3)))
+MAX_CONCURRENT_UPLOADS = int(os.getenv("MAX_CONCURRENT_UPLOADS", "2"))
+# Seconds a request may sit waiting for a free slot before it gets a 503. The
+# browser has already paid the transfer cost by then, so waiting is cheaper than
+# making the user re-upload gigabytes.
+MAX_UPLOAD_WAIT_SECONDS = float(os.getenv("MAX_UPLOAD_WAIT_SECONDS", "900"))
+UPLOAD_READ_BYTES = 1024 * 1024
+
 # ---------------------------------------------------------------------------
 # Keycloak SSO (OpenID Connect) — MinIO-style: backend validates Keycloak JWTs
 # statelessly against the realm JWKS endpoint.
