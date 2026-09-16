@@ -1,0 +1,36 @@
+<View>
+  <Text name="text" value="$text"/>
+  <Choices name="sentiment" toName="text" choice="single" showInline="true">
+    <Choice value="positive"/>
+    <Choice value="negative"/>
+    <Choice value="neutral"/>
+  </Choices>
+  <Choices name="topics" toName="text" choice="multiple">
+    <Choice value="security"/>
+    <Choice value="policy"/>
+    <Choice value="pricing"/>
+  </Choices>
+  <TextArea name="summary" toName="text" maxSubmissions="1"/>
+  <Rating name="quality" toName="text" maxRating="5"/>
+  <Labels name="entities" toName="text">
+    <Label value="OBLIGATION"/>
+    <Label value="ASSET"/>
+  </Labels>
+  <Image name="image" value="$image_url"/>
+  <RectangleLabels name="objects" toName="image">
+    <Label value="car"/>
+    <Label value="person"/>
+  </RectangleLabels>
+  <PolygonLabels name="outlines" toName="image">
+    <Label value="lane"/>
+  </PolygonLabels>
+  <Audio name="audio" value="$audio"/>
+  <Choices name="speech" toName="audio" choice="multiple">
+    <Choice value="question"/>
+    <Choice value="answer"/>
+  </Choices>
+  <TimeSeries name="timeseries" value="$timeseries"/>
+  <TimeSeriesLabels name="signal" toName="timeseries">
+    <Region value="spike"/>
+  </TimeSeriesLabels>
+</View>
