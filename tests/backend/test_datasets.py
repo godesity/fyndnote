@@ -545,3 +545,208 @@ def test_container_memory_limit_parses_cgroup_files(tmp_path):
     late = tmp_path / "late"
     late.write_text("1048576\n")
     assert container_memory_limit(("/nonexistent/v2", str(late))) == 1048576
+
+
+# --------------------------------------------------------------------------- #
+# Display names: every dataset gets a unique, user-meaningful label            #
+# --------------------------------------------------------------------------- #
+
+CSV = b"text,label\nhello,0\nworld,1\n"
+
+
+def _upload(client, filename, content=CSV, alias=None):
+    data = {"alias": alias} if alias is not None else None
+    return client.post(
+        "/api/v1/datasets/upload?user_id=alice",
+        files={"file": (filename, content, "text/csv")},
+        data=data,
+    )
+
+
+def test_upload_names_dataset_after_original_filename(client):
+    """The label is the filename the user picked, not the uuid on disk."""
+    resp = _upload(client, "imdb.csv")
+    assert resp.status_code == 201
+    assert resp.json()["name"] == "imdb.csv"
+    listed = client.get("/api/v1/datasets").json()["datasets"]
+    assert [d["name"] for d in listed] == ["imdb.csv"]
+
+
+def test_upload_strips_directories_from_filename(client):
+    """IE/Safari send a full path; only the basename should surface."""
+    assert _upload(client, r"C:\fakepath\reviews.csv").json()["name"] == "reviews.csv"
+
+
+def test_second_upload_of_same_filename_is_rejected_with_suggestion(client):
+    first = _upload(client, "dup.csv")
+    assert first.status_code == 201
+    second = _upload(client, "dup.csv")
+    assert second.status_code == 409
+    detail = second.json()["detail"]
+    assert detail["suggested_name"] == "dup.csv (2)"
+
+    # Accepting the suggestion succeeds and keeps both datasets addressable.
+    accepted = _upload(client, "dup.csv", alias=detail["suggested_name"])
+    assert accepted.status_code == 201
+    assert accepted.json()["name"] == "dup.csv (2)"
+
+
+def test_rejected_upload_does_not_reserve_its_name(client):
+    """A bad file must not poison the label (the uuid original is cleaned too)."""
+    bad = _upload(client, "broken.csv", content=b"\x00\x01\x02 not a csv \x00")
+    assert bad.status_code == 400
+    assert _upload(client, "broken.csv").status_code == 201
+
+
+def test_upload_alias_is_used_verbatim(client):
+    resp = _upload(client, "whatever.csv", alias="Sentiment train")
+    assert resp.status_code == 201
+    assert resp.json()["name"] == "Sentiment train"
+    details = client.get(f"/api/v1/datasets/{resp.json()['id']}/details").json()
+    assert details["dataset"]["name"] == "Sentiment train"
+
+
+def test_load_uses_alias_and_rejects_duplicates(client):
+    import pathlib
+    import tempfile
+
+    f = pathlib.Path(tempfile.mktemp(suffix=".csv"))
+    f.write_text("text,label\nhello,0\nworld,1\n")
+    body = {"source": f"file://{f}", "alias": "corpus"}
+
+    assert client.post("/api/v1/datasets/load?user_id=alice", json=body).json()["name"] == "corpus"
+
+    clash = client.post("/api/v1/datasets/load?user_id=alice", json=body)
+    assert clash.status_code == 409
+    assert clash.json()["detail"]["suggested_name"] == "corpus (2)"
+
+
+def test_name_available_endpoint(client):
+    _upload(client, "taken.csv")
+
+    free = client.get("/api/v1/datasets/name-available", params={"name": "fresh"})
+    assert free.status_code == 200
+    assert free.json() == {
+        "name": "fresh",
+        "available": True,
+        "suggested_name": "fresh",
+    }
+
+    busy = client.get("/api/v1/datasets/name-available", params={"name": "taken.csv"})
+    assert busy.json()["available"] is False
+    assert busy.json()["suggested_name"] == "taken.csv (2)"
+
+    # No name typed yet: the check falls back to the label the source implies.
+    derived = client.get(
+        "/api/v1/datasets/name-available", params={"source": "file:///tmp/taken.csv"}
+    )
+    assert derived.json()["name"] == "taken.csv"
+    assert derived.json()["available"] is False
+
+    assert client.get("/api/v1/datasets/name-available").status_code == 400
+
+
+def test_like_wildcards_in_names_do_not_produce_phantom_collisions(client):
+    """`_`/`%` in a base must not make an unrelated name look taken."""
+    _upload(client, "dataXv1.csv")
+    resp = client.get("/api/v1/datasets/name-available", params={"name": "data_v1.csv"})
+    assert resp.json()["available"] is True
+
+
+def test_legacy_rows_get_distinct_names_on_migration():
+    """Pre-alias rows all displayed the same thing; backfill must de-dup them."""
+    from fyndnote import database
+
+    engine = database._get_engine()
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DROP TABLE fyndnote_datasets")
+        # Exactly how release 0.1.0 wrote it: no `name` column at all.
+        conn.exec_driver_sql(
+            "CREATE TABLE fyndnote_datasets ("
+            " id TEXT PRIMARY KEY, source TEXT NOT NULL, source_type TEXT NOT NULL,"
+            " source_format TEXT, hf_name TEXT, hf_split TEXT, num_rows INTEGER NOT NULL,"
+            " columns TEXT NOT NULL, created_at TEXT NOT NULL, s3_uploaded INTEGER DEFAULT 0)"
+        )
+        for i in range(3):
+            conn.exec_driver_sql(
+                "INSERT INTO fyndnote_datasets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    f"ds{i}",
+                    "stanfordnlp/imdb",
+                    "huggingface",
+                    None,
+                    "plain_text",
+                    "train",
+                    10,
+                    "[]",
+                    f"2026-01-0{i}",
+                    0,
+                ),
+            )
+
+    database.init_db()
+
+    with engine.connect() as conn:
+        names = [
+            r[0]
+            for r in conn.exec_driver_sql(
+                "SELECT name FROM fyndnote_datasets ORDER BY created_at"
+            )
+        ]
+    # Creation order decides who keeps the bare label. Uniqueness itself is
+    # asserted by test_migration_creates_the_unique_index_create_all_skips.
+    assert names == ["stanfordnlp/imdb", "stanfordnlp/imdb (2)", "stanfordnlp/imdb (3)"]
+
+
+def test_migration_creates_the_unique_index_create_all_skips():
+    """An upgraded table must enforce uniqueness at the DB level, not just in code.
+
+    ``metadata.create_all`` skips an existing table wholesale — its indexes
+    included — so without ``_ensure_dataset_name_index`` an upgraded server ends
+    up with the ``name`` column but no unique index: two concurrent loads could
+    both commit the same label and the picker silently shows duplicates.
+    """
+    import pytest
+    from sqlalchemy import inspect
+    from sqlalchemy.exc import IntegrityError
+
+    from fyndnote import database
+
+    engine = database._get_engine()
+    with engine.begin() as conn:
+        conn.exec_driver_sql("DROP TABLE fyndnote_datasets")
+        conn.exec_driver_sql(
+            "CREATE TABLE fyndnote_datasets ("
+            " id TEXT PRIMARY KEY, source TEXT NOT NULL, source_type TEXT NOT NULL,"
+            " source_format TEXT, hf_name TEXT, hf_split TEXT, num_rows INTEGER NOT NULL,"
+            " columns TEXT NOT NULL, created_at TEXT NOT NULL, s3_uploaded INTEGER DEFAULT 0)"
+        )
+        conn.exec_driver_sql(
+            "INSERT INTO fyndnote_datasets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "ds0",
+                "stanfordnlp/imdb",
+                "huggingface",
+                None,
+                "plain_text",
+                "train",
+                10,
+                "[]",
+                "2026-01-01",
+                0,
+            ),
+        )
+
+    database.init_db()
+
+    indexes = inspect(engine).get_indexes("fyndnote_datasets")
+    unique = {i["name"] for i in indexes if i.get("unique")}
+    assert "fyndnote_datasets_name_uq" in unique, indexes
+
+    # The index must actually reject a second row claiming the same label.
+    with pytest.raises(IntegrityError), engine.begin() as conn:
+        conn.exec_driver_sql(
+            "INSERT INTO fyndnote_datasets VALUES ("
+            " 'dup', 'other/repo', 'huggingface', NULL, NULL, NULL, 1, '[]',"
+            " '2026-02-01', 0, 'stanfordnlp/imdb')"
+        )

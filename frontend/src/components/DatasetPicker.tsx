@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
 import { SkeletonBar, Spinner } from "./SkeletonLoader";
 
@@ -9,7 +9,10 @@ export interface DatasetColumn {
 
 export interface DatasetMeta {
   id: string;
-  name: string | null;
+  /** Server-side unique display label (user aliases are stored here). */
+  name: string;
+  /** HuggingFace config name; not a display label. */
+  hf_name?: string | null;
   source: string;
   source_type: "huggingface" | "http" | "file";
   source_format: string | null;
@@ -65,17 +68,6 @@ function formatBytes(n: number): string {
   return `${(mb / 1024).toFixed(1)} GB`;
 }
 
-function tailOf(source: string): string {
-  return (
-    source
-      .replace(/^file:\/\//, "")
-      .replace(/\/$/, "")
-      .split("/")
-      .filter(Boolean)
-      .pop() || source
-  );
-}
-
 
 function timeAgo(iso: string): string {
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -101,10 +93,16 @@ export default function DatasetPicker({
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("All");
   const [highlight, setHighlight] = useState(0);
-  // Uploads are renamed to data/datasets/uploads/<uuid>.<ext> by save_upload,
-  // so the API's `source` carries no original filename. The picker keeps the
-  // names it learned this session; nothing persists across reload.
-  const [localNames, setLocalNames] = useState<Record<string, string>>({});
+  // Optional display name. Empty means "let the server derive one from source";
+  // uploads default to the original filename (the server stores <uuid>.<ext>).
+  const [aliasInput, setAliasInput] = useState("");
+  const [conflict, setConflict] = useState<{ message: string; suggested: string } | null>(
+    null
+  );
+  const [uploadConflict, setUploadConflict] = useState<{
+    file: File;
+    suggested: string;
+  } | null>(null);
 
   const [loadInput, setLoadInput] = useState("");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -152,8 +150,7 @@ export default function DatasetPicker({
     if (typeFilter !== "All" && TYPE_OF[d.source_type] !== typeFilter) return false;
     if (!q) return true;
     return (
-      (localNames[d.id] ?? "").toLowerCase().includes(q) ||
-      (d.name ?? "").toLowerCase().includes(q) ||
+      d.name.toLowerCase().includes(q) ||
       d.source.toLowerCase().includes(q) ||
       d.columns.some((c) => c.name.toLowerCase().includes(q))
     );
@@ -163,20 +160,6 @@ export default function DatasetPicker({
     setHighlight(0);
   }, [search, typeFilter, datasets]);
 
-  // Datasets sharing the same `source` (e.g. repeated HF imports with name: null)
-  // get " · #k" suffixes so adjacent rows are distinguishable. `source` is unique
-  // per upload (uuid filename), so uploads never collide.
-  const dupSuffix = useMemo(() => {
-    const groups = new Map<string, string[]>();
-    for (const d of datasets) groups.set(d.source, [...(groups.get(d.source) ?? []), d.id]);
-    const suffix = new Map<string, string>();
-    for (const ids of groups.values())
-      if (ids.length > 1) ids.forEach((id, i) => suffix.set(id, ` · #${i + 1}`));
-    return suffix;
-  }, [datasets]);
-
-  const labelOf = (d: DatasetMeta) =>
-    (localNames[d.id] ?? d.name ?? tailOf(d.source)) + (dupSuffix.get(d.id) ?? "");
   const selected = value ? datasets.find((d) => d.id === value) : undefined;
 
   const pick = (id: string) => {
@@ -192,6 +175,33 @@ export default function DatasetPicker({
   useEffect(() => {
     if (open) searchRef.current?.focus();
   }, [open]);
+
+  // Warn about a taken display label while the form still has focus, so the
+  // user can pick an alias before paying for a multi-minute dataset load.
+  useEffect(() => {
+    const alias = aliasInput.trim();
+    const source = loadInput.trim();
+    if (!alias && !source) {
+      setConflict(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      api
+        .checkDatasetName(alias ? { name: alias } : { source })
+        .then((r) =>
+          setConflict(
+            r.available
+              ? null
+              : {
+                  message: `A dataset named “${r.name}” already exists.`,
+                  suggested: r.suggested_name,
+                }
+          )
+        )
+        .catch(() => setConflict(null));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [aliasInput, loadInput]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -226,13 +236,15 @@ export default function DatasetPicker({
   };
 
   // Shared success path for both load controls, so they cannot drift.
-  const finishAdd = async (meta: { id: string; num_rows: number }, displayName: string) => {
+  const finishAdd = async (meta: { id: string; name: string; num_rows: number }) => {
     const res = await api.listDatasets();
     onDatasetsLoaded(res.datasets);
-    setLocalNames((p) => ({ ...p, [meta.id]: displayName }));
     onSelect(meta.id);
-    setAddedLabel(`Added ${displayName} · ${meta.num_rows.toLocaleString()} rows`);
+    setAddedLabel(`Added ${meta.name} · ${meta.num_rows.toLocaleString()} rows`);
     setLoadInput("");
+    setAliasInput("");
+    setConflict(null);
+    setUploadConflict(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -252,17 +264,26 @@ export default function DatasetPicker({
     setSourceBusy(true);
     setLoadError(null);
     try {
-      const meta = await api.loadDataset(s, userId);
-      await finishAdd(meta, meta.name ?? tailOf(meta.source));
+      const meta = await api.loadDataset(
+        s,
+        userId,
+        "train",
+        aliasInput.trim() || undefined
+      );
+      await finishAdd(meta);
       setUploadError(null);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409 && err.suggestedName) {
+        // The pre-flight check can go stale; the server's answer wins.
+        setConflict({ message: err.message, suggested: err.suggestedName });
+      }
       setLoadError(err instanceof ApiError ? err.message : String(err));
     } finally {
       setSourceBusy(false);
     }
   };
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = async (file: File, alias?: string) => {
     const ext = extOf(file.name);
     if (!SUPPORTED.includes(ext)) {
       // Same string the server produces; the gate only avoids a wasted round-trip.
@@ -283,17 +304,22 @@ export default function DatasetPicker({
     setUploadingFile(file);
     setUploadProgress(0);
     setUploadError(null);
+    setUploadConflict(null);
     try {
       const meta = await api.uploadDataset(file, userId, {
+        alias: alias ?? file.name,
         onProgress: (sent, total) =>
           setUploadProgress(total > 0 ? Math.min(100, Math.round((sent / total) * 100)) : 0),
         signal: controller.signal,
       });
-      await finishAdd(meta, file.name);
+      await finishAdd(meta);
       setLoadError(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 0 && err.message === "upload_cancelled") {
         setAddedLabel("Upload cancelled");
+      } else if (err instanceof ApiError && err.status === 409 && err.suggestedName) {
+        setUploadConflict({ file, suggested: err.suggestedName });
+        setUploadError(err.message);
       } else {
         setUploadError(err instanceof ApiError ? err.message : String(err));
       }
@@ -320,7 +346,7 @@ export default function DatasetPicker({
         >
           {selected ? (
             <span className="truncate">
-              {labelOf(selected)} · {selected.num_rows.toLocaleString()} rows ·{" "}
+              {selected.name} · {selected.num_rows.toLocaleString()} rows ·{" "}
               {selected.columns.length} cols
             </span>
           ) : (
@@ -441,7 +467,7 @@ export default function DatasetPicker({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-[var(--color-text)] truncate">
-                        {labelOf(d)}
+                        {d.name}
                       </div>
                       <div className="text-xs text-[var(--color-text-muted)] truncate">
                         {d.source_type === "huggingface"
@@ -563,6 +589,25 @@ export default function DatasetPicker({
               )}
             </button>
           </div>
+          <input
+            value={aliasInput}
+            onChange={(e) => setAliasInput(e.target.value)}
+            placeholder="Display name (optional — defaults to the source)"
+            aria-label="Dataset display name"
+            className="mt-2 w-full px-3 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:border-sunset-400"
+          />
+          {conflict && (
+            <p className="text-sm text-amber-600 mt-2">
+              {conflict.message}{" "}
+              <button
+                type="button"
+                onClick={() => setAliasInput(conflict.suggested)}
+                className="text-sunset-600 hover:underline"
+              >
+                Use “{conflict.suggested}”
+              </button>
+            </p>
+          )}
           {loadError && <p className="text-sm text-red-500 mt-2">{loadError}</p>}
         </form>
 
@@ -627,6 +672,21 @@ export default function DatasetPicker({
             </p>
           )}
           {uploadError && <p className="text-sm text-red-500 mt-2">{uploadError}</p>}
+          {uploadConflict && (
+            <p className="text-sm text-amber-600 mt-2">
+              “{uploadConflict.file.name}” is already taken.{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  const c = uploadConflict;
+                  void uploadFile(c.file, c.suggested);
+                }}
+                className="text-sunset-600 hover:underline"
+              >
+                Add it as “{uploadConflict.suggested}”
+              </button>
+            </p>
+          )}
         </div>
       </div>
 

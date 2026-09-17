@@ -6,6 +6,7 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Query,
     Response,
@@ -21,8 +22,10 @@ from ..config import (
 )
 from ..services.dataset_service import (
     DATASET_SOURCE_TYPES,
+    DatasetNameConflict,
     DatasetService,
     UploadTooLargeError,
+    _safe_filename,
 )
 from ..services.permission_service import PermissionService
 from ..upload_guard import too_large_detail
@@ -72,6 +75,13 @@ def _too_large() -> HTTPException:
     return HTTPException(status_code=413, detail=too_large_detail())
 
 
+def _conflict_payload(e: DatasetNameConflict) -> dict:
+    return {
+        "detail": f"a dataset named '{e.name}' already exists",
+        "suggested_name": e.suggested,
+    }
+
+
 @router.get("/datasets/config")
 def dataset_config():
     """Limits the SPA needs to pre-flight an upload before sending gigabytes."""
@@ -87,6 +97,23 @@ def list_datasets():
     return {"datasets": DatasetService.list_datasets()}
 
 
+@router.get("/datasets/name-available")
+def check_dataset_name(name: str | None = None, source: str | None = None):
+    """Pre-flight for the load/upload forms: is this display label free?
+
+    ``source`` is what the UI has typed so far, so the check works before the
+    user picked a name: the derived default is checked instead.
+    """
+    base = (name or "").strip()
+    if not base:
+        if not (source or "").strip():
+            raise HTTPException(status_code=400, detail="name or source is required")
+        source = source.strip()
+        base = DatasetService.default_name(source)
+    suggested = DatasetService.unique_name(base)
+    return {"name": base, "available": suggested == base, "suggested_name": suggested}
+
+
 @router.get("/datasets/{ds_id}/details")
 def dataset_details(ds_id: str):
     details = DatasetService.dataset_details(ds_id)
@@ -100,13 +127,17 @@ def load_dataset(body: dict, user_id: str = Depends(_require_user)):
     source = body["source"]
     split = body.get("split", "train")
     name = body.get("name")
-    return DatasetService.load(source, split, name)
+    try:
+        return DatasetService.load(source, split, name, alias=body.get("alias"))
+    except DatasetNameConflict as e:
+        raise HTTPException(status_code=409, detail=_conflict_payload(e)) from e
 
 
 @router.post("/datasets/upload", status_code=201)
 async def upload_dataset(
     file: UploadFile = File(...),
     user_id: str = Depends(_require_user),
+    alias: str | None = Form(None),
 ):
     """Stream an uploaded dataset to disk instead of buffering it in RAM.
 
@@ -117,6 +148,8 @@ async def upload_dataset(
     An oversized ``Content-Length`` is refused by :class:`UploadSizeGuard`
     before the body is read at all; the size of the spooled part is then
     enforced while copying, so oversized files never reach pyarrow.
+
+    The display name defaults to the original filename; ``alias`` overrides it.
     """
     await _acquire_upload_slot()
     dest = None
@@ -130,7 +163,17 @@ async def upload_dataset(
         # for a chunked request that arrived without a Content-Length.
         if file.size is not None and file.size > MAX_UPLOAD_BYTES:
             raise _too_large()
-        return await run_in_threadpool(DatasetService.load, f"file://{dest}")
+        display = (alias or "").strip() or _safe_filename(file.filename or "")
+        return await run_in_threadpool(
+            DatasetService.load, f"file://{dest}", alias=display
+        )
+    except DatasetNameConflict as e:
+        # ``load`` only tears down its cache dir on conflict; the retained
+        # upload copy has to go with it or a rejected upload would reserve
+        # nothing yet still leak a file on disk.
+        if dest is not None:
+            dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=409, detail=_conflict_payload(e)) from e
     except UploadTooLargeError:
         if dest is not None:
             dest.unlink(missing_ok=True)

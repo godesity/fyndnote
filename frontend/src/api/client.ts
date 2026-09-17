@@ -27,10 +27,22 @@ export interface ProjectMemberCandidate {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Present on a 409: a free display name the user can accept instead. */
+  suggestedName?: string;
+  constructor(status: number, message: string, suggestedName?: string) {
     super(message);
     this.status = status;
+    this.suggestedName = suggestedName;
   }
+}
+
+/** Parse a failed response into an ApiError, keeping any suggested name. */
+async function apiError(res: Response): Promise<ApiError> {
+  const body = await res.json().catch(() => ({}));
+  // A 409 detail is an object: {detail, suggested_name}; anything else is a string.
+  const detail = body.detail ?? res.statusText;
+  const message = typeof detail === 'string' ? detail : detail?.detail || res.statusText;
+  return new ApiError(res.status, message, body.suggested_name ?? detail?.suggested_name);
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -40,10 +52,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     credentials: 'include',
     ...options,
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, body.detail || res.statusText);
-  }
+  if (!res.ok) throw await apiError(res);
   return res.json();
 }
 
@@ -66,15 +75,22 @@ export const api = {
     }),
   listDatasets: () =>
     request<{ datasets: any[] }>('/datasets'),
+  checkDatasetName: (params: { name?: string; source?: string }) =>
+    request<{ name: string; available: boolean; suggested_name: string }>(
+      `/datasets/name-available?${new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v != null)) as Record<string, string>
+      )}`
+    ),
   // XMLHttpRequest, not fetch: only XHR reports upload progress, which matters
   // for multi-hundred-MB files where the server spends minutes ingesting.
   uploadDataset: (
     file: File,
     userId: string,
-    opts?: { onProgress?: (sent: number, total: number) => void; signal?: AbortSignal },
+    opts?: { alias?: string; onProgress?: (sent: number, total: number) => void; signal?: AbortSignal },
   ): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
+    if (opts?.alias) formData.append('alias', opts.alias);
     return new Promise<any>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       let settled = false;
@@ -88,13 +104,6 @@ export const api = {
         settled = true;
         resolve(meta);
       };
-      const detailOf = () => {
-        try {
-          return JSON.parse(xhr.responseText)?.detail as string | undefined;
-        } catch {
-          return undefined;
-        }
-      };
       const cancel = () => fail(new ApiError(0, 'upload_cancelled'));
       xhr.upload.onprogress = (e) => opts?.onProgress?.(e.loaded, e.total);
       xhr.onload = () => {
@@ -106,7 +115,22 @@ export const api = {
           }
           return;
         }
-        fail(new ApiError(xhr.status, detailOf() || xhr.statusText));
+        // A 409 detail is an object: {detail, suggested_name}; anything else is
+        // a string. Losing suggested_name here would break the picker's retry.
+        let body: any;
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          body = undefined;
+        }
+        const detail = typeof body?.detail === 'string' ? body.detail : body?.detail?.detail;
+        fail(
+          new ApiError(
+            xhr.status,
+            detail || xhr.statusText,
+            body?.suggested_name ?? body?.detail?.suggested_name,
+          ),
+        );
       };
       xhr.onerror = () => fail(new ApiError(0, 'network_error'));
       // Aborting after settle must not reject; fail() drops it.
@@ -130,10 +154,10 @@ export const api = {
     request<{ max_upload_bytes: number; max_concurrent_uploads: number; formats: string[] }>(
       '/datasets/config'
     ),
-  loadDataset: (source: string, userId: string, split = 'train') =>
+  loadDataset: (source: string, userId: string, split = 'train', alias?: string) =>
     request<any>(`/datasets/load?user_id=${encodeURIComponent(userId)}`, {
       method: 'POST',
-      body: JSON.stringify({ source, split }),
+      body: JSON.stringify({ source, split, ...(alias ? { alias } : {}) }),
     }),
   getRow: (dsId: string, index: number) =>
     request<{ index: number; row: Record<string, any> }>(`/datasets/${dsId}/rows/${index}`),
