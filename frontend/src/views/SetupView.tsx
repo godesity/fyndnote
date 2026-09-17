@@ -145,6 +145,7 @@ export default function SetupView() {
               datasetsLoading={datasetsLoading}
               sampleStatus={sampleLoading ? "loading" : sampleError ? "error" : selectedDataset ? "ready" : "idle"}
               sampleError={sampleError}
+              userId={user?.user_id ?? ""}
               onSelect={loadSample}
               onDatasetsLoaded={setDatasets}
               onRetrySample={() => loadSample(selectedDataset)}

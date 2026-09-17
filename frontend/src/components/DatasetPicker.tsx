@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
-import { SkeletonBar } from "./SkeletonLoader";
+import { SkeletonBar, Spinner } from "./SkeletonLoader";
 
 export interface DatasetColumn {
   name: string;
@@ -30,6 +30,7 @@ interface Props {
   datasetsLoading: boolean;
   sampleStatus: "idle" | "loading" | "ready" | "error";
   sampleError: string | null;
+  userId: string;
   onSelect: (id: string) => void;
   onDatasetsLoaded: (ds: DatasetMeta[]) => void;
   onRetrySample: () => void;
@@ -56,6 +57,16 @@ const extOf = (nameOrUrl: string) =>
 const formatError = (ext: string) =>
   `Unsupported format: .${ext}. Supported: .csv, .json, .jsonl, .parquet`;
 
+/** Binary thresholds; whole KB below 1 MB, one decimal above (812 KB, 1.1 GB). */
+function formatBytes(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return "—";
+  if (n < 1024) return `${n} B`;
+  const kb = n / 1024;
+  if (kb < 1024) return `${Math.round(kb)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(1)} GB`;
+}
 
 
 function timeAgo(iso: string): string {
@@ -73,6 +84,7 @@ export default function DatasetPicker({
   datasetsLoading,
   sampleStatus,
   sampleError,
+  userId,
   onSelect,
   onDatasetsLoaded,
   onRetrySample,
@@ -99,6 +111,10 @@ export default function DatasetPicker({
   const [uploadBusy, setUploadBusy] = useState(false);
   const [addedLabel, setAddedLabel] = useState<string | null>(null);
   const [dropActive, setDropActive] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadingFile, setUploadingFile] = useState<File | null>(null);
+  const [uploadCap, setUploadCap] = useState<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -112,6 +128,21 @@ export default function DatasetPicker({
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Server-side cap, used only for a pre-flight check; a failure here must not
+  // block uploads, so the server error still surfaces (uploadCap stays null).
+  useEffect(() => {
+    let alive = true;
+    api
+      .datasetsConfig()
+      .then((c) => {
+        if (alive && typeof c?.max_upload_bytes === "number") setUploadCap(c.max_upload_bytes);
+      })
+      .catch(() => setUploadCap(null));
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const q = search.trim().toLowerCase();
@@ -233,7 +264,12 @@ export default function DatasetPicker({
     setSourceBusy(true);
     setLoadError(null);
     try {
-      const meta = await api.loadDataset(s, "train", aliasInput.trim() || undefined);
+      const meta = await api.loadDataset(
+        s,
+        userId,
+        "train",
+        aliasInput.trim() || undefined
+      );
       await finishAdd(meta);
       setUploadError(null);
     } catch (err) {
@@ -255,20 +291,43 @@ export default function DatasetPicker({
       return;
     }
     if (uploadBusy || sourceBusy) return;
+    // Same reason for the cap: skip the round-trip when the server would 413 us.
+    if (uploadCap != null && file.size > uploadCap) {
+      setUploadError(
+        `File too large: ${formatBytes(file.size)} exceeds the ${formatBytes(uploadCap)} limit`
+      );
+      return;
+    }
+    const controller = new AbortController();
+    abortRef.current = controller;
     setUploadBusy(true);
+    setUploadingFile(file);
+    setUploadProgress(0);
     setUploadError(null);
     setUploadConflict(null);
     try {
-      const meta = await api.uploadDataset(file, alias ?? file.name);
+      const meta = await api.uploadDataset(file, userId, {
+        alias: alias ?? file.name,
+        onProgress: (sent, total) =>
+          setUploadProgress(total > 0 ? Math.min(100, Math.round((sent / total) * 100)) : 0),
+        signal: controller.signal,
+      });
       await finishAdd(meta);
       setLoadError(null);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409 && err.suggestedName) {
+      if (err instanceof ApiError && err.status === 0 && err.message === "upload_cancelled") {
+        setAddedLabel("Upload cancelled");
+      } else if (err instanceof ApiError && err.status === 409 && err.suggestedName) {
         setUploadConflict({ file, suggested: err.suggestedName });
+        setUploadError(err.message);
+      } else {
+        setUploadError(err instanceof ApiError ? err.message : String(err));
       }
-      setUploadError(err instanceof ApiError ? err.message : String(err));
     } finally {
+      abortRef.current = null;
       setUploadBusy(false);
+      setUploadingFile(null);
+      setUploadProgress(0);
     }
   };
 
@@ -515,7 +574,19 @@ export default function DatasetPicker({
               disabled={sourceBusy || uploadBusy || !loadInput.trim()}
               className="px-4 py-2 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white text-sm font-medium hover:from-sunset-600 hover:to-coral-600 disabled:opacity-50 transition-all whitespace-nowrap"
             >
-              {sourceBusy ? "Loading…" : "Load"}
+              {sourceBusy ? (
+                // HF/URL loads stream from HuggingFace or the remote host and
+                // then convert to Arrow server-side — easily minutes for a big
+                // source. A bare "Loading…" word reads as a stuck button; the
+                // ring says work is happening. Matches the ternary-swap pattern
+                // the other busy buttons use (SubmitButton, LoginView).
+                <span className="flex items-center gap-2">
+                  <Spinner />
+                  <span>Loading…</span>
+                </span>
+              ) : (
+                "Load"
+              )}
             </button>
           </div>
           <input
@@ -555,13 +626,38 @@ export default function DatasetPicker({
             }}
             className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-dashed bg-[var(--color-surface-secondary)] text-sm text-[var(--color-text-muted)] cursor-pointer hover:bg-[var(--color-surface-sunken)] transition-all ${
               dropActive ? "border-sunset-400 bg-sunset-50" : "border-[var(--color-border)]"
-            }`}
+            } ${uploadBusy ? "pointer-events-none" : ""}`}
           >
-            <span>⬆ Drop .csv, .json, .jsonl or .parquet — or browse</span>
+            {uploadBusy && uploadingFile ? (
+              <span className="flex w-full items-center gap-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[var(--color-text)]">
+                    {uploadingFile.name} · {formatBytes(uploadingFile.size)}
+                  </span>
+                  <span className="mt-1.5 block h-1.5 w-full rounded-full bg-[var(--color-surface-sunken)]">
+                    <span
+                      className="block h-1.5 rounded-full bg-gradient-to-r from-sunset-500 to-coral-500 transition-all"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </span>
+                </span>
+                <span className="shrink-0 tabular-nums">{uploadProgress}%</span>
+                <button
+                  type="button"
+                  onClick={() => abortRef.current?.abort()}
+                  className="shrink-0 px-2 py-1 rounded-lg border border-[var(--color-border)] text-xs hover:bg-[var(--color-surface-sunken)] transition-colors"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <span>⬆ Drop .csv, .json, .jsonl or .parquet — or browse</span>
+            )}
             <input
               ref={fileInputRef}
               type="file"
               accept=".csv,.json,.jsonl,.parquet"
+              disabled={uploadBusy}
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) uploadFile(f);
@@ -569,6 +665,12 @@ export default function DatasetPicker({
               className="hidden"
             />
           </label>
+          {!uploadBusy && (
+            <p className="text-[11px] text-[var(--color-text-muted)] mt-2">
+              Drop .csv, .json, .jsonl or .parquet — or browse
+              {uploadCap != null ? ` max ${formatBytes(uploadCap)}` : ""}
+            </p>
+          )}
           {uploadError && <p className="text-sm text-red-500 mt-2">{uploadError}</p>}
           {uploadConflict && (
             <p className="text-sm text-amber-600 mt-2">

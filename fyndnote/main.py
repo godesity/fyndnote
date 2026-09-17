@@ -10,11 +10,18 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .config import _IN_REPO
 from .database import init_db, seed_from_json
+from .upload_guard import UploadSizeGuard
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="fyndnote")
 
+
+# Pure-ASGI guard, added first so it ends up innermost: add_middleware prepends,
+# so CORS (added next) still wraps it and stamps the 413 with CORS headers. It
+# must run before the multipart body is parsed — see its docstring.
+app.add_middleware(UploadSizeGuard)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,6 +42,17 @@ app.add_middleware(
 def startup():
     init_db()
     seed_from_json()
+    from .services.dataset_service import DatasetService
+    from .upload_guard import check_memory_budget
+
+    try:
+        # Uploads are never deleted by any request path, so an abandoned or
+        # rejected import would otherwise occupy disk until the end of time.
+        DatasetService.reap_orphans()
+        DatasetService.requeue_unuploaded()
+    except Exception:  # pragma: no cover - never block boot on housekeeping
+        logger.exception("Dataset housekeeping failed at startup")
+    check_memory_budget()
 
 
 # Import routers after app creation to avoid circular imports
@@ -56,6 +74,7 @@ def _dist_path(env_var: str, packaged: Path, dev: Path) -> Path:
     if _IN_REPO:
         return dev
     return packaged
+
 
 # Serve the built VitePress docs site (public; no auth) under /fyndnote.
 repo_root = _pkg.parent

@@ -22,12 +22,24 @@ Build a general-purpose ML dataset annotation tool with FastAPI backend, React f
 - `POST /api/v1/datasets/upload` endpoint (multipart file upload)
 - Browse rows with pagination + status filter (`all`/`annotated_by_me`/`unannotated`)
 - Load New dialog in SetupView (text input + file upload + error display)
-- `uploadDataset()` in frontend API client
-- 22 backend tests passing, TypeScript compiles clean
+- `uploadDataset()` in frontend API client (XHR: progress bar + abort)
+- 108 backend tests passing, TypeScript compiles clean
+
+### Large-upload hardening (branch `fix/large-dataset-uploads`)
+- Uploads stream to disk in 1 MiB chunks; no whole-file `bytes` buffer
+  (1.1 GB CSV: peak RSS 449 MB, was ~1.4 GB; event loop stays responsive)
+- `fyndnote/upload_guard.py` — pure-ASGI 413 on an over-budget `Content-Length`
+  (must stay outside the handler: FastAPI parses the multipart body first)
+- Caps: `MAX_UPLOAD_BYTES`, `MAX_CONCURRENT_UPLOADS` (503 past
+  `MAX_UPLOAD_WAIT_SECONDS`), all advertised by `GET /api/v1/datasets/config`
+- `DELETE /api/v1/datasets/{id}` (system admin) is the only path that frees
+  dataset disk; `reap_orphans()` runs at startup
+- compose sets `mem_limit` + `memswap_limit` (equal = no swap, else the cap is
+  2x); `check_memory_budget()` warns when the caps and the limit disagree
 
 ## Git
-- 31 commits on `master`
-- Last commit: `2287015` — docs: spec and test fixtures for dataset import feature
+- Branch `fix/large-dataset-uploads` off `master`
+- Last commit: `4491601` — build(compose): hard memory ceiling for the app container
 - `data/users.json` tracked; `data/{labeling.db,datasets/,templates/}` in .gitignore
 
 ## Dataset display names (`name` column)

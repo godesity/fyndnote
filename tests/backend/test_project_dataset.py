@@ -20,7 +20,7 @@ def _make_project(client):
         writer = csv.DictWriter(f, fieldnames=["id", "text", "score"])
         writer.writeheader()
         writer.writerows(CSV_ROWS)
-    dresp = client.post("/api/v1/datasets/load", json={"source": f"file://{path}"})
+    dresp = client.post("/api/v1/datasets/load?user_id=alice", json={"source": f"file://{path}"})
     assert dresp.status_code == 200
     did = dresp.json()["id"]
 

@@ -1,11 +1,11 @@
 import glob
 import json
 import logging
+import os
 import shutil
 import tempfile
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
@@ -21,6 +21,7 @@ from ..config import (
     DATASETS_UPLOAD_DIR,
     DISK_USAGE_THRESHOLD,
     MAX_CACHED_DATASETS,
+    MAX_UPLOAD_BYTES,
     S3_CACHE_BUCKET,
     S3_CACHE_ENABLED,
     S3_CACHE_PREFIX,
@@ -67,7 +68,8 @@ def _is_unique_violation(exc: Exception) -> bool:
     return isinstance(exc, IntegrityError) and "name" in str(exc)
 
 
-_upload_executor = ThreadPoolExecutor(max_workers=2)
+class UploadTooLargeError(ValueError):
+    """Raised when a stream exceeds the configured upload budget."""
 
 
 def _extract_extension(path: str) -> str:
@@ -132,13 +134,24 @@ def _load_file(path: str, fmt: str, cache_dir: str | None = None) -> Dataset:
 
 
 def _load_http(url: str, fmt: str, cache_dir: str | None = None) -> Dataset:
-    resp = requests.get(url, stream=True, timeout=60)
+    # timeout is (connect, read); the read timeout is per chunk, so a slow but
+    # steady gigabyte download survives while a stalled one still fails.
+    resp = requests.get(url, stream=True, timeout=(10, 120))
     resp.raise_for_status()
     suffix = f".{fmt}"
+    downloaded = 0
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        for chunk in resp.iter_content(chunk_size=8192):
-            tmp.write(chunk)
         tmp_path = tmp.name
+        for chunk in resp.iter_content(chunk_size=1024 * 1024):
+            downloaded += len(chunk)
+            # Remote servers are not trusted to be honest about Content-Length,
+            # and the pyarrow conversion that follows costs RAM per byte.
+            if downloaded > MAX_UPLOAD_BYTES:
+                raise UploadTooLargeError(
+                    f"Download exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB "
+                    "upload limit"
+                )
+            tmp.write(chunk)
     try:
         ds = _load_from_format(tmp_path, fmt, cache_dir)
     finally:
@@ -150,10 +163,21 @@ def _cache_dir_for(ds_id: str) -> Path:
     return DATASETS_DIR / ds_id / "hf_cache"
 
 
+def _is_under(path: Path, root: Path) -> bool:
+    """True when *path* lives inside *root*, without relying on symlink tricks."""
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
 class DatasetService:
     _instances: dict[str, Dataset] = {}
     _access_times: dict[str, float] = {}
     _s3_cache: S3BackedCache | None = None
+    # Strong refs to in-flight mirror futures; the executor only holds weak ones.
+    _pending_s3: set = set()
 
     @classmethod
     def _s3(cls) -> S3BackedCache | None:
@@ -219,6 +243,111 @@ class DatasetService:
                 logger.info("Evicted local cache for %s (disk pressure)", ds_id)
 
     @classmethod
+    def _mirror_to_s3(cls, ds_id: str, cache_dir: Path) -> None:
+        """Mirror a dataset's arrow cache to S3 without blocking the caller.
+
+        ``s3_uploaded`` is only set once the mirror has actually been verified, so
+        a crash or failure mid-transfer leaves the dataset marked local-only and
+        ``requeue_unuploaded()`` picks it up on the next boot. Futures are kept in
+        ``_pending_s3`` so the results are collectable and the executor does not
+        silently drop them.
+        """
+        s3 = cls._s3()
+        if s3 is None:
+            return
+        future = s3.upload_async(ds_id, cache_dir)
+        cls._pending_s3.add(future)
+
+        def _done(fut) -> None:
+            cls._pending_s3.discard(fut)
+            try:
+                fut.result()
+            except Exception as e:
+                # Stay local-only: the cache dir on disk is still the source of
+                # truth, so the dataset keeps working, it just cannot be evicted.
+                logger.warning("S3 mirror failed for %s: %s", ds_id, e)
+                return
+            db = get_db()
+            try:
+                db.execute(
+                    "UPDATE fyndnote_datasets SET s3_uploaded = 1 WHERE id = ?",
+                    (ds_id,),
+                )
+                db.commit()
+            finally:
+                db.close()
+            logger.info("Mirrored dataset %s to S3", ds_id)
+
+        future.add_done_callback(_done)
+
+    @classmethod
+    def requeue_unuploaded(cls) -> int:
+        """Re-dispatch mirrors for datasets that never finished uploading."""
+        s3 = cls._s3()
+        if s3 is None:
+            return 0
+        db = get_db()
+        try:
+            rows = db.execute(
+                "SELECT id FROM fyndnote_datasets WHERE s3_uploaded = 0"
+            ).fetchall()
+        finally:
+            db.close()
+        requeued = 0
+        for (ds_id,) in rows:
+            cache_dir = _cache_dir_for(ds_id)
+            if not cache_dir.is_dir():
+                continue
+            cls._mirror_to_s3(ds_id, cache_dir)
+            requeued += 1
+        if requeued:
+            logger.info("Re-queued %d dataset(s) for S3 mirroring", requeued)
+        return requeued
+
+    @classmethod
+    def reap_orphans(cls, max_age_minutes: int = 30) -> int:
+        """Delete upload copies no database row references.
+
+        An upload is the canonical source for a ``file://`` dataset, so only files
+        older than ``max_age_minutes`` are touched — that grace period keeps an
+        in-flight upload (written but not yet inserted) from being swept away.
+        Returns the number of files removed.
+        """
+        if not DATASETS_UPLOAD_DIR.is_dir():
+            return 0
+        db = get_db()
+        try:
+            referenced = {
+                Path(row["source"].removeprefix("file://")).resolve()
+                for row in db.execute(
+                    "SELECT source FROM fyndnote_datasets WHERE source LIKE 'file://%'"
+                ).fetchall()
+            }
+        finally:
+            db.close()
+        cutoff = time.time() - max_age_minutes * 60
+        removed = 0
+        for candidate in DATASETS_UPLOAD_DIR.iterdir():
+            if not candidate.is_file():
+                continue
+            # A dangling ``.part`` is a write that never completed.
+            if candidate.name.endswith(".part"):
+                if candidate.stat().st_mtime < cutoff:
+                    candidate.unlink(missing_ok=True)
+                    removed += 1
+                continue
+            if candidate.suffix.lstrip(".") not in DATASET_SOURCE_TYPES:
+                continue
+            if candidate.resolve() in referenced:
+                continue
+            if candidate.stat().st_mtime < cutoff:
+                candidate.unlink(missing_ok=True)
+                removed += 1
+        if removed:
+            logger.info("Reaped %d orphan upload file(s)", removed)
+        return removed
+
+    @classmethod
     def default_name(cls, source: str) -> str:
         """The label ``load`` would give ``source`` if no alias is supplied."""
         return derive_display_name(source, _detect_source(source)[0])
@@ -273,28 +402,40 @@ class DatasetService:
         # label fails immediately instead of after the dataset is on disk.
         cls._require_free_name(display)
 
-        if source_type == "huggingface":
-            ds = load_dataset(clean_source, name, split=split, cache_dir=str(cache_dir))
-        elif source_type == "http":
-            ds = _load_http(clean_source, source_format, cache_dir=str(cache_dir))
-            split = None
-            name = None
-        elif source_type == "file":
-            ds = _load_file(clean_source, source_format, cache_dir=str(cache_dir))
-            split = None
-            name = None
-        else:
-            raise ValueError(f"Unknown source type: {source_type}")
+        try:
+            if source_type == "huggingface":
+                ds = load_dataset(
+                    clean_source, name, split=split, cache_dir=str(cache_dir)
+                )
+            elif source_type == "http":
+                ds = _load_http(clean_source, source_format, cache_dir=str(cache_dir))
+                split = None
+                name = None
+            elif source_type == "file":
+                ds = _load_file(clean_source, source_format, cache_dir=str(cache_dir))
+                split = None
+                name = None
+            else:
+                raise ValueError(f"Unknown source type: {source_type}")
+        except BaseException:
+            # A failed conversion leaves a half-written arrow cache behind that no
+            # row points at: nothing could ever list or evict it, so it would be a
+            # permanent multi-gigabyte leak.
+            shutil.rmtree(DATASETS_DIR / ds_id, ignore_errors=True)
+            cls._instances.pop(ds_id, None)
+            cls._access_times.pop(ds_id, None)
+            raise
 
         cls._instances[ds_id] = ds
         cls._access_times[ds_id] = time.monotonic()
 
         meta = {
             "id": ds_id,
+            "name": display,
             "source": source,
             "source_type": source_type,
             "source_format": source_format,
-            "name": display,
+            "hf_name": name,
             "split": split,
             "num_rows": len(ds),
             "columns": [
@@ -303,19 +444,9 @@ class DatasetService:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Upload to S3 immediately (synchronous) — fail if S3 is configured and upload fails
-        s3 = cls._s3()
-        if s3 is not None:
-            try:
-                s3.upload(ds_id, cache_dir)
-            except Exception as e:
-                shutil.rmtree(cache_dir, ignore_errors=True)
-                cls._instances.pop(ds_id, None)
-                cls._access_times.pop(ds_id, None)
-                raise ValueError(f"Failed to upload dataset to S3: {e}") from e
-
-        # Write to database
-        s3_uploaded = 1 if s3 is not None else 0
+        # The row is written with s3_uploaded = 0 and the mirror runs in the
+        # background: a gigabyte-scale transfer must not dominate the request that
+        # is waiting on it.
         db = get_db()
         try:
             db.execute(
@@ -329,10 +460,10 @@ class DatasetService:
                     source_format,
                     name,
                     split,
-                    len(ds),
+                    meta["num_rows"],
                     json.dumps(meta["columns"]),
                     meta["created_at"],
-                    s3_uploaded,
+                    0,
                 ),
             )
             db.commit()
@@ -340,7 +471,7 @@ class DatasetService:
             # Two concurrent loads can both pass the pre-check; the unique
             # index is what actually decides.
             if _is_unique_violation(e):
-                shutil.rmtree(cache_dir, ignore_errors=True)
+                shutil.rmtree(DATASETS_DIR / ds_id, ignore_errors=True)
                 cls._instances.pop(ds_id, None)
                 cls._access_times.pop(ds_id, None)
                 raise DatasetNameConflict(display, cls.unique_name(display)) from e
@@ -348,8 +479,10 @@ class DatasetService:
         finally:
             db.close()
 
+        cls._mirror_to_s3(ds_id, cache_dir)
         cls._evict_lru(ds_id)
-        meta["s3_uploaded"] = bool(s3_uploaded)
+        cls._evict_disk_pressure()
+        meta["s3_uploaded"] = False
         return meta
 
     @classmethod
@@ -549,23 +682,84 @@ class DatasetService:
         return str(val).encode(), "application/octet-stream"
 
     @classmethod
-    def load_upload(
-        cls, filename: str, content: bytes, alias: str | None = None
-    ) -> dict:
-        ext = Path(filename).suffix.lower().lstrip(".")
+    def save_upload(cls, filename: str, src, read_bytes: int) -> Path:
+        """Copy an upload stream into the managed uploads dir and return its path.
+
+        The caller hands over the raw multipart stream (a spooled file), never a
+        ``bytes`` blob: the whole payload is copied in ``read_bytes`` chunks so
+        peak RSS stays at one buffer regardless of upload size. The size cap is
+        enforced while streaming, so an oversized file is refused before the
+        pyarrow conversion ever runs.
+        """
+        ext = _extract_extension(filename or "")
         if ext not in DATASET_SOURCE_TYPES:
             raise ValueError(
                 f"Unsupported format: .{ext}. Supported: .csv, .json, .jsonl, .parquet"
             )
         DATASETS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
         dest = DATASETS_UPLOAD_DIR / f"{uuid.uuid4()}.{ext}"
-        dest.write_bytes(content)
+        # ``.part`` first: a half-written file must never look like a committed
+        # upload, since the orphan reaper keys off this directory's contents.
+        tmp = dest.with_name(dest.name + ".part")
+        written = 0
         try:
-            # The uuid keeps the original addressable; the label is what the
-            # user called the file, otherwise the picker shows 5540f515-….csv
-            return cls.load(f"file://{dest}", alias=alias or _safe_filename(filename))
-        except Exception:
-            # Nothing references this file yet, so a rejected upload must not
-            # leave the original behind on disk.
+            with tmp.open("wb") as out:
+                while True:
+                    chunk = src.read(read_bytes)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > MAX_UPLOAD_BYTES:
+                        raise UploadTooLargeError(
+                            f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB "
+                            "upload limit"
+                        )
+                    out.write(chunk)
+            os.replace(tmp, dest)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
             dest.unlink(missing_ok=True)
             raise
+        return dest
+
+    @classmethod
+    def delete_dataset(cls, ds_id: str) -> bool:
+        """Remove a dataset's row, its arrow cache, and its upload copy.
+
+        Refuses datasets still referenced by a project: the row is the only thing
+        that lets a project re-open its cache after an LRU eviction.
+        """
+        db = get_db()
+        try:
+            row = db.execute(
+                "SELECT source FROM fyndnote_datasets WHERE id = ?", (ds_id,)
+            ).fetchone()
+            if row is None:
+                return False
+            used = db.execute(
+                "SELECT 1 FROM fyndnote_projects WHERE dataset_id = ? LIMIT 1", (ds_id,)
+            ).fetchone()
+            if used is not None:
+                raise ValueError("dataset is in use by a project")
+            source = row["source"]
+            db.execute("DELETE FROM fyndnote_datasets WHERE id = ?", (ds_id,))
+            db.commit()
+        finally:
+            db.close()
+
+        shutil.rmtree(DATASETS_DIR / ds_id, ignore_errors=True)
+        cls._instances.pop(ds_id, None)
+        cls._access_times.pop(ds_id, None)
+        if source.startswith("file://"):
+            # Only ever remove our own managed copy, never a user-provided path.
+            candidate = Path(source.removeprefix("file://"))
+            if candidate.is_file() and _is_under(candidate, DATASETS_UPLOAD_DIR):
+                candidate.unlink(missing_ok=True)
+        s3 = cls._s3()
+        if s3 is not None:
+            try:
+                s3.delete_prefix(ds_id)
+            except Exception as e:  # pragma: no cover - depends on S3 availability
+                logger.warning("Failed to purge S3 objects for %s: %s", ds_id, e)
+        logger.info("Deleted dataset %s", ds_id)
+        return True

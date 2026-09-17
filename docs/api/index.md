@@ -15,9 +15,11 @@ The fyndnote backend exposes a REST API under the base path **`/api/v1`**. The f
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/datasets` | List loaded datasets. Each carries a unique display `name`. |
+| GET | `/datasets/config` | Upload limits the SPA should pre-flight against. |
 | GET | `/datasets/name-available` | Pre-flight a display name (`?name=`) or a source (`?source=`); returns `available` plus a free `suggested_name`. |
-| POST | `/datasets/load` | Load a dataset from a source string. Optional `alias` sets the display name; a taken one returns `409`. |
-| POST | `/datasets/upload` | Upload and load a dataset file. The display name defaults to the original filename (override with `alias`); a taken one returns `409`. |
+| POST | `/datasets/load` | Load a dataset from a source string (requires `user_id`). Optional `alias` sets the display name; a taken one returns `409`. |
+| POST | `/datasets/upload` | Upload and load a dataset file (requires `user_id`). The display name defaults to the original filename (override with `alias`); a taken one returns `409`. |
+| DELETE | `/datasets/{id}` | Delete a dataset and free its files (system admin; refused with 409 while a project uses it). |
 | GET | `/datasets/{id}/rows/{index}` | Get a row. |
 | GET | `/datasets/{id}/rows/{index}/columns/{column}` | Get a binary column (image/audio). |
 
@@ -63,5 +65,35 @@ acting user; project admins and global (`system_admin`) users may manage members
 | POST | `/projects/{id}/ml-prefill` | Prefill one row. |
 | POST | `/projects/{id}/ml-batch` | Prefill a batch of rows. |
 | GET | `/projects/{id}/ml-annotations/{row}` | Read an AI annotation. |
+
+### Large uploads
+
+`POST /datasets/upload` streams the multipart body to
+`data/datasets/uploads/<uuid>.<ext>` in 1 MiB chunks — the payload never becomes a
+single in-memory buffer (a 1.1 GB CSV upload peaks the worker at ~450 MB RSS, and
+the event loop keeps answering other requests throughout). Three limits govern it,
+all environment-configurable and all advertised by `GET /datasets/config`:
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `MAX_UPLOAD_BYTES` | 2 GiB | Per-file cap. Enforced twice: from `Content-Length` in a pure-ASGI guard *before any body byte is read*, and again from the streamed copy. Over-budget requests get **413**. |
+| `MAX_CONCURRENT_UPLOADS` | 2 | Simultaneous conversions. Each in-flight conversion costs disk for the copy plus RAM proportional to the file, so this is the OOM guard. |
+| `MAX_UPLOAD_WAIT_SECONDS` | 900 | How long a request may queue for a free conversion slot before **503**. |
+
+The `Content-Length` check has to sit outside the endpoint: FastAPI parses the whole
+multipart body before any handler code runs, so a check inside the function is only
+reached after every byte has arrived — and a client that over-claims the header
+never reaches the handler at all, because the server is still waiting for bytes that
+do not exist.
+
+`user_id` is required on the mutating endpoints and must name an existing account
+(**401** `unknown_user` otherwise). `DELETE /datasets/{id}` additionally requires
+`system_admin` and removes the row, the arrow cache and the upload copy — that is
+the only path in the app that ever frees dataset disk. Files left in
+`data/datasets/uploads/` by a crashed or rejected import (nothing in the DB points
+at them) are swept at startup once they are older than 30 minutes. Uploads accept an
+optional `alias` form field for the display name (it defaults to the original
+filename); a name another dataset already owns returns **409** with a free
+`suggested_name`.
 
 > The authoritative, machine-readable schema is `openapi.json`. The exact routes, request bodies, and response models are shown in the interactive viewer.

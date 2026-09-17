@@ -81,20 +81,81 @@ export const api = {
         Object.fromEntries(Object.entries(params).filter(([, v]) => v != null)) as Record<string, string>
       )}`
     ),
-  uploadDataset: (file: File, alias?: string) => {
+  // XMLHttpRequest, not fetch: only XHR reports upload progress, which matters
+  // for multi-hundred-MB files where the server spends minutes ingesting.
+  uploadDataset: (
+    file: File,
+    userId: string,
+    opts?: { alias?: string; onProgress?: (sent: number, total: number) => void; signal?: AbortSignal },
+  ): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
-    if (alias) formData.append('alias', alias);
-    return fetch(`${BASE}/datasets/upload`, {
-      method: 'POST',
-      body: formData,
-    }).then(async (res) => {
-      if (!res.ok) throw await apiError(res);
-      return res.json();
+    if (opts?.alias) formData.append('alias', opts.alias);
+    return new Promise<any>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let settled = false;
+      const fail = (err: ApiError) => {
+        if (settled) return;
+        settled = true;
+        reject(err);
+      };
+      const succeed = (meta: any) => {
+        if (settled) return;
+        settled = true;
+        resolve(meta);
+      };
+      const cancel = () => fail(new ApiError(0, 'upload_cancelled'));
+      xhr.upload.onprogress = (e) => opts?.onProgress?.(e.loaded, e.total);
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            succeed(JSON.parse(xhr.responseText));
+          } catch {
+            fail(new ApiError(xhr.status, 'invalid_response'));
+          }
+          return;
+        }
+        // A 409 detail is an object: {detail, suggested_name}; anything else is
+        // a string. Losing suggested_name here would break the picker's retry.
+        let body: any;
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          body = undefined;
+        }
+        const detail = typeof body?.detail === 'string' ? body.detail : body?.detail?.detail;
+        fail(
+          new ApiError(
+            xhr.status,
+            detail || xhr.statusText,
+            body?.suggested_name ?? body?.detail?.suggested_name,
+          ),
+        );
+      };
+      xhr.onerror = () => fail(new ApiError(0, 'network_error'));
+      // Aborting after settle must not reject; fail() drops it.
+      xhr.onabort = () => cancel();
+      const signal = opts?.signal;
+      if (signal) {
+        if (signal.aborted) {
+          cancel();
+          return;
+        }
+        signal.addEventListener('abort', () => {
+          cancel();
+          xhr.abort();
+        });
+      }
+      xhr.open('POST', `${BASE}/datasets/upload?user_id=${encodeURIComponent(userId)}`);
+      xhr.send(formData);
     });
   },
-  loadDataset: (source: string, split = 'train', alias?: string) =>
-    request<any>('/datasets/load', {
+  datasetsConfig: () =>
+    request<{ max_upload_bytes: number; max_concurrent_uploads: number; formats: string[] }>(
+      '/datasets/config'
+    ),
+  loadDataset: (source: string, userId: string, split = 'train', alias?: string) =>
+    request<any>(`/datasets/load?user_id=${encodeURIComponent(userId)}`, {
       method: 'POST',
       body: JSON.stringify({ source, split, ...(alias ? { alias } : {}) }),
     }),
