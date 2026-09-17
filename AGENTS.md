@@ -30,5 +30,33 @@ Build a general-purpose ML dataset annotation tool with FastAPI backend, React f
 - Last commit: `2287015` — docs: spec and test fixtures for dataset import feature
 - `data/users.json` tracked; `data/{labeling.db,datasets/,templates/}` in .gitignore
 
+## Dataset display names (`name` column)
+- `fyndnote_datasets.name` is the display label shown by every picker/list. It is
+  NOT `hf_name` — that is the HuggingFace *config* (`""`/`NULL` on most imports),
+  which repeats across repos and cannot disambiguate datasets.
+- `name` is `NOT NULL` and carries a UNIQUE index (`fyndnote_datasets_name_uq`).
+  Two datasets must never share a label: a picker showing `imdb`, `imdb`, `imdb`
+  is unusable, and a race silently creating the Nth copy poisons the whole list.
+- `metadata.create_all` skips an existing table *wholesale* — indexes included —
+  so `_backfill_dataset_names()`/`_ensure_dataset_name_index()` (run before
+  `create_all`) are what give an *upgraded* database both the column and the
+  unique index. Adding an index to the `Table` alone only helps fresh databases.
+- Write path: `DatasetService.load(..., alias=)` / `load_upload(..., alias=)`
+  compute `display = alias or derive_display_name(source)`, pre-check it with
+  `_require_free_name()` *before* the (possibly minutes-long) conversion so a
+  duplicate fails fast, then `INSERT`. Two concurrent loads can both pass the
+  pre-check, so the unique index is the real arbiter: the `INSERT` catching an
+  `IntegrityError` on `name` (via `_is_unique_violation`) tears down the cache
+  dir + in-memory entry and re-raises `DatasetNameConflict(name, suggested)`.
+  A rejected upload never commits, so it never reserves its name.
+- The router maps `DatasetNameConflict` to `409` + `{detail, suggested_name}`;
+  the picker then offers "Use <suggested_name>". `GET
+  /datasets/name-available?name=|source=` is the debounced pre-flight the UI
+  calls (it reports `available = unique_name(base) == base`); `_require_free_name`
+  stays the authoritative server-side check — the UI is advisory only.
+- Never `INSERT` into `fyndnote_datasets` outside `load()`/`load_upload()`, and
+  always thread the user-chosen label through the `alias` kwarg — a raw insert
+  or a missing `alias` breaks the uniqueness contract the pickers rely on.
+
 ## How to run
 See `README.md`. Quick start: `uv run uvicorn fyndnote.main:app --reload` (repo root) + `cd frontend && npm run dev`

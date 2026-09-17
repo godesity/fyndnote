@@ -967,12 +967,28 @@ class Client:
             raise MigrationError(f"user check failed: {_detail(resp)}")
 
     def upload_dataset(self, filename: str, content: bytes) -> str:
-        resp = self._request(
-            "POST",
-            "/datasets/upload",
-            files={"file": (filename, content, "application/x-ndjson")},
-        )
+        """Upload the export; a re-run adopts a suffixed name instead of failing."""
+        resp = self._post_upload(filename, content)
+        if resp.status_code == 409:
+            # Importing the same export twice: the display name is taken, and
+            # aborting here would leave a half-created project behind.
+            suggested = _suggested_name(resp)
+            if not suggested:
+                raise MigrationError(f"POST /datasets/upload -> 409: {_detail(resp)}")
+            resp = self._post_upload(filename, content, alias=suggested)
+        if resp.status_code >= 400:
+            raise MigrationError(
+                f"POST /datasets/upload -> {resp.status_code}: {_detail(resp)}"
+            )
         return resp.json()["id"]
+
+    def _post_upload(self, filename: str, content: bytes, alias: str | None = None):
+        return self.session.post(
+            self.base + "/datasets/upload",
+            files={"file": (filename, content, "application/x-ndjson")},
+            data={"alias": alias} if alias else None,
+            timeout=self.timeout,
+        )
 
     def create_template(self, name: str, source: str) -> str:
         resp = self._request(
@@ -1023,6 +1039,15 @@ def _detail(resp) -> str:
         return str(body)
     except (ValueError, AttributeError):
         return getattr(resp, "text", "?")
+
+
+def _suggested_name(resp) -> str | None:
+    """The free display name offered by a 409 body, when the server sent one."""
+    try:
+        detail = resp.json().get("detail")
+    except (ValueError, AttributeError):
+        return None
+    return detail.get("suggested_name") if isinstance(detail, dict) else None
 
 
 # --------------------------------------------------------------------------- #

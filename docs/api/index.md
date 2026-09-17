@@ -14,9 +14,10 @@ The fyndnote backend exposes a REST API under the base path **`/api/v1`**. The f
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/datasets` | List loaded datasets. |
-| POST | `/datasets/load` | Load a dataset from a source string. |
-| POST | `/datasets/upload` | Upload and load a dataset file. |
+| GET | `/datasets` | List loaded datasets. Each carries a unique display `name`. |
+| GET | `/datasets/name-available` | Pre-flight a display name (`?name=`) or a source (`?source=`); returns `available` plus a free `suggested_name`. |
+| POST | `/datasets/load` | Load a dataset from a source string. Optional `alias` sets the display name; a taken one returns `409`. |
+| POST | `/datasets/upload` | Upload and load a dataset file. The display name defaults to the original filename (override with `alias`); a taken one returns `409`. |
 | GET | `/datasets/{id}/rows/{index}` | Get a row. |
 | GET | `/datasets/{id}/rows/{index}/columns/{column}` | Get a binary column (image/audio). |
 

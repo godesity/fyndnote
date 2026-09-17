@@ -27,10 +27,22 @@ export interface ProjectMemberCandidate {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Present on a 409: a free display name the user can accept instead. */
+  suggestedName?: string;
+  constructor(status: number, message: string, suggestedName?: string) {
     super(message);
     this.status = status;
+    this.suggestedName = suggestedName;
   }
+}
+
+/** Parse a failed response into an ApiError, keeping any suggested name. */
+async function apiError(res: Response): Promise<ApiError> {
+  const body = await res.json().catch(() => ({}));
+  // A 409 detail is an object: {detail, suggested_name}; anything else is a string.
+  const detail = body.detail ?? res.statusText;
+  const message = typeof detail === 'string' ? detail : detail?.detail || res.statusText;
+  return new ApiError(res.status, message, body.suggested_name ?? detail?.suggested_name);
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -40,10 +52,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     credentials: 'include',
     ...options,
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new ApiError(res.status, body.detail || res.statusText);
-  }
+  if (!res.ok) throw await apiError(res);
   return res.json();
 }
 
@@ -66,22 +75,29 @@ export const api = {
     }),
   listDatasets: () =>
     request<{ datasets: any[] }>('/datasets'),
-  uploadDataset: (file: File) => {
+  checkDatasetName: (params: { name?: string; source?: string }) =>
+    request<{ name: string; available: boolean; suggested_name: string }>(
+      `/datasets/name-available?${new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(([, v]) => v != null)) as Record<string, string>
+      )}`
+    ),
+  uploadDataset: (file: File, alias?: string) => {
     const formData = new FormData();
     formData.append('file', file);
+    if (alias) formData.append('alias', alias);
     return fetch(`${BASE}/datasets/upload`, {
       method: 'POST',
       body: formData,
     }).then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new ApiError(res.status, body.detail || res.statusText);
-      }
+      if (!res.ok) throw await apiError(res);
       return res.json();
     });
   },
-  loadDataset: (source: string, split = 'train') =>
-    request<any>('/datasets/load', { method: 'POST', body: JSON.stringify({ source, split }) }),
+  loadDataset: (source: string, split = 'train', alias?: string) =>
+    request<any>('/datasets/load', {
+      method: 'POST',
+      body: JSON.stringify({ source, split, ...(alias ? { alias } : {}) }),
+    }),
   getRow: (dsId: string, index: number) =>
     request<{ index: number; row: Record<string, any> }>(`/datasets/${dsId}/rows/${index}`),
   getDatasetDetails: (dsId: string) =>

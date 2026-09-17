@@ -187,6 +187,8 @@ All endpoints under `/api/v1`:
 | GET    | `/auth/config` | Whether SSO is enabled (drives the login screen) |
 | GET    | `/datasets` | List loaded datasets |
 | POST   | `/datasets/load` | Load a HF dataset |
+| POST   | `/datasets/upload` | Upload a file; display name defaults to its filename |
+| GET    | `/datasets/name-available` | Check a display name, get a free suggestion |
 | GET    | `/datasets/{id}/rows/{idx}` | Get a row |
 | GET    | `/datasets/{id}/rows/{idx}/columns/{col}` | Get binary column (image/audio) |
 | POST   | `/templates` | Create template |
