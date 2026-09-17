@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "../api/client";
-import { SkeletonBar } from "./SkeletonLoader";
+import { SkeletonBar, Spinner } from "./SkeletonLoader";
 
 export interface DatasetColumn {
   name: string;
@@ -548,7 +548,19 @@ export default function DatasetPicker({
               disabled={sourceBusy || uploadBusy || !loadInput.trim()}
               className="px-4 py-2 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white text-sm font-medium hover:from-sunset-600 hover:to-coral-600 disabled:opacity-50 transition-all whitespace-nowrap"
             >
-              {sourceBusy ? "Loading…" : "Load"}
+              {sourceBusy ? (
+                // HF/URL loads stream from HuggingFace or the remote host and
+                // then convert to Arrow server-side — easily minutes for a big
+                // source. A bare "Loading…" word reads as a stuck button; the
+                // ring says work is happening. Matches the ternary-swap pattern
+                // the other busy buttons use (SubmitButton, LoginView).
+                <span className="flex items-center gap-2">
+                  <Spinner />
+                  <span>Loading…</span>
+                </span>
+              ) : (
+                "Load"
+              )}
             </button>
           </div>
           {loadError && <p className="text-sm text-red-500 mt-2">{loadError}</p>}
