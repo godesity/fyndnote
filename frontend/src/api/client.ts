@@ -66,22 +66,75 @@ export const api = {
     }),
   listDatasets: () =>
     request<{ datasets: any[] }>('/datasets'),
-  uploadDataset: (file: File) => {
+  // XMLHttpRequest, not fetch: only XHR reports upload progress, which matters
+  // for multi-hundred-MB files where the server spends minutes ingesting.
+  uploadDataset: (
+    file: File,
+    userId: string,
+    opts?: { onProgress?: (sent: number, total: number) => void; signal?: AbortSignal },
+  ): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
-    return fetch(`${BASE}/datasets/upload`, {
-      method: 'POST',
-      body: formData,
-    }).then(async (res) => {
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new ApiError(res.status, body.detail || res.statusText);
+    return new Promise<any>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let settled = false;
+      const fail = (err: ApiError) => {
+        if (settled) return;
+        settled = true;
+        reject(err);
+      };
+      const succeed = (meta: any) => {
+        if (settled) return;
+        settled = true;
+        resolve(meta);
+      };
+      const detailOf = () => {
+        try {
+          return JSON.parse(xhr.responseText)?.detail as string | undefined;
+        } catch {
+          return undefined;
+        }
+      };
+      const cancel = () => fail(new ApiError(0, 'upload_cancelled'));
+      xhr.upload.onprogress = (e) => opts?.onProgress?.(e.loaded, e.total);
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            succeed(JSON.parse(xhr.responseText));
+          } catch {
+            fail(new ApiError(xhr.status, 'invalid_response'));
+          }
+          return;
+        }
+        fail(new ApiError(xhr.status, detailOf() || xhr.statusText));
+      };
+      xhr.onerror = () => fail(new ApiError(0, 'network_error'));
+      // Aborting after settle must not reject; fail() drops it.
+      xhr.onabort = () => cancel();
+      const signal = opts?.signal;
+      if (signal) {
+        if (signal.aborted) {
+          cancel();
+          return;
+        }
+        signal.addEventListener('abort', () => {
+          cancel();
+          xhr.abort();
+        });
       }
-      return res.json();
+      xhr.open('POST', `${BASE}/datasets/upload?user_id=${encodeURIComponent(userId)}`);
+      xhr.send(formData);
     });
   },
-  loadDataset: (source: string, split = 'train') =>
-    request<any>('/datasets/load', { method: 'POST', body: JSON.stringify({ source, split }) }),
+  datasetsConfig: () =>
+    request<{ max_upload_bytes: number; max_concurrent_uploads: number; formats: string[] }>(
+      '/datasets/config'
+    ),
+  loadDataset: (source: string, userId: string, split = 'train') =>
+    request<any>(`/datasets/load?user_id=${encodeURIComponent(userId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ source, split }),
+    }),
   getRow: (dsId: string, index: number) =>
     request<{ index: number; row: Record<string, any> }>(`/datasets/${dsId}/rows/${index}`),
   getDatasetDetails: (dsId: string) =>
