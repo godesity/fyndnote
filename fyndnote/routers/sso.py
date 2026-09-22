@@ -17,7 +17,7 @@ from ..config import SSO_APP_ORIGIN, SSO_REDIRECT_URI
 from ..database import get_db
 from ..services import keycloak_service as kc
 
-router = APIRouter(tags=["sso"])
+router = APIRouter(tags=["SSO"])
 
 
 def _require_sso():

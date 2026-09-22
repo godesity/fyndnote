@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, HTTPException, Response
 
 from ..schemas import (
@@ -39,12 +38,12 @@ def _require_project(pid: str) -> dict:
     return project
 
 
-@router.get("/projects")
+@router.get("/projects", tags=["Projects"])
 def list_projects(user_id: str):
     return {"projects": AnnotationService.list_projects(user_id)}
 
 
-@router.post("/projects", status_code=201)
+@router.post("/projects", tags=["Projects"], status_code=201)
 def create_project(body: dict):
     p = AnnotationService.create_project(
         body["name"],
@@ -62,7 +61,7 @@ def create_project(body: dict):
     return p
 
 
-@router.put("/projects/{pid}")
+@router.put("/projects/{pid}", tags=["Projects"])
 def update_project(pid: str, body: dict, user_id: str):
     name = body.get("name")
     if not name:
@@ -85,7 +84,7 @@ def update_project(pid: str, body: dict, user_id: str):
     return p
 
 
-@router.get("/projects/{pid}")
+@router.get("/projects/{pid}", tags=["Projects"])
 def get_project(pid: str, user_id: str):
     p = AnnotationService.get_project(pid)
     if not p:
@@ -111,7 +110,7 @@ def get_project(pid: str, user_id: str):
     }
 
 
-@router.post("/projects/{pid}/rows")
+@router.post("/projects/{pid}/rows", tags=["Rows & Annotations"])
 def browse_rows(pid: str, body: BrowseRowsRequest):
     rows, total = AnnotationService.browse_rows(
         pid, body.user_id, body.page, body.per_page, body.filter
@@ -119,7 +118,7 @@ def browse_rows(pid: str, body: BrowseRowsRequest):
     return {"rows": rows, "total": total, "page": body.page, "per_page": body.per_page}
 
 
-@router.post("/projects/{pid}/rows/bulk")
+@router.post("/projects/{pid}/rows/bulk", tags=["Rows & Annotations"])
 def import_rows(pid: str, body: BulkRowsIn):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
@@ -132,7 +131,7 @@ def import_rows(pid: str, body: BulkRowsIn):
     return {"status": "ok", "imported": n}
 
 
-@router.get("/projects/{pid}/next-row")
+@router.get("/projects/{pid}/next-row", tags=["Rows & Annotations"])
 def next_row(pid: str, user_id: str):
     p = AnnotationService.get_project(pid)
     if not p:
@@ -162,11 +161,13 @@ def next_row(pid: str, user_id: str):
     try:
         row = serve(idx)
     except Exception:
-        raise HTTPException(status_code=404, detail="dataset source no longer available")
+        raise HTTPException(
+            status_code=404, detail="dataset source no longer available"
+        )
     return {"index": idx, "row": row}
 
 
-@router.get("/projects/{pid}/rows/{row_index}")
+@router.get("/projects/{pid}/rows/{row_index}", tags=["Rows & Annotations"])
 def get_project_row(pid: str, row_index: int, user_id: str):
     result = AnnotationService.get_project_row(pid, row_index, user_id)
     if not result:
@@ -174,7 +175,7 @@ def get_project_row(pid: str, row_index: int, user_id: str):
     return result
 
 
-@router.get("/projects/{pid}/rows/{row_index}/next")
+@router.get("/projects/{pid}/rows/{row_index}/next", tags=["Rows & Annotations"])
 def next_project_row(pid: str, row_index: int, user_id: str):
     result = AnnotationService.navigate_row(pid, user_id, row_index, 1)
     if not result:
@@ -182,7 +183,7 @@ def next_project_row(pid: str, row_index: int, user_id: str):
     return result
 
 
-@router.get("/projects/{pid}/rows/{row_index}/prev")
+@router.get("/projects/{pid}/rows/{row_index}/prev", tags=["Rows & Annotations"])
 def prev_project_row(pid: str, row_index: int, user_id: str):
     result = AnnotationService.navigate_row(pid, user_id, row_index, -1)
     if not result:
@@ -190,13 +191,13 @@ def prev_project_row(pid: str, row_index: int, user_id: str):
     return result
 
 
-@router.post("/projects/{pid}/annotate", status_code=201)
+@router.post("/projects/{pid}/annotate", tags=["Rows & Annotations"], status_code=201)
 def submit_annotation(pid: str, body: AnnotateRequest):
     AnnotationService.submit_annotation(pid, body.row_index, body.user_id, body.data)
     return {"status": "ok"}
 
 
-@router.get("/projects/{pid}/annotations/{row_index}")
+@router.get("/projects/{pid}/annotations/{row_index}", tags=["Rows & Annotations"])
 def get_annotation(pid: str, row_index: int, user_id: str):
     ann = AnnotationService.get_annotation(pid, row_index, user_id)
     if not ann:
@@ -204,25 +205,33 @@ def get_annotation(pid: str, row_index: int, user_id: str):
     return ann
 
 
-@router.get("/projects/{pid}/members", response_model=list[ProjectMemberOut])
+@router.get(
+    "/projects/{pid}/members", tags=["Members"], response_model=list[ProjectMemberOut]
+)
 def list_members(pid: str, user_id: str):
     _require_project(pid)
     _require_member_view(pid, user_id)
     return PermissionService.list_members(pid)
 
 
-@router.get("/projects/{pid}/member-candidates", response_model=list[ProjectMemberCandidate])
+@router.get(
+    "/projects/{pid}/member-candidates",
+    tags=["Members"],
+    response_model=list[ProjectMemberCandidate],
+)
 def list_member_candidates(pid: str, user_id: str, q: str = ""):
     _require_project(pid)
     _require_project_manager(pid, user_id)
     return PermissionService.list_candidates(pid, q)
 
 
-@router.put("/projects/{pid}/members", status_code=200)
+@router.put("/projects/{pid}/members", tags=["Members"], status_code=200)
 def set_member(pid: str, body: ProjectMemberIn):
     """Add a user to the project, or change an existing member's role."""
     if body.role not in PROJECT_ROLES:
-        raise HTTPException(status_code=400, detail=f"role must be one of {PROJECT_ROLES}")
+        raise HTTPException(
+            status_code=400, detail=f"role must be one of {PROJECT_ROLES}"
+        )
     _require_project(pid)
     _require_project_manager(pid, body.actor)
     if PermissionService.assign_role(pid, body.user_id, body.role) is None:
@@ -230,17 +239,16 @@ def set_member(pid: str, body: ProjectMemberIn):
     return {"status": "ok", "user_id": body.user_id, "role": body.role}
 
 
-@router.delete("/projects/{pid}/members/{member_id}")
+@router.delete("/projects/{pid}/members/{member_id}", tags=["Members"])
 def remove_member(pid: str, member_id: str, user_id: str):
     _require_project(pid)
     _require_project_manager(pid, user_id)
     if PermissionService.get_project_role(pid, member_id) == "project_admin":
         # Never strand a project without an admin, unless the caller is a
         # global admin (who can always manage the project afterwards).
-        if (
-            PermissionService.count_admins(pid) <= 1
-            and not PermissionService.is_system_admin(user_id)
-        ):
+        if PermissionService.count_admins(
+            pid
+        ) <= 1 and not PermissionService.is_system_admin(user_id):
             raise HTTPException(
                 status_code=409, detail="project must keep at least one project admin"
             )
@@ -249,7 +257,7 @@ def remove_member(pid: str, member_id: str, user_id: str):
     return {"status": "removed", "user_id": member_id}
 
 
-@router.get("/projects/{pid}/annotations/export")
+@router.get("/projects/{pid}/annotations/export", tags=["Rows & Annotations"])
 def export_annotations(pid: str, format: str = "parquet"):
     data = AnnotationService.export_annotations(pid, format=format)
     return Response(
@@ -259,7 +267,7 @@ def export_annotations(pid: str, format: str = "parquet"):
     )
 
 
-@router.delete("/projects/{pid}")
+@router.delete("/projects/{pid}", tags=["Projects"])
 def delete_project(pid: str, user_id: str):
     _require_project_manager(pid, user_id)
     if not AnnotationService.delete_project(pid):
@@ -267,7 +275,7 @@ def delete_project(pid: str, user_id: str):
     return {"status": "deleted"}
 
 
-@router.delete("/projects/{pid}/annotations/bulk")
+@router.delete("/projects/{pid}/annotations/bulk", tags=["Rows & Annotations"])
 def delete_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
@@ -279,7 +287,7 @@ def delete_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
     return {"status": "deleted", "rows": n}
 
 
-@router.delete("/projects/{pid}/ml-annotations/bulk")
+@router.delete("/projects/{pid}/ml-annotations/bulk", tags=["AI Prefill"])
 def delete_ml_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
@@ -290,7 +298,8 @@ def delete_ml_annotations_bulk(pid: str, user_id: str, body: BulkClearRequest):
     n = AnnotationService.delete_ml_annotations_for_rows(pid, indices)
     return {"status": "deleted", "rows": n}
 
-@router.delete("/projects/{pid}/annotations/{row_index}")
+
+@router.delete("/projects/{pid}/annotations/{row_index}", tags=["Rows & Annotations"])
 def delete_annotation(pid: str, row_index: int, user_id: str | None = None):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
@@ -298,7 +307,7 @@ def delete_annotation(pid: str, row_index: int, user_id: str | None = None):
     return {"status": "deleted", "rows": n}
 
 
-@router.delete("/projects/{pid}/annotations")
+@router.delete("/projects/{pid}/annotations", tags=["Rows & Annotations"])
 def delete_all_annotations(pid: str):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
@@ -306,7 +315,7 @@ def delete_all_annotations(pid: str):
     return {"status": "deleted", "rows": n}
 
 
-@router.delete("/projects/{pid}/ml-annotations/{row_index}")
+@router.delete("/projects/{pid}/ml-annotations/{row_index}", tags=["AI Prefill"])
 def delete_ml_annotation(pid: str, row_index: int):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
@@ -314,7 +323,7 @@ def delete_ml_annotation(pid: str, row_index: int):
     return {"status": "deleted", "rows": n}
 
 
-@router.delete("/projects/{pid}/ml-annotations")
+@router.delete("/projects/{pid}/ml-annotations", tags=["AI Prefill"])
 def delete_all_ml_annotations(pid: str):
     if not AnnotationService.get_project(pid):
         raise HTTPException(status_code=404, detail="project not found")
@@ -325,19 +334,19 @@ def delete_all_ml_annotations(pid: str):
 # ---- ML Backend endpoints ----
 
 
-@router.post("/projects/{pid}/ml-prefill")
+@router.post("/projects/{pid}/ml-prefill", tags=["AI Prefill"])
 def ml_prefill(pid: str, body: MLPrefillRequest):
     result = prefill_row(pid, body.row_index)
     return result
 
 
-@router.post("/projects/{pid}/ml-batch")
+@router.post("/projects/{pid}/ml-batch", tags=["AI Prefill"])
 def ml_batch(pid: str, body: MLBatchRequest):
     result = batch_prefill(pid, body.row_indices)
     return result
 
 
-@router.get("/projects/{pid}/ml-annotations/{row_index}")
+@router.get("/projects/{pid}/ml-annotations/{row_index}", tags=["AI Prefill"])
 def ml_annotation(pid: str, row_index: int):
     ann = get_ml_annotation(pid, row_index)
     if not ann:

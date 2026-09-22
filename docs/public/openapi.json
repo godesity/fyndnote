@@ -8,7 +8,7 @@
     "/api/v1/auth/config": {
       "get": {
         "tags": [
-          "auth"
+          "Auth"
         ],
         "summary": "Auth Config",
         "description": "Tell the SPA whether to offer SSO or the local user-id login form.",
@@ -30,7 +30,7 @@
     "/api/v1/auth/login": {
       "post": {
         "tags": [
-          "auth"
+          "Auth"
         ],
         "summary": "Login",
         "operationId": "login_api_v1_auth_login_post",
@@ -70,6 +70,9 @@
     },
     "/api/v1/datasets/config": {
       "get": {
+        "tags": [
+          "Datasets"
+        ],
         "summary": "Dataset Config",
         "description": "Limits the SPA needs to pre-flight an upload before sending gigabytes.",
         "operationId": "dataset_config_api_v1_datasets_config_get",
@@ -87,6 +90,9 @@
     },
     "/api/v1/datasets": {
       "get": {
+        "tags": [
+          "Datasets"
+        ],
         "summary": "List Datasets",
         "operationId": "list_datasets_api_v1_datasets_get",
         "responses": {
@@ -103,6 +109,9 @@
     },
     "/api/v1/datasets/{ds_id}/details": {
       "get": {
+        "tags": [
+          "Datasets"
+        ],
         "summary": "Dataset Details",
         "operationId": "dataset_details_api_v1_datasets__ds_id__details_get",
         "parameters": [
@@ -140,6 +149,9 @@
     },
     "/api/v1/datasets/load": {
       "post": {
+        "tags": [
+          "Datasets"
+        ],
         "summary": "Load Dataset",
         "operationId": "load_dataset_api_v1_datasets_load_post",
         "parameters": [
@@ -190,6 +202,9 @@
     },
     "/api/v1/datasets/upload": {
       "post": {
+        "tags": [
+          "Datasets"
+        ],
         "summary": "Upload Dataset",
         "description": "Stream an uploaded dataset to disk instead of buffering it in RAM.\n\nStarlette already spools multipart parts to disk past ~1 MB, so the payload\nnever has to become a single ``bytes`` object; the previous\n``content = await file.read()`` materialised the whole file (a 1.1 GB CSV\npeaked the worker at ~1.4 GB RSS and pinned it for the whole transfer).\nAn oversized ``Content-Length`` is refused by :class:`UploadSizeGuard`\nbefore the body is read at all; the size of the spooled part is then\nenforced while copying, so oversized files never reach pyarrow.",
         "operationId": "upload_dataset_api_v1_datasets_upload_post",
@@ -239,6 +254,9 @@
     },
     "/api/v1/datasets/{ds_id}": {
       "delete": {
+        "tags": [
+          "Datasets"
+        ],
         "summary": "Delete Dataset",
         "description": "Drop a dataset and every byte it owns on disk.\n\nNothing else in the app ever deletes a dataset, so a rejected or abandoned\nimport keeps its cache directory and upload copy forever.",
         "operationId": "delete_dataset_api_v1_datasets__ds_id__delete",
@@ -287,6 +305,9 @@
     },
     "/api/v1/datasets/{ds_id}/rows/{index}": {
       "get": {
+        "tags": [
+          "Datasets"
+        ],
         "summary": "Get Row",
         "operationId": "get_row_api_v1_datasets__ds_id__rows__index__get",
         "parameters": [
@@ -333,6 +354,9 @@
     },
     "/api/v1/datasets/{ds_id}/rows/{index}/columns/{column}": {
       "get": {
+        "tags": [
+          "Datasets"
+        ],
         "summary": "Get Binary Column",
         "operationId": "get_binary_column_api_v1_datasets__ds_id__rows__index__columns__column__get",
         "parameters": [
@@ -388,6 +412,9 @@
     },
     "/api/v1/templates": {
       "get": {
+        "tags": [
+          "Templates"
+        ],
         "summary": "List Templates",
         "operationId": "list_templates_api_v1_templates_get",
         "responses": {
@@ -402,6 +429,9 @@
         }
       },
       "post": {
+        "tags": [
+          "Templates"
+        ],
         "summary": "Create Template",
         "operationId": "create_template_api_v1_templates_post",
         "requestBody": {
@@ -438,6 +468,9 @@
     },
     "/api/v1/templates/{tid}": {
       "get": {
+        "tags": [
+          "Templates"
+        ],
         "summary": "Get Template",
         "operationId": "get_template_api_v1_templates__tid__get",
         "parameters": [
@@ -473,6 +506,9 @@
         }
       },
       "put": {
+        "tags": [
+          "Templates"
+        ],
         "summary": "Update Template",
         "operationId": "update_template_api_v1_templates__tid__put",
         "parameters": [
@@ -522,6 +558,9 @@
     },
     "/api/v1/projects": {
       "get": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "List Projects",
         "operationId": "list_projects_api_v1_projects_get",
         "parameters": [
@@ -557,6 +596,9 @@
         }
       },
       "post": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "Create Project",
         "operationId": "create_project_api_v1_projects_post",
         "requestBody": {
@@ -595,6 +637,9 @@
     },
     "/api/v1/projects/{pid}": {
       "put": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "Update Project",
         "operationId": "update_project_api_v1_projects__pid__put",
         "parameters": [
@@ -651,6 +696,9 @@
         }
       },
       "get": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "Get Project",
         "operationId": "get_project_api_v1_projects__pid__get",
         "parameters": [
@@ -695,6 +743,9 @@
         }
       },
       "delete": {
+        "tags": [
+          "Projects"
+        ],
         "summary": "Delete Project",
         "operationId": "delete_project_api_v1_projects__pid__delete",
         "parameters": [
@@ -741,6 +792,9 @@
     },
     "/api/v1/projects/{pid}/rows": {
       "post": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Browse Rows",
         "operationId": "browse_rows_api_v1_projects__pid__rows_post",
         "parameters": [
@@ -788,6 +842,9 @@
     },
     "/api/v1/projects/{pid}/rows/bulk": {
       "post": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Import Rows",
         "operationId": "import_rows_api_v1_projects__pid__rows_bulk_post",
         "parameters": [
@@ -835,6 +892,9 @@
     },
     "/api/v1/projects/{pid}/next-row": {
       "get": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Next Row",
         "operationId": "next_row_api_v1_projects__pid__next_row_get",
         "parameters": [
@@ -881,6 +941,9 @@
     },
     "/api/v1/projects/{pid}/rows/{row_index}": {
       "get": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Get Project Row",
         "operationId": "get_project_row_api_v1_projects__pid__rows__row_index__get",
         "parameters": [
@@ -936,6 +999,9 @@
     },
     "/api/v1/projects/{pid}/rows/{row_index}/next": {
       "get": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Next Project Row",
         "operationId": "next_project_row_api_v1_projects__pid__rows__row_index__next_get",
         "parameters": [
@@ -991,6 +1057,9 @@
     },
     "/api/v1/projects/{pid}/rows/{row_index}/prev": {
       "get": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Prev Project Row",
         "operationId": "prev_project_row_api_v1_projects__pid__rows__row_index__prev_get",
         "parameters": [
@@ -1046,6 +1115,9 @@
     },
     "/api/v1/projects/{pid}/annotate": {
       "post": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Submit Annotation",
         "operationId": "submit_annotation_api_v1_projects__pid__annotate_post",
         "parameters": [
@@ -1093,6 +1165,9 @@
     },
     "/api/v1/projects/{pid}/annotations/{row_index}": {
       "get": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Get Annotation",
         "operationId": "get_annotation_api_v1_projects__pid__annotations__row_index__get",
         "parameters": [
@@ -1146,6 +1221,9 @@
         }
       },
       "delete": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Delete Annotation",
         "operationId": "delete_annotation_api_v1_projects__pid__annotations__row_index__delete",
         "parameters": [
@@ -1208,6 +1286,9 @@
     },
     "/api/v1/projects/{pid}/members": {
       "get": {
+        "tags": [
+          "Members"
+        ],
         "summary": "List Members",
         "operationId": "list_members_api_v1_projects__pid__members_get",
         "parameters": [
@@ -1258,6 +1339,9 @@
         }
       },
       "put": {
+        "tags": [
+          "Members"
+        ],
         "summary": "Set Member",
         "description": "Add a user to the project, or change an existing member's role.",
         "operationId": "set_member_api_v1_projects__pid__members_put",
@@ -1306,6 +1390,9 @@
     },
     "/api/v1/projects/{pid}/member-candidates": {
       "get": {
+        "tags": [
+          "Members"
+        ],
         "summary": "List Member Candidates",
         "operationId": "list_member_candidates_api_v1_projects__pid__member_candidates_get",
         "parameters": [
@@ -1368,6 +1455,9 @@
     },
     "/api/v1/projects/{pid}/members/{member_id}": {
       "delete": {
+        "tags": [
+          "Members"
+        ],
         "summary": "Remove Member",
         "operationId": "remove_member_api_v1_projects__pid__members__member_id__delete",
         "parameters": [
@@ -1423,6 +1513,9 @@
     },
     "/api/v1/projects/{pid}/annotations/export": {
       "get": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Export Annotations",
         "operationId": "export_annotations_api_v1_projects__pid__annotations_export_get",
         "parameters": [
@@ -1470,6 +1563,9 @@
     },
     "/api/v1/projects/{pid}/annotations/bulk": {
       "delete": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Delete Annotations Bulk",
         "operationId": "delete_annotations_bulk_api_v1_projects__pid__annotations_bulk_delete",
         "parameters": [
@@ -1526,6 +1622,9 @@
     },
     "/api/v1/projects/{pid}/ml-annotations/bulk": {
       "delete": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Delete Ml Annotations Bulk",
         "operationId": "delete_ml_annotations_bulk_api_v1_projects__pid__ml_annotations_bulk_delete",
         "parameters": [
@@ -1582,6 +1681,9 @@
     },
     "/api/v1/projects/{pid}/annotations": {
       "delete": {
+        "tags": [
+          "Rows & Annotations"
+        ],
         "summary": "Delete All Annotations",
         "operationId": "delete_all_annotations_api_v1_projects__pid__annotations_delete",
         "parameters": [
@@ -1619,6 +1721,9 @@
     },
     "/api/v1/projects/{pid}/ml-annotations/{row_index}": {
       "delete": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Delete Ml Annotation",
         "operationId": "delete_ml_annotation_api_v1_projects__pid__ml_annotations__row_index__delete",
         "parameters": [
@@ -1663,6 +1768,9 @@
         }
       },
       "get": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Ml Annotation",
         "operationId": "ml_annotation_api_v1_projects__pid__ml_annotations__row_index__get",
         "parameters": [
@@ -1709,6 +1817,9 @@
     },
     "/api/v1/projects/{pid}/ml-annotations": {
       "delete": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Delete All Ml Annotations",
         "operationId": "delete_all_ml_annotations_api_v1_projects__pid__ml_annotations_delete",
         "parameters": [
@@ -1746,6 +1857,9 @@
     },
     "/api/v1/projects/{pid}/ml-prefill": {
       "post": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Ml Prefill",
         "operationId": "ml_prefill_api_v1_projects__pid__ml_prefill_post",
         "parameters": [
@@ -1793,6 +1907,9 @@
     },
     "/api/v1/projects/{pid}/ml-batch": {
       "post": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Ml Batch",
         "operationId": "ml_batch_api_v1_projects__pid__ml_batch_post",
         "parameters": [
@@ -1841,7 +1958,7 @@
     "/api/v1/sso/login": {
       "get": {
         "tags": [
-          "sso"
+          "SSO"
         ],
         "summary": "Sso Login",
         "operationId": "sso_login_api_v1_sso_login_get",
@@ -1860,7 +1977,7 @@
     "/api/v1/sso/callback": {
       "get": {
         "tags": [
-          "sso"
+          "SSO"
         ],
         "summary": "Sso Callback",
         "operationId": "sso_callback_api_v1_sso_callback_get",
@@ -1923,7 +2040,7 @@
     "/api/v1/sso/logout": {
       "get": {
         "tags": [
-          "sso"
+          "SSO"
         ],
         "summary": "Sso Logout",
         "operationId": "sso_logout_api_v1_sso_logout_get",
@@ -1942,7 +2059,7 @@
     "/api/v1/sso/me": {
       "get": {
         "tags": [
-          "sso"
+          "SSO"
         ],
         "summary": "Sso Me",
         "operationId": "sso_me_api_v1_sso_me_get",
@@ -1974,38 +2091,6 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/favicon.svg": {
-      "get": {
-        "summary": "Favicon",
-        "operationId": "favicon_favicon_svg_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/icons.svg": {
-      "get": {
-        "summary": "Icons",
-        "operationId": "icons_icons_svg_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           }
@@ -2391,5 +2476,39 @@
         "title": "ValidationError"
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Local user-id login and the SSO-availability probe the SPA reads at boot."
+    },
+    {
+      "name": "SSO",
+      "description": "Keycloak OpenID Connect browser flow. All routes 501 unless SSO is configured."
+    },
+    {
+      "name": "Datasets",
+      "description": "Dataset ingest and raw row access. Datasets are the most expensive resource in the app \u2014 mutating routes require a known `user_id`."
+    },
+    {
+      "name": "Templates",
+      "description": "react-live labeling templates."
+    },
+    {
+      "name": "Projects",
+      "description": "Project lifecycle: create, read, rename, delete."
+    },
+    {
+      "name": "Rows & Annotations",
+      "description": "Annotator-facing work: browse and navigate rows, submit and clear annotations, export."
+    },
+    {
+      "name": "Members",
+      "description": "Project membership and roles. Project admins and system admins only."
+    },
+    {
+      "name": "AI Prefill",
+      "description": "Optional ML backend: prefill one row or a batch, read and clear generated annotations."
+    }
+  ]
 }

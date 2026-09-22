@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException
 from ..schemas import TemplateCreate
 from ..services.template_service import TemplateService
 
-router = APIRouter()
+router = APIRouter(tags=["Templates"])
 
 
 @router.get("/templates")
