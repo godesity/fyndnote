@@ -32,7 +32,7 @@ from ..upload_guard import too_large_detail
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(tags=["Datasets"])
 
 # One in-flight upload costs a spooled copy on disk plus a full pyarrow
 # conversion in RAM (measured: a 1.1 GB CSV peaked the worker at ~1.4 GB RSS).

@@ -4,7 +4,7 @@ from ..database import get_db
 from ..services import keycloak_service as kc
 from ..schemas import AuthConfig, LoginRequest, LoginResponse
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(tags=["Auth"])
 
 
 @router.get("/auth/config", response_model=AuthConfig)

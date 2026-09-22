@@ -15,7 +15,45 @@ from .upload_guard import UploadSizeGuard
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s: %(message)s")
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="fyndnote")
+# Section order in Swagger UI / Scalar is the order of this list, not router
+# registration order. Every route must carry exactly one of these tags; an
+# untagged route lands in an unlabelled section (tests/backend/test_openapi_tags.py).
+OPENAPI_TAGS = [
+    {
+        "name": "Auth",
+        "description": "Local user-id login and the SSO-availability probe the SPA reads at boot.",
+    },
+    {
+        "name": "SSO",
+        "description": "Keycloak OpenID Connect browser flow. All routes 501 unless SSO is configured.",
+    },
+    {
+        "name": "Datasets",
+        "description": "Dataset ingest and raw row access. Datasets are the most expensive resource in the app — mutating routes require a known `user_id`.",
+    },
+    {
+        "name": "Templates",
+        "description": "react-live labeling templates.",
+    },
+    {
+        "name": "Projects",
+        "description": "Project lifecycle: create, read, rename, delete.",
+    },
+    {
+        "name": "Rows & Annotations",
+        "description": "Annotator-facing work: browse and navigate rows, submit and clear annotations, export.",
+    },
+    {
+        "name": "Members",
+        "description": "Project membership and roles. Project admins and system admins only.",
+    },
+    {
+        "name": "AI Prefill",
+        "description": "Optional ML backend: prefill one row or a batch, read and clear generated annotations.",
+    },
+]
+
+app = FastAPI(title="fyndnote", openapi_tags=OPENAPI_TAGS)
 
 
 # Pure-ASGI guard, added first so it ends up innermost: add_middleware prepends,
@@ -104,11 +142,11 @@ if frontend_dist.is_dir():
         name="frontend_assets",
     )
 
-    @app.get("/favicon.svg")
+    @app.get("/favicon.svg", include_in_schema=False)
     def favicon():
         return FileResponse(str(frontend_dist / "favicon.svg"))
 
-    @app.get("/icons.svg")
+    @app.get("/icons.svg", include_in_schema=False)
     def icons():
         return FileResponse(str(frontend_dist / "icons.svg"))
 
