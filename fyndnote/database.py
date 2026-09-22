@@ -30,6 +30,7 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     PrimaryKeyConstraint,
@@ -198,6 +199,7 @@ fyndnote_datasets = Table(
     "fyndnote_datasets",
     metadata,
     Column("id", _TEXT, primary_key=True),
+    Column("name", Text, nullable=False),
     Column("source", Text, nullable=False),
     Column("source_type", _TEXT, nullable=False),
     Column("source_format", _TEXT),
@@ -207,6 +209,10 @@ fyndnote_datasets = Table(
     Column("columns", Text, nullable=False),
     Column("created_at", Text, nullable=False),
     Column("s3_uploaded", Integer, server_default=text("0")),
+    # The label every picker/list shows. ``hf_name`` is the HuggingFace *config*
+    # name ("" on most imports, NULL for file/http), so it cannot double as the
+    # display name: two datasets with the same label are indistinguishable.
+    Index("fyndnote_datasets_name_uq", "name", unique=True),
 )
 
 dataset_meta = Table(
@@ -533,8 +539,96 @@ def init_db() -> None:
             # historical behaviour (services delete child rows explicitly).
             conn.exec_driver_sql("PRAGMA journal_mode=WAL")
 
+    # Must precede create_all: the declared unique index references ``name``,
+    # which older databases do not have yet.
+    _backfill_dataset_names(eng)
     metadata.create_all(eng)
     _migrate(eng)
+
+
+def derive_display_name(source: str, source_type: str | None = None) -> str:
+    """The label a dataset row gets when the user does not pick one.
+
+    The HuggingFace ``hf_name`` is deliberately not part of this: it is the
+    *config* name (``test``, ``plain_text``) and repeats across every repo that
+    ships it, whereas the repo id in ``source`` actually distinguishes datasets.
+    """
+    if source_type != "huggingface":
+        tail = source.split("?")[0].rstrip("/").split("/")[-1]
+        return tail or source
+    return source
+
+
+def name_variant(base: str, occurrence: int) -> str:
+    """The ``occurrence``-th (1-based) disambiguated spelling of ``base``."""
+    return base if occurrence <= 1 else f"{base} ({occurrence})"
+
+
+def _backfill_dataset_names(eng: Engine) -> None:
+    """Give every dataset row a unique display name and index it.
+
+    Rows written before the column existed all displayed the same thing in the
+    picker (the repo id, with the HF config always ``""``/NULL), so backfilling
+    the derived value alone would immediately violate the unique index. Walking
+    every row in creation order — first holder of a label keeps it, later ones
+    get ``label (2)``, ``(3)``, … — makes the table collision-free, which is a
+    precondition for the index this adds at the end.
+    """
+    insp = inspect(eng)
+    if not insp.has_table("fyndnote_datasets"):
+        return
+    existing = {c["name"] for c in insp.get_columns("fyndnote_datasets")}
+    if "name" not in existing:
+        col = fyndnote_datasets.columns["name"]
+        spec = col.type.compile(dialect=eng.dialect)
+        with eng.begin() as conn:
+            conn.exec_driver_sql(
+                f"ALTER TABLE fyndnote_datasets ADD COLUMN name {spec} NOT NULL DEFAULT ''"
+            )
+        if "name" not in {
+            c["name"] for c in inspect(eng).get_columns("fyndnote_datasets")
+        }:  # pragma: no cover - defensive
+            return
+
+    with eng.begin() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT id, source, source_type, name FROM fyndnote_datasets"
+                " ORDER BY created_at, id"
+            )
+        ).all()
+        update = text("UPDATE fyndnote_datasets SET name = :name WHERE id = :id")
+        taken: set[str] = set()
+        for ds_id, source, source_type, name in rows:
+            # An already-labelled row keeps its label; empty/NULL derives from
+            # the source, and any row whose label collides with an earlier one
+            # is re-suffixed (covers duplicates a pre-column writer left behind).
+            base = (name or "").strip() or derive_display_name(
+                source or "", source_type
+            )
+            n = 1
+            while (cand := name_variant(base, n)) in taken:
+                n += 1
+            if cand != name:
+                conn.execute(update, {"name": cand, "id": ds_id})
+            taken.add(cand)
+
+    _ensure_dataset_name_index(eng)
+
+
+def _ensure_dataset_name_index(eng: Engine) -> None:
+    """Create the unique display-name index on a table ``create_all`` skipped.
+
+    ``metadata.create_all`` checks table existence and skips an existing table
+    *wholesale* — indexes included — so the declared unique index only reaches
+    fresh databases. Without this, upgraded servers get the ``name`` column but
+    no DB-level uniqueness, and the post-concurrency-guard INSERT would happily
+    accept two datasets sharing a label.
+    """
+    have = {i["name"] for i in inspect(eng).get_indexes("fyndnote_datasets")}
+    for index in fyndnote_datasets.indexes:
+        if index.name not in have:
+            index.create(bind=eng, checkfirst=True)
 
 
 def _migrate(eng: Engine) -> None:

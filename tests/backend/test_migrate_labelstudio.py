@@ -259,3 +259,26 @@ def test_load_tasks_rejects_bad_input(tmp_path):
     obj = tmp_path / "single.json"
     obj.write_text(json.dumps({"id": 1, "data": {"text": "hi"}}))
     assert mig.load_tasks(str(obj)) == [{"id": 1, "data": {"text": "hi"}}]
+
+
+def test_migrate_rerun_renames_instead_of_failing(client):
+    """Importing the same export twice must not die on the taken label.
+
+    Aborting on a 409 would leave the project half-created (dataset missing,
+    template and project already posted), which is worse than a suffix.
+    """
+    args = _args(config=str(CONFIG_XML), allow_partial=True)
+    first = mig.migrate(args, client=mig.Client(session=client))
+    second = mig.migrate(args, client=mig.Client(session=client))
+
+    assert second["dataset_id"] != first["dataset_id"]
+    names = {d["id"]: d["name"] for d in client.get("/api/v1/datasets").json()["datasets"]}
+    assert names[first["dataset_id"]] == "ls-import.jsonl"
+    assert names[second["dataset_id"]] == "ls-import.jsonl (2)"
+    # the retry still produced a fully wired project, not a partial one
+    assert second["project_id"] != first["project_id"]
+    proj = client.get(
+        f"/api/v1/projects/{second['project_id']}?user_id=alice"
+    ).json()
+    assert proj["dataset_id"] == second["dataset_id"]
+    assert proj["num_rows"] == 5

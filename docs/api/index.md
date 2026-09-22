@@ -14,10 +14,11 @@ The fyndnote backend exposes a REST API under the base path **`/api/v1`**. The f
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/datasets` | List loaded datasets. |
+| GET | `/datasets` | List loaded datasets. Each carries a unique display `name`. |
 | GET | `/datasets/config` | Upload limits the SPA should pre-flight against. |
-| POST | `/datasets/load` | Load a dataset from a source string (requires `user_id`). |
-| POST | `/datasets/upload` | Upload and load a dataset file (requires `user_id`). |
+| GET | `/datasets/name-available` | Pre-flight a display name (`?name=`) or a source (`?source=`); returns `available` plus a free `suggested_name`. |
+| POST | `/datasets/load` | Load a dataset from a source string (requires `user_id`). Optional `alias` sets the display name; a taken one returns `409`. |
+| POST | `/datasets/upload` | Upload and load a dataset file (requires `user_id`). The display name defaults to the original filename (override with `alias`); a taken one returns `409`. |
 | DELETE | `/datasets/{id}` | Delete a dataset and free its files (system admin; refused with 409 while a project uses it). |
 | GET | `/datasets/{id}/rows/{index}` | Get a row. |
 | GET | `/datasets/{id}/rows/{index}/columns/{column}` | Get a binary column (image/audio). |
@@ -90,6 +91,9 @@ do not exist.
 `system_admin` and removes the row, the arrow cache and the upload copy — that is
 the only path in the app that ever frees dataset disk. Files left in
 `data/datasets/uploads/` by a crashed or rejected import (nothing in the DB points
-at them) are swept at startup once they are older than 30 minutes.
+at them) are swept at startup once they are older than 30 minutes. Uploads accept an
+optional `alias` form field for the display name (it defaults to the original
+filename); a name another dataset already owns returns **409** with a free
+`suggested_name`.
 
 > The authoritative, machine-readable schema is `openapi.json`. The exact routes, request bodies, and response models are shown in the interactive viewer.

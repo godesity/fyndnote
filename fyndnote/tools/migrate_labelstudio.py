@@ -966,13 +966,34 @@ class Client:
         if resp.status_code >= 400:
             raise MigrationError(f"user check failed: {_detail(resp)}")
 
-    def upload_dataset(self, filename: str, content: bytes) -> str:
-        resp = self._request(
-            "POST",
-            "/datasets/upload",
-            files={"file": (filename, content, "application/x-ndjson")},
-        )
+    def upload_dataset(self, filename: str, content: bytes, user_id: str) -> str:
+        """Upload the export; a re-run adopts a suffixed name instead of failing."""
+        resp = self._post_upload(filename, content, user_id=user_id)
+        if resp.status_code == 409:
+            # Importing the same export twice: the display name is taken, and
+            # aborting here would leave a half-created project behind.
+            suggested = _suggested_name(resp)
+            if not suggested:
+                raise MigrationError(f"POST /datasets/upload -> 409: {_detail(resp)}")
+            resp = self._post_upload(
+                filename, content, alias=suggested, user_id=user_id
+            )
+        if resp.status_code >= 400:
+            raise MigrationError(
+                f"POST /datasets/upload -> {resp.status_code}: {_detail(resp)}"
+            )
         return resp.json()["id"]
+
+    def _post_upload(
+        self, filename: str, content: bytes, alias: str | None = None, user_id: str = ""
+    ):
+        return self.session.post(
+            self.base + "/datasets/upload",
+            params={"user_id": user_id},
+            files={"file": (filename, content, "application/x-ndjson")},
+            data={"alias": alias} if alias else None,
+            timeout=self.timeout,
+        )
 
     def create_template(self, name: str, source: str) -> str:
         resp = self._request(
@@ -1023,6 +1044,15 @@ def _detail(resp) -> str:
         return str(body)
     except (ValueError, AttributeError):
         return getattr(resp, "text", "?")
+
+
+def _suggested_name(resp) -> str | None:
+    """The free display name offered by a 409 body, when the server sent one."""
+    try:
+        detail = resp.json().get("detail")
+    except (ValueError, AttributeError):
+        return None
+    return detail.get("suggested_name") if isinstance(detail, dict) else None
 
 
 # --------------------------------------------------------------------------- #
@@ -1083,7 +1113,7 @@ def migrate(args, client: Client | None = None) -> dict:
     ds_name = (args.dataset_name or args.project_name or "labelstudio").rsplit(
         ".json", 1
     )[0]
-    summary["dataset_id"] = client.upload_dataset(f"{ds_name}.jsonl", jsonl)
+    summary["dataset_id"] = client.upload_dataset(f"{ds_name}.jsonl", jsonl, args.user)
     summary["template_id"] = client.create_template(args.project_name, template_src)
     summary["project_id"] = client.create_project(
         args.project_name,

@@ -101,6 +101,67 @@
         }
       }
     },
+    "/api/v1/datasets/name-available": {
+      "get": {
+        "summary": "Check Dataset Name",
+        "description": "Pre-flight for the load/upload forms: is this display label free?\n\n``source`` is what the UI has typed so far, so the check works before the\nuser picked a name: the derived default is checked instead.",
+        "operationId": "check_dataset_name_api_v1_datasets_name_available_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/datasets/{ds_id}/details": {
       "get": {
         "summary": "Dataset Details",
@@ -191,7 +252,7 @@
     "/api/v1/datasets/upload": {
       "post": {
         "summary": "Upload Dataset",
-        "description": "Stream an uploaded dataset to disk instead of buffering it in RAM.\n\nStarlette already spools multipart parts to disk past ~1 MB, so the payload\nnever has to become a single ``bytes`` object; the previous\n``content = await file.read()`` materialised the whole file (a 1.1 GB CSV\npeaked the worker at ~1.4 GB RSS and pinned it for the whole transfer).\nAn oversized ``Content-Length`` is refused by :class:`UploadSizeGuard`\nbefore the body is read at all; the size of the spooled part is then\nenforced while copying, so oversized files never reach pyarrow.",
+        "description": "Stream an uploaded dataset to disk instead of buffering it in RAM.\n\nStarlette already spools multipart parts to disk past ~1 MB, so the payload\nnever has to become a single ``bytes`` object; the previous\n``content = await file.read()`` materialised the whole file (a 1.1 GB CSV\npeaked the worker at ~1.4 GB RSS and pinned it for the whole transfer).\nAn oversized ``Content-Length`` is refused by :class:`UploadSizeGuard`\nbefore the body is read at all; the size of the spooled part is then\nenforced while copying, so oversized files never reach pyarrow.\n\nThe display name defaults to the original filename; ``alias`` overrides it.",
         "operationId": "upload_dataset_api_v1_datasets_upload_post",
         "parameters": [
           {
@@ -2059,6 +2120,17 @@
             "type": "string",
             "contentMediaType": "application/octet-stream",
             "title": "File"
+          },
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
           }
         },
         "type": "object",

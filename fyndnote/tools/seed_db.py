@@ -35,8 +35,15 @@ tmpl = TemplateService.create(
 tid = tmpl["id"]
 print(f"Template: {tid}")
 
-# 4. Load IMDB dataset
-meta = DatasetService.load("stanfordnlp/imdb", split="train")
+
+# 4. Load (or reuse) the IMDB dataset. Display names are unique, so a second
+# run of this tool reuses the row instead of adding another imdb (N) — the
+# reset above never clears datasets, so reloading would accumulate them.
+DEMO_SOURCE = "stanfordnlp/imdb"
+wanted = DatasetService.default_name(DEMO_SOURCE)
+meta = next((d for d in DatasetService.list_datasets() if d["name"] == wanted), None)
+if meta is None:
+    meta = DatasetService.load(DEMO_SOURCE, split="train")
 ds_id = meta["id"]
 print(f"Dataset: {ds_id} ({meta['num_rows']} rows)")
 

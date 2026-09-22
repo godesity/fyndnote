@@ -14,6 +14,7 @@ import requests
 from datasets import Audio, Dataset, load_dataset
 from datasets import Image as HfImage
 from PIL import Image as PILImage
+from sqlalchemy.exc import IntegrityError
 
 from ..config import (
     DATASETS_DIR,
@@ -26,7 +27,7 @@ from ..config import (
     S3_CACHE_PREFIX,
     S3_ENDPOINT_URL,
 )
-from ..database import get_db
+from ..database import derive_display_name, get_db, name_variant
 from .s3_cache import S3BackedCache
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,32 @@ DATASET_SOURCE_TYPES = {
 }
 
 EXT_BY_FORMAT = {v: k for k, v in DATASET_SOURCE_TYPES.items()}
+
+
+def _safe_filename(filename: str) -> str:
+    """The basename of an uploaded file, usable as a display name.
+
+    Browsers disagree about what ``UploadFile.filename`` holds: Chrome sends a
+    basename, IE/older Safari send a full path (``C:\\\\fakepath\\\\x.csv``). It
+    is never touched by the filesystem — the original is stored under a uuid —
+    so this is about not showing the user someone's directory tree.
+    """
+    tail = filename.replace("\\", "/").rsplit("/", 1)[-1]
+    return "".join(c for c in tail if c.isprintable() and c not in '<>:"|?*').strip()
+
+
+class DatasetNameConflict(Exception):
+    """A dataset already owns the display name a load was asked to use."""
+
+    def __init__(self, name: str, suggested: str) -> None:
+        self.name = name
+        self.suggested = suggested
+        super().__init__(f"A dataset named {name!r} already exists")
+
+
+def _is_unique_violation(exc: Exception) -> bool:
+    """True for the display-name unique index firing on commit."""
+    return isinstance(exc, IntegrityError) and "name" in str(exc)
 
 
 class UploadTooLargeError(ValueError):
@@ -321,11 +348,59 @@ class DatasetService:
         return removed
 
     @classmethod
-    def load(cls, source: str, split: str = "train", name: str | None = None) -> dict:
+    def default_name(cls, source: str) -> str:
+        """The label ``load`` would give ``source`` if no alias is supplied."""
+        return derive_display_name(source, _detect_source(source)[0])
+
+    @classmethod
+    def _require_free_name(cls, name: str) -> None:
+        """Raise ``DatasetNameConflict`` if ``name`` is already taken."""
+        db = get_db()
+        try:
+            taken = db.execute(
+                "SELECT 1 FROM fyndnote_datasets WHERE name = ?", (name,)
+            ).fetchone()
+        finally:
+            db.close()
+        if taken is not None:
+            raise DatasetNameConflict(name, cls.unique_name(name))
+
+    @classmethod
+    def unique_name(cls, base: str) -> str:
+        """First free display name at or after ``base`` (``base (2)``, ``(3)``…)."""
+        db = get_db()
+        try:
+            taken = {
+                r["name"]
+                for r in db.execute(
+                    "SELECT name FROM fyndnote_datasets WHERE name LIKE ?",
+                    (f"{base}%",),
+                ).fetchall()
+            }
+        finally:
+            db.close()
+        n = 1
+        while name_variant(base, n) in taken:
+            n += 1
+        return name_variant(base, n)
+
+    @classmethod
+    def load(
+        cls,
+        source: str,
+        split: str = "train",
+        name: str | None = None,
+        alias: str | None = None,
+    ) -> dict:
         source_type, source_format, clean_source = _detect_source(source)
+        display = (alias or "").strip() or derive_display_name(source, source_type)
         ds_id = str(uuid.uuid4())
         cache_dir = _cache_dir_for(ds_id)
         cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Checked before the (possibly minutes-long) conversion, so a duplicate
+        # label fails immediately instead of after the dataset is on disk.
+        cls._require_free_name(display)
 
         try:
             if source_type == "huggingface":
@@ -356,10 +431,11 @@ class DatasetService:
 
         meta = {
             "id": ds_id,
+            "name": display,
             "source": source,
             "source_type": source_type,
             "source_format": source_format,
-            "name": name,
+            "hf_name": name,
             "split": split,
             "num_rows": len(ds),
             "columns": [
@@ -372,24 +448,36 @@ class DatasetService:
         # background: a gigabyte-scale transfer must not dominate the request that
         # is waiting on it.
         db = get_db()
-        db.execute(
-            """INSERT INTO fyndnote_datasets (id, source, source_type, source_format, hf_name, hf_split, num_rows, columns, created_at, s3_uploaded)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                ds_id,
-                source,
-                source_type,
-                source_format,
-                name,
-                split,
-                meta["num_rows"],
-                json.dumps(meta["columns"]),
-                meta["created_at"],
-                0,
-            ),
-        )
-        db.commit()
-        db.close()
+        try:
+            db.execute(
+                """INSERT INTO fyndnote_datasets (id, name, source, source_type, source_format, hf_name, hf_split, num_rows, columns, created_at, s3_uploaded)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    ds_id,
+                    display,
+                    source,
+                    source_type,
+                    source_format,
+                    name,
+                    split,
+                    meta["num_rows"],
+                    json.dumps(meta["columns"]),
+                    meta["created_at"],
+                    0,
+                ),
+            )
+            db.commit()
+        except Exception as e:
+            # Two concurrent loads can both pass the pre-check; the unique
+            # index is what actually decides.
+            if _is_unique_violation(e):
+                shutil.rmtree(DATASETS_DIR / ds_id, ignore_errors=True)
+                cls._instances.pop(ds_id, None)
+                cls._access_times.pop(ds_id, None)
+                raise DatasetNameConflict(display, cls.unique_name(display)) from e
+            raise
+        finally:
+            db.close()
 
         cls._mirror_to_s3(ds_id, cache_dir)
         cls._evict_lru(ds_id)
@@ -408,10 +496,11 @@ class DatasetService:
         for row in rows:
             meta = {
                 "id": row["id"],
+                "name": row["name"],
                 "source": row["source"],
                 "source_type": row["source_type"],
                 "source_format": row["source_format"],
-                "name": row["hf_name"],
+                "hf_name": row["hf_name"],
                 "split": row["hf_split"],
                 "num_rows": row["num_rows"],
                 "columns": json.loads(row["columns"]),
@@ -468,10 +557,11 @@ class DatasetService:
         return {
             "dataset": {
                 "id": row["id"],
+                "name": row["name"],
                 "source": row["source"],
                 "source_type": row["source_type"],
                 "source_format": row["source_format"],
-                "name": row["hf_name"],
+                "hf_name": row["hf_name"],
                 "split": row["hf_split"],
                 "num_rows": row["num_rows"],
                 "created_at": row["created_at"],
