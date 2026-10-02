@@ -30,30 +30,30 @@ def test_login_unknown_user(client):
 
 
 def test_login_returns_project_roles(client):
-    # The seed's bob -> proj-1/proj-2 roles point at projects the seed never
-    # creates. SQLite historically ran with FK checks off and kept those orphan
-    # rows; a server backend rejects them, so build the whole graph here.
     from fyndnote.database import get_db
 
+    # Seeded grants point at proj-1/proj-2, which nothing creates, so those
+    # rows only survive where FK checks stay off. Give bob a grant whose
+    # project really exists and drop the dangling ones so the mapping holds on
+    # sqlite and PostgreSQL alike.
     db = get_db()
-    roles = {"proj-1": "project_admin", "proj-2": "annotator"}
-    for pid, role in roles.items():
-        db.execute(
-            "INSERT OR IGNORE INTO fyndnote_projects"
-            " (id, name, dataset_id, template_id, salt) VALUES (?, ?, ?, ?, ?)",
-            (pid, pid, "ds-1", "tpl-1", "salt"),
-        )
-        db.execute(
-            "INSERT OR IGNORE INTO fyndnote_project_permissions"
-            " (user_id, project_id, role) VALUES (?, ?, ?)",
-            ("bob", pid, role),
-        )
+    db.execute(
+        "INSERT OR IGNORE INTO fyndnote_projects "
+        "(id, name, dataset_id, template_id, salt) VALUES (?, ?, ?, ?, ?)",
+        ("proj-1", "Seed Demo", "ds-1", "tpl-1", "salt"),
+    )
+    db.execute("DELETE FROM fyndnote_project_permissions WHERE project_id <> 'proj-1'")
+    db.execute(
+        "INSERT OR IGNORE INTO fyndnote_project_permissions (user_id, project_id, role) "
+        "VALUES (?, ?, ?)",
+        ("bob", "proj-1", "project_admin"),
+    )
     db.commit()
     db.close()
 
     resp = client.post("/api/v1/auth/login", json={"user_id": "bob"})
     assert resp.status_code == 200
-    assert resp.json()["project_roles"] == roles
+    assert resp.json()["project_roles"] == {"proj-1": "project_admin"}
 
 
 def test_auth_config_sso_disabled_by_default(client):
