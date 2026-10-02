@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { LiveProvider, LiveEditor, LivePreview, LiveError } from "react-live";
 import { themes } from "prism-react-renderer";
 import { api } from "../api/client";
-import type { DspyConfig, DspyField, DspyTestResult, DspyTrainResult } from "../api/client";
+import type { DspyConfig, DspyField, DspyTestResult, DspyTrainResult, DspyVersion } from "../api/client";
 import * as widgets from "../widgets";
 import { AnnotationProvider } from "../context/AnnotationContext";
 import BreadcrumbNav from "../components/BreadcrumbNav";
@@ -54,6 +54,8 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
   const [optimizer, setOptimizer] = useState("bootstrap");
   const [maxExamples, setMaxExamples] = useState(50);
   const [dspyError, setDspyError] = useState<string | null>(null);
+  const [dspyVersions, setDspyVersions] = useState<DspyVersion[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<string | null>(null);
@@ -119,6 +121,8 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
       const cfg = await api.dspyConfig(projectId);
       setDspyCfg(cfg);
       setDspyInstruction(cfg.instruction);
+      const hist = await api.dspyVersions(projectId).catch(() => null);
+      if (hist) setDspyVersions(hist.versions);
     } catch (e) {
       setDspyError(e instanceof Error ? e.message : "Failed to load DSPy config");
     } finally {
@@ -153,6 +157,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
       });
       setDspyCfg(cfg);
       setDspyInstruction(cfg.instruction);
+      api.dspyVersions(projectId).then((h) => setDspyVersions(h.versions)).catch(() => {});
     } catch (e) {
       setDspyError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -168,8 +173,8 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
       const cfg = await api.dspyDerive(projectId);
       setDspyCfg(cfg);
       setDspyInstruction(cfg.instruction);
-      setTestResult(null);
       setTrainResult(null);
+      api.dspyVersions(projectId).then((h) => setDspyVersions(h.versions)).catch(() => {});
     } catch (e) {
       setDspyError(e instanceof Error ? e.message : "Re-derive failed");
     } finally {
@@ -200,6 +205,7 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
       const cfg = await api.dspyConfig(projectId);
       setDspyCfg(cfg);
       setDspyInstruction(cfg.instruction);
+      api.dspyVersions(projectId).then((h) => setDspyVersions(h.versions)).catch(() => {});
     } catch (e) {
       setDspyError(e instanceof Error ? e.message : "Tuning failed");
     } finally {
@@ -211,12 +217,72 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
     setDspyLoading(true);
     setDspyError(null);
     try {
-      const cfg = await api.dspyReset(projectId);
+      const [cfg, hist] = await Promise.all([
+        api.dspyReset(projectId),
+        api.dspyVersions(projectId),
+      ]);
       setDspyCfg(cfg);
       setDspyInstruction(cfg.instruction);
+      setDspyVersions(hist.versions);
       setTrainResult(null);
     } catch (e) {
       setDspyError(e instanceof Error ? e.message : "Reset failed");
+    } finally {
+      setDspyLoading(false);
+    }
+  };
+
+  const handleAcceptPending = async () => {
+    setDspyLoading(true);
+    setDspyError(null);
+    try {
+      const cfg = await api.dspyAccept(projectId);
+      setDspyCfg(cfg);
+      setDspyInstruction(cfg.instruction);
+      setTrainResult(null);
+      // read versions AFTER the promotion commits, or the list is stale
+      const hist = await api.dspyVersions(projectId);
+      setDspyVersions(hist.versions);
+    } catch (e) {
+      setDspyError(e instanceof Error ? e.message : "Accept failed");
+    } finally {
+      setDspyLoading(false);
+    }
+  };
+
+  const handleRejectPending = async () => {
+    setDspyLoading(true);
+    setDspyError(null);
+    try {
+      const [cfg, hist] = await Promise.all([
+        api.dspyReject(projectId),
+        api.dspyVersions(projectId),
+      ]);
+      setDspyCfg(cfg);
+      setDspyInstruction(cfg.instruction);
+      setDspyVersions(hist.versions);
+      setTrainResult(null);
+    } catch (e) {
+      setDspyError(e instanceof Error ? e.message : "Reject failed");
+    } finally {
+      setDspyLoading(false);
+    }
+  };
+
+  const handleRevert = async (version: number) => {
+    if (!window.confirm(`Switch predictions back to prompt v${version}?\nThe current active prompt stays in history.`)) return;
+    setDspyLoading(true);
+    setDspyError(null);
+    try {
+      const [cfg, hist] = await Promise.all([
+        api.dspyRevert(projectId, version),
+        api.dspyVersions(projectId),
+      ]);
+      setDspyCfg(cfg);
+      setDspyInstruction(cfg.instruction);
+      setDspyVersions(hist.versions);
+    } catch (e) {
+      setDspyError(e instanceof Error ? e.message : "Revert failed");
     } finally {
       setDspyLoading(false);
     }
@@ -489,9 +555,14 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
               <div className="mt-5 pt-5 border-t border-[var(--color-border)]">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-semibold text-[var(--color-text-heading)]">Prompt Studio</h4>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${dspyCfg?.tuned_at ? "bg-green-100 text-green-700" : "bg-[var(--color-surface-sunken)] text-[var(--color-text-muted)]"}`}>
-                    {dspyCfg?.tuned_at ? `Tuned ${dspyCfg.tuned_at.slice(0, 19).replace("T", " ")}` : "not tuned"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--color-surface-sunken)] text-[var(--color-text-muted)]">
+                      v{dspyCfg?.active_version ?? "-"} · {dspyCfg?.kind ?? "derived"}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${dspyCfg?.pending ? "bg-amber-100 text-amber-700" : dspyCfg?.tuned_at ? "bg-green-100 text-green-700" : "bg-[var(--color-surface-sunken)] text-[var(--color-text-muted)]"}`}>
+                      {dspyCfg?.pending ? "tune awaiting review" : dspyCfg?.tuned_at ? `Tuned ${dspyCfg.tuned_at.slice(0, 19).replace("T", " ")}` : "not tuned"}
+                    </span>
+                  </div>
                 </div>
                 {dspyLoading && !dspyCfg && (
                   <p className="text-sm text-[var(--color-text-muted)]">Loading prompt config...</p>
@@ -541,6 +612,26 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
                         </div>
                       ))}
                     </div>
+                    {dspyCfg.pending && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                        <p className="text-xs text-amber-800">
+                          A tuned candidate is ready ({dspyCfg.pending.optimizer}, score{" "}
+                          <b>{dspyCfg.pending.score == null ? "?" : dspyCfg.pending.score.toFixed(3)}</b>,{" "}
+                          {dspyCfg.pending.n_demos} demos) and is <b>not</b> used by predictions yet.
+                        </p>
+                        <p className="text-xs font-mono text-amber-900 break-words line-clamp-3">{dspyCfg.pending.instruction}</p>
+                        <div className="flex gap-2">
+                          <button onClick={handleAcceptPending} disabled={dspyLoading}
+                                  className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-xs font-medium hover:bg-green-700 disabled:opacity-50 transition-all">
+                            Accept &amp; make live
+                          </button>
+                          <button onClick={handleRejectPending} disabled={dspyLoading}
+                                  className="px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 text-xs hover:bg-amber-100 disabled:opacity-50 transition-all">
+                            Discard
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex flex-wrap items-center gap-2">
                       <button onClick={handleSavePrompt} disabled={dspyLoading}
                               className="px-4 py-2 rounded-lg bg-gradient-to-r from-sunset-500 to-coral-500 text-white font-medium text-sm hover:from-sunset-600 hover:to-coral-600 disabled:opacity-50 transition-all shadow-sm">
@@ -564,7 +655,11 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
                              className="w-20 px-2 py-2 border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:border-sunset-400" />
                       <button onClick={handleTrain} disabled={training || dspyLoading}
                               className="px-4 py-2 rounded-lg bg-sky-600 text-white font-medium text-sm hover:bg-sky-700 disabled:opacity-50 transition-all shadow-sm">
-                        {training ? "Tuning..." : "Tune"}
+                        {training ? "Tuning..." : "Tune (candidate)"}
+                      </button>
+                      <button onClick={() => setShowHistory((v) => !v)} disabled={dspyLoading}
+                              className="px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] disabled:opacity-50 transition-all">
+                        {showHistory ? "Hide history" : `History (${dspyVersions.length})`}
                       </button>
                       <button onClick={handleResetTuning} disabled={dspyLoading}
                               className="px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] disabled:opacity-50 transition-all">
@@ -575,10 +670,37 @@ export default function EditProjectView({ projectId }: { projectId: string }) {
                         Clear predictions
                       </button>
                     </div>
-                    {trainResult && (
-                      <div className="text-xs text-[var(--color-text)] bg-[var(--color-surface-sunken)] rounded-lg p-3">
-                        score <b>{trainResult.score.toFixed(3)}</b> · demos <b>{trainResult.n_demos}</b> ·
-                        train/val <b>{trainResult.train_size}/{trainResult.val_size}</b> · {trainResult.optimizer}
+                    {showHistory && (
+                      <div className="border border-[var(--color-border)] rounded-lg divide-y divide-[var(--color-border)]">
+                        {dspyVersions.length === 0 && (
+                          <p className="text-xs text-[var(--color-text-muted)] p-3">No versions recorded yet.</p>
+                        )}
+                        {dspyVersions.map((v) => (
+                          <div key={v.version} className="flex items-start gap-2 p-3">
+                            <span className="text-xs font-mono w-10 shrink-0">v{v.version}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-[var(--color-text-muted)]">
+                                {v.kind}
+                                {v.optimizer ? ` · ${v.optimizer}` : ""}
+                                {v.score != null ? ` · score ${v.score.toFixed(3)}` : ""}
+                                {v.n_demos ? ` · ${v.n_demos} demos` : ""}
+                                {v.source_version ? ` · from v${v.source_version}` : ""}
+                                {" · "}{v.created_at?.slice(0, 16).replace("T", " ")}
+                                {v.label ? ` · ${v.label}` : ""}
+                              </p>
+                              <p className="text-xs font-mono text-[var(--color-text)] break-words line-clamp-2">{v.instruction}</p>
+                            </div>
+                            {v.version !== dspyCfg.active_version && (
+                              <button onClick={() => handleRevert(v.version)} disabled={dspyLoading}
+                                      className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-xs text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] shrink-0 transition-all">
+                                Use this
+                              </button>
+                            )}
+                            {v.version === dspyCfg.active_version && (
+                              <span className="text-[10px] px-2 py-1 rounded-full bg-green-100 text-green-700 shrink-0">live</span>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                     {testResult && (

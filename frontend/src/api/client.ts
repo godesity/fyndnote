@@ -42,16 +42,47 @@ export interface DspyField {
   enabled?: boolean;
 }
 
+export interface DspyPending {
+  instruction: string;
+  optimizer: string;
+  score: number | null;
+  train_size: number | null;
+  val_size: number | null;
+  n_demos: number;
+  base_version: number | null;
+  created_at: string;
+}
+
+export interface DspyVersion {
+  version: number;
+  instruction: string;
+  kind: string;
+  source_version: number | null;
+  optimizer: string | null;
+  score: number | null;
+  train_size: number | null;
+  val_size: number | null;
+  n_demos: number;
+  label: string;
+  created_by: string | null;
+  created_at: string;
+  has_state: boolean;
+}
+
 export interface DspyConfig {
   version: number;
   instruction: string;
   input_fields: DspyField[];
   output_fields: DspyField[];
   program_state: unknown;
+  active_version: number | null;
+  kind: string;
+  source_version: number | null;
   tuned_at: string | null;
   train_metrics: Record<string, unknown> | null;
   n_demos: number;
   derived_from: string;
+  pending: DspyPending | null;
   model: string;
   api_base: string;
   annotator: string;
@@ -86,6 +117,8 @@ export interface DspyTrainResult {
   optimizer: string;
   train_size: number;
   val_size: number;
+  active_version: number;
+  active_instruction: string;
 }
 
 export const api = {
@@ -187,6 +220,14 @@ export const api = {
     request<DspyTrainResult>(`/projects/${pid}/dspy/train`, { method: 'POST', body: JSON.stringify({ optimizer, max_examples: maxExamples }) }),
   dspyReset: (pid: string) =>
     request<DspyConfig>(`/projects/${pid}/dspy/reset`, { method: 'POST', body: '{}' }),
+  dspyVersions: (pid: string) =>
+    request<{ active_version: number | null; versions: DspyVersion[] }>(`/projects/${pid}/dspy/versions`),
+  dspyAccept: (pid: string, label?: string) =>
+    request<DspyConfig>(`/projects/${pid}/dspy/accept`, { method: 'POST', body: JSON.stringify({ label: label ?? '' }) }),
+  dspyReject: (pid: string) =>
+    request<DspyConfig>(`/projects/${pid}/dspy/reject`, { method: 'POST', body: '{}' }),
+  dspyRevert: (pid: string, version: number) =>
+    request<DspyConfig>(`/projects/${pid}/dspy/revert`, { method: 'POST', body: JSON.stringify({ version }) }),
   getMLAnnotation: (projectId: string, rowIndex: number) =>
     request<{ row_index: number; annotator: string; data: Record<string, any>; created_at: string }>(
       `/projects/${projectId}/ml-annotations/${rowIndex}`),

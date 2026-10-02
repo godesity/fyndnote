@@ -158,3 +158,15 @@ class DspyConfigUpdate(BaseModel):
     api_base: str | None = None
     input_fields: list[dict[str, Any]] | None = None
     output_fields: list[dict[str, Any]] | None = None
+    user_id: str | None = None
+
+
+class DspyLabelRequest(BaseModel):
+    """Optional attribution for derive/accept (version metadata only)."""
+
+    user_id: str | None = None
+    label: str = ""
+
+
+class DspyRevertRequest(BaseModel):
+    version: int

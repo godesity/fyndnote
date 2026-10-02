@@ -85,26 +85,32 @@ def test_derive_from_template(client, project, dspy_dir):
     assert (dspy_dir / f"{project}.json").exists()
 
 
-def test_prompt_edit_persists_and_rewrites_state(client, project, dspy_dir):
-    # seed a tuned state shaped like dspy 3.x Predict.dump_state()
-    _, cfg = dspy_service._ensure_config(project)
-    cfg["program_state"] = {
-        "traces": [],
-        "train": [],
-        "demos": [{"text": "a", "sentiment": "positive"}],
-        "signature": {
-            "instructions": "OLD INSTRUCTION",
-            "fields": [
-                {"prefix": "Text:", "description": "old input desc"},
-                {"prefix": "Sentiment:", "description": "old output desc"},
-                {"prefix": "Topics:", "description": "old"},
-                {"prefix": "Quality:", "description": "old"},
-                {"prefix": "Notes:", "description": "old"},
-            ],
+def test_prompt_edit_persists_as_new_version(client, project, dspy_dir):
+    # seed a tuned v1 (instruction + demos) the way tune/accept would leave it
+    dspy_service.add_version(
+        project,
+        instruction="OLD INSTRUCTION",
+        program_state={
+            "traces": [],
+            "train": [],
+            "demos": [{"text": "a", "sentiment": "positive"}],
+            "signature": {
+                "instructions": "OLD INSTRUCTION",
+                "fields": [
+                    {"prefix": "Text:", "description": "old input desc"},
+                    {"prefix": "Sentiment:", "description": "old output desc"},
+                    {"prefix": "Topics:", "description": "old"},
+                    {"prefix": "Quality:", "description": "old"},
+                    {"prefix": "Notes:", "description": "old"},
+                ],
+            },
+            "lm": None,
         },
-        "lm": None,
-    }
-    dspy_service.DspyProgramStore.save(project, cfg)
+        kind="tuned",
+        optimizer="bootstrap",
+        score=0.5,
+        n_demos=1,
+    )
 
     resp = client.put(
         f"/api/v1/projects/{project}/dspy",
@@ -114,13 +120,30 @@ def test_prompt_edit_persists_and_rewrites_state(client, project, dspy_dir):
     body = resp.json()
     assert body["instruction"] == "NEW INSTRUCTION"
     assert body["model"] == "openai/other"
+    assert body["kind"] == "edited"
+    assert body["active_version"] == 2
+    # a hand-edit is not a tune: no score, but demos carry over
+    assert body["train_metrics"] is None
 
+    # the edit became v2 and is what predictions run from
+    versions = client.get(f"/api/v1/projects/{project}/dspy/versions").json()
+    assert [v["version"] for v in versions["versions"]] == [2, 1]
+    assert versions["active_version"] == 2
+    assert versions["versions"][0]["kind"] == "edited"
+    assert versions["versions"][0]["source_version"] == 1
+    assert versions["versions"][1]["kind"] == "tuned"
+    assert versions["versions"][1]["score"] == 0.5
+
+    # state carried into v2 must agree with v2's own instruction (load_state
+    # would otherwise re-assert the tuned text) and must keep the demos
     on_disk = json.loads((dspy_dir / f"{project}.json").read_text())
-    assert on_disk["instruction"] == "NEW INSTRUCTION"
-    # the tuned state must carry the edit (load_state would otherwise override)
-    assert on_disk["program_state"]["signature"]["instructions"] == ("NEW INSTRUCTION")
-    # demos survive the rewrite
-    assert on_disk["program_state"]["demos"] == [{"text": "a", "sentiment": "positive"}]
+    assert "instruction" not in on_disk  # schema file only, no prompt state
+    assert "input_fields" in on_disk
+    _, cfg = dspy_service._ensure_config(project)
+    assert cfg["instruction"] == "NEW INSTRUCTION"
+    assert cfg["program_state"]["signature"]["instructions"] == "NEW INSTRUCTION"
+    assert cfg["program_state"]["demos"] == [{"text": "a", "sentiment": "positive"}]
+
     # model persisted on the project row
     proj = client.get(f"/api/v1/projects/{project}?user_id=alice").json()
     assert proj["dspy_model"] == "openai/other"
@@ -239,28 +262,37 @@ def test_train_requires_annotations(client, project, dspy_dir):
     assert "at least 3" in resp.json()["detail"]
 
 
-def test_train_persists_and_reset(client, project, dspy_dir, monkeypatch):
+def test_train_parks_pending_then_accept_and_reset(
+    client, project, dspy_dir, monkeypatch
+):
     canned = {
-        "status": "ok",
+        "status": "pending",
         "score": 0.8,
         "n_demos": 4,
         "instruction": "OPTIMIZED",
         "optimizer": "bootstrap",
         "train_size": 2,
         "val_size": 1,
+        "active_version": 1,
+        "active_instruction": "BEFORE",
     }
 
     def fake_tune(pid, optimizer="mipro", max_examples=50):
-        _, cfg = dspy_service._ensure_config(pid)
-        cfg["instruction"] = "OPTIMIZED"
-        cfg["program_state"] = {
-            "signature": {"instructions": "OPTIMIZED", "fields": []},
-            "demos": [1, 2, 3, 4],
-        }
-        cfg["tuned_at"] = "2026-01-01T00:00:00+00:00"
-        cfg["train_metrics"] = canned | {"extra": None}
-        cfg["n_demos"] = 4
-        dspy_service.DspyProgramStore.save(pid, cfg)
+        # a real tune() writes the pending row itself; this fake mirrors that
+        dspy_service.set_pending(
+            pid,
+            instruction="OPTIMIZED",
+            program_state={
+                "signature": {"instructions": "OPTIMIZED", "fields": []},
+                "demos": [1, 2, 3, 4],
+            },
+            optimizer="bootstrap",
+            score=0.8,
+            train_size=2,
+            val_size=1,
+            n_demos=4,
+            base_version=dspy_service._active_version_of(pid),
+        )
         return canned
 
     monkeypatch.setattr(dspy_service, "tune", fake_tune)
@@ -273,42 +305,93 @@ def test_train_persists_and_reset(client, project, dspy_dir, monkeypatch):
     assert body["score"] == 0.8
     assert body["n_demos"] == 4
 
+    # tuning is never live on its own: still pending, active prompt untouched
     cfg = client.get(f"/api/v1/projects/{project}/dspy").json()
-    assert cfg["tuned_at"] == "2026-01-01T00:00:00+00:00"
-    assert cfg["instruction"] == "OPTIMIZED"
+    assert (
+        cfg["instruction"]
+        == "Given the fields below, produce the annotation values for each output field."
+    )
+    assert cfg["program_state"] is None
+    assert cfg["tuned_at"] is None
+    assert cfg["pending"]["instruction"] == "OPTIMIZED"
+    assert cfg["pending"]["score"] == 0.8
 
-    # reset drops tuning, keeps prompt edits
-    resp = client.post(f"/api/v1/projects/{project}/dspy/reset", json={})
+    # reject discards the candidate and changes nothing
+    resp = client.post(f"/api/v1/projects/{project}/dspy/reject", json={})
+    assert resp.status_code == 200
+    assert resp.json()["pending"] is None
+    assert resp.json()["instruction"].startswith("Given the fields")
+    assert (
+        client.post(f"/api/v1/projects/{project}/dspy/reject", json={}).status_code
+        == 404
+    )
+
+    # accept promotes it to a new tuned version with the score recorded
+    client.post(
+        f"/api/v1/projects/{project}/dspy/train", json={"optimizer": "bootstrap"}
+    )
+    resp = client.post(
+        f"/api/v1/projects/{project}/dspy/accept", json={"label": "keep"}
+    )
     assert resp.status_code == 200
     body = resp.json()
-    assert body["tuned_at"] is None
-    assert body["program_state"] is None
-    assert body["n_demos"] == 0
     assert body["instruction"] == "OPTIMIZED"
+    assert body["kind"] == "tuned"
+    assert body["active_version"] == 2
+    assert body["n_demos"] == 4
+    assert body["tuned_at"]
+    assert body["train_metrics"]["score"] == 0.8
+    assert body["pending"] is None
+
+    versions = client.get(f"/api/v1/projects/{project}/dspy/versions").json()
+    assert versions["active_version"] == 2
+    assert versions["versions"][0]["label"] == "keep"
+    assert versions["versions"][0]["score"] == 0.8
+
+    # revert goes back to the untuned v1 (instruction + state together)
+    resp = client.post(f"/api/v1/projects/{project}/dspy/revert", json={"version": 1})
+    assert resp.status_code == 200
+    assert resp.json()["active_version"] == 1
+    assert not resp.json()["instruction"].startswith("OPTIMIZED")
+    assert (
+        client.post(
+            f"/api/v1/projects/{project}/dspy/revert", json={"version": 99}
+        ).status_code
+        == 404
+    )
 
 
-def test_delete_project_removes_program_file(client, project, dspy_dir):
-    client.get(f"/api/v1/projects/{project}/dspy")  # auto-derive → file exists
+def test_delete_project_removes_program_and_versions(client, project, dspy_dir):
+    client.get(f"/api/v1/projects/{project}/dspy")  # auto-derive → schema + v1
     assert (dspy_dir / f"{project}.json").exists()
+    assert dspy_service.list_versions(project) != []
     assert client.delete(f"/api/v1/projects/{project}").status_code == 200
     assert not (dspy_dir / f"{project}.json").exists()
+    assert dspy_service.list_versions(project) == []
 
 
-def test_derive_endpoint_overwrites(client, project, dspy_dir):
-    # edit config, then re-derive → field edits discarded, tuning dropped
-    _, cfg = dspy_service._ensure_config(project)
-    cfg["output_fields"] = [f for f in cfg["output_fields"] if f["name"] != "notes"]
-    cfg["program_state"] = {
-        "signature": {"instructions": "x", "fields": []},
-        "demos": [1],
-    }
-    dspy_service.DspyProgramStore.save(project, cfg)
-
+def test_derive_keeps_prompt_drops_state(client, project, dspy_dir):
+    # a re-derive must not silently undo the user's prompt: the template owns
+    # the field schema, the prompt does not.
+    dspy_service.add_version(
+        project,
+        instruction="MY OWN PROMPT",
+        program_state={"signature": {"instructions": "x", "fields": []}, "demos": [1]},
+        kind="tuned",
+        optimizer="bootstrap",
+        score=0.6,
+        n_demos=1,
+    )
     resp = client.post(f"/api/v1/projects/{project}/dspy/derive", json={})
     assert resp.status_code == 200
     body = resp.json()
     assert "notes" in [f["name"] for f in body["output_fields"]]
-    assert body["program_state"] is None
+    assert body["instruction"] == "MY OWN PROMPT"
+    assert body["program_state"] is None  # state cannot survive schema moves
+    assert body["kind"] == "edited"
+    versions = client.get(f"/api/v1/projects/{project}/dspy/versions").json()
+    assert versions["active_version"] == 2
+    assert versions["versions"][1]["score"] == 0.6  # tuned run still recorded
 
 
 def test_test_predict_survives_worker_thread_rotation(

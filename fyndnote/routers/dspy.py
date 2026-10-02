@@ -1,11 +1,15 @@
 from fastapi import APIRouter, HTTPException
 
 from .. import config
-from ..schemas import DspyConfigUpdate, DspyTestRequest, DspyTrainRequest
+from ..schemas import (
+    DspyConfigUpdate,
+    DspyLabelRequest,
+    DspyRevertRequest,
+    DspyTestRequest,
+    DspyTrainRequest,
+)
 from ..services import dspy_service
 from ..services.annotation_service import AnnotationService
-from ..services.dataset_service import DatasetService
-from ..services.template_service import TemplateService
 
 router = APIRouter()
 
@@ -34,6 +38,30 @@ def _response(pid: str, project: dict, cfg: dict) -> dict:
     return out
 
 
+def _save_endpoints(pid: str, body: DspyConfigUpdate) -> dict:
+    """Apply a config PUT: prompt edit as a new version + model/endpoint row."""
+    _project_or_404(pid)
+    cfg = dspy_service.save_config(
+        pid,
+        instruction=body.instruction,
+        input_fields=body.input_fields,
+        output_fields=body.output_fields,
+        user_id=body.user_id,
+    )
+    if cfg is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    if body.model is not None or body.api_base is not None:
+        project = AnnotationService.update_project(
+            pid,
+            AnnotationService.get_project(pid)["name"],
+            dspy_model=body.model,
+            dspy_api_base=body.api_base,
+        )
+    else:
+        project = AnnotationService.get_project(pid)
+    return _response(pid, project, cfg)
+
+
 @router.get("/projects/{pid}/dspy")
 def get_config(pid: str):
     project = _project_or_404(pid)
@@ -45,47 +73,28 @@ def get_config(pid: str):
 
 @router.put("/projects/{pid}/dspy")
 def update_config(pid: str, body: DspyConfigUpdate):
-    project = _project_or_404(pid)
-    _, cfg = dspy_service._ensure_config(pid, project)
-    if cfg is None:
-        raise HTTPException(status_code=404, detail="project not found")
-
-    if body.instruction is not None:
-        cfg["instruction"] = body.instruction
-    if body.input_fields is not None:
-        cfg["input_fields"] = body.input_fields
-    if body.output_fields is not None:
-        cfg["output_fields"] = body.output_fields
-    # Stored tuning state overwrites the built signature on load — keep it
-    # honoring the (possibly edited) instruction/descriptions.
-    cfg = dspy_service.rewrite_state(cfg)
-    dspy_service.DspyProgramStore.save(pid, cfg)
-
-    if body.model is not None or body.api_base is not None:
-        AnnotationService.update_project(
-            pid,
-            project["name"],
-            dspy_model=body.model,
-            dspy_api_base=body.api_base,
-        )
-        project = _project_or_404(pid)
-    return _response(pid, project, cfg)
+    return _save_endpoints(pid, body)
 
 
 @router.post("/projects/{pid}/dspy/derive")
-def derive(pid: str):
+def derive(pid: str, body: DspyLabelRequest | None = None):
     project = _project_or_404(pid)
-    template = TemplateService.get(project["template_id"])
-    source = template["source"] if template else ""
-    try:
-        columns = list(DatasetService._load_ds(project["dataset_id"]).column_names)
-    except Exception:
-        columns = []
-    cfg = dspy_service.derive_config(source, columns)
-    # Schema changed: tuning state is invalid.
-    cfg["program_state"] = None
-    dspy_service.DspyProgramStore.save(pid, cfg)
+    cfg = dspy_service.derive_project(pid, user_id=(body.user_id if body else None))
+    if cfg is None:
+        raise HTTPException(status_code=404, detail="project not found")
     return _response(pid, project, cfg)
+
+
+@router.get("/projects/{pid}/dspy/versions")
+def versions(pid: str):
+    _project_or_404(pid)
+    _, cfg = dspy_service._ensure_config(pid)
+    if cfg is None:
+        raise HTTPException(status_code=404, detail="project not found")
+    return {
+        "active_version": cfg.get("active_version"),
+        "versions": dspy_service.list_versions(pid),
+    }
 
 
 @router.post("/projects/{pid}/dspy/test")
@@ -97,7 +106,7 @@ def test(pid: str, body: DspyTestRequest):
         raise HTTPException(status_code=400, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    except Exception as e:
+    except Exception as e:  # dspy/network failures are the caller's problem
         raise HTTPException(status_code=502, detail=f"LLM call failed: {e}") from e
 
 
@@ -114,12 +123,44 @@ def train(pid: str, body: DspyTrainRequest):
         raise HTTPException(status_code=502, detail=f"tuning failed: {e}") from e
 
 
-@router.post("/projects/{pid}/dspy/reset")
-def reset(pid: str):
-    project = _project_or_404(pid)
-    cfg = dspy_service.reset(pid)
+@router.post("/projects/{pid}/dspy/accept")
+def accept(pid: str, body: DspyLabelRequest | None = None):
+    _project_or_404(pid)
+    cfg = dspy_service.accept_pending(
+        pid,
+        user_id=(body.user_id if body else None),
+        label=(body.label if body else ""),
+    )
     if cfg is None:
-        _, cfg = dspy_service._ensure_config(pid, project)
+        raise HTTPException(status_code=404, detail="nothing pending")
+    project = AnnotationService.get_project(pid)
+    return _response(pid, project, cfg)
+
+
+@router.post("/projects/{pid}/dspy/reject")
+def reject(pid: str):
+    _project_or_404(pid)
+    cfg = dspy_service.reject_pending(pid)
+    if cfg is None:
+        raise HTTPException(status_code=404, detail="nothing pending")
+    project = AnnotationService.get_project(pid)
+    return _response(pid, project, cfg)
+
+
+@router.post("/projects/{pid}/dspy/revert")
+def revert(pid: str, body: DspyRevertRequest):
+    _project_or_404(pid)
+    cfg = dspy_service.revert(pid, body.version)
+    if cfg is None:
+        raise HTTPException(status_code=404, detail="version not found")
+    project = AnnotationService.get_project(pid)
+    return _response(pid, project, cfg)
+
+
+@router.post("/projects/{pid}/dspy/reset")
+def reset(pid: str, body: DspyLabelRequest | None = None):
+    project = _project_or_404(pid)
+    cfg = dspy_service.reset(pid, user_id=(body.user_id if body else None))
     if cfg is None:
         raise HTTPException(status_code=404, detail="project not found")
     return _response(pid, project, cfg)
