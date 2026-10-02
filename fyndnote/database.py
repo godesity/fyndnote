@@ -306,16 +306,23 @@ def seed_from_json():
     if existing > 0:
         db.close()
         return
+    # `fk_off` records whether FK checks are actually suppressed while the
+    # permission rows below reference projects that are not seeded yet.
+    fk_off = False
     if DATABASE_TYPE == "sqlite":
         db.execute("PRAGMA foreign_keys=OFF")
+        fk_off = True
     else:
-        # Disable FKs while seeding. Requires a superuser PG role (the default
-        # `postgres` role is). Fall back gracefully for non-superuser roles so
-        # seeding still inserts what it can instead of aborting the whole seed.
+        # Suppressing FK checks needs a superuser PG role (the default
+        # `postgres` role is). Guard the attempt with a savepoint: a rejected
+        # SET would otherwise abort the whole seed transaction, so that every
+        # later statement dies with InFailedSqlTransaction.
+        db.execute("SAVEPOINT seed_fk")
         try:
             db.execute("SET session_replication_role = replica")
+            fk_off = True
         except Exception:
-            pass
+            db.execute("ROLLBACK TO SAVEPOINT seed_fk")
     data = json.loads(seed_file.read_text())
     for user in data["users"]:
         db.execute(
@@ -323,6 +330,15 @@ def seed_from_json():
             (user["id"], user["name"], user["global_role"]),
         )
         for project_id, role in user.get("project_roles", {}).items():
+            if (
+                not fk_off
+                and not db.execute(
+                    "SELECT 1 FROM fyndnote_projects WHERE id = ?", (project_id,)
+                ).fetchone()
+            ):
+                # FK checks are live and that project does not exist; skip the
+                # dangling grant instead of aborting the seed.
+                continue
             db.execute(
                 "INSERT OR IGNORE INTO fyndnote_project_permissions (user_id, project_id, role) VALUES (?, ?, ?)",
                 (user["id"], project_id, role),
@@ -330,6 +346,6 @@ def seed_from_json():
     db.commit()
     if DATABASE_TYPE == "sqlite":
         db.execute("PRAGMA foreign_keys=ON")
-    else:
+    elif fk_off:
         db.execute("SET session_replication_role = origin")
     db.close()
