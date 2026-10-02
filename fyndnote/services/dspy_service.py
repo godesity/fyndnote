@@ -68,13 +68,225 @@ class DspyProgramStore:
     @classmethod
     def save(cls, pid: str, cfg: dict) -> dict:
         DSPY_DIR.mkdir(parents=True, exist_ok=True)
-        with open(cls._path(pid), "w") as f:
-            json.dump(cfg, f, indent=2)
+        text = json.dumps(cfg, indent=2)
+        path = cls._path(pid)
+        # Predict calls _ensure_config per row; skip rewriting unchanged files.
+        if path.exists() and path.read_text() == text:
+            return cfg
+        with open(path, "w") as f:
+            f.write(text)
         return cfg
 
     @classmethod
     def delete(cls, pid: str) -> None:
         cls._path(pid).unlink(missing_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Prompt version store (SQL: append-only history + one pending tune)
+# ---------------------------------------------------------------------------
+#
+# The JSON file keeps only the *schema* (fields + template hash); instructions
+# and compiled program state are versioned in the DB so instruction and demos
+# are always swapped atomically (revert restores both).
+
+_SCHEMA_KEYS = ("version", "input_fields", "output_fields", "derived_from")
+
+
+def _db():
+    from ..database import get_db  # lazy: keeps import order flexible
+
+    return get_db()
+
+
+def _schema_of(cfg: dict) -> dict:
+    """Strip a cfg down to the keys that belong in the JSON schema file."""
+    return {k: cfg[k] for k in _SCHEMA_KEYS if k in cfg}
+
+
+def _as_state(value):
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return None
+    return value
+
+
+def _version_row(r) -> dict:
+    return {
+        "version": r["version"],
+        "instruction": r["instruction"],
+        "kind": r["kind"],
+        "source_version": r["source_version"],
+        "optimizer": r["optimizer"],
+        "score": r["score"],
+        "train_size": r["train_size"],
+        "val_size": r["val_size"],
+        "n_demos": r["n_demos"] or 0,
+        "label": r["label"] or "",
+        "created_by": r["created_by"],
+        "created_at": r["created_at"],
+        "has_state": r["program_state"] is not None,
+    }
+
+
+def list_versions(pid: str) -> list[dict]:
+    """Version history newest-first (without the bulky program_state)."""
+    db = _db()
+    rows = db.execute(
+        "SELECT * FROM fyndnote_dspy_prompts WHERE project_id = ? ORDER BY version DESC",
+        (pid,),
+    ).fetchall()
+    db.close()
+    return [_version_row(r) for r in rows]
+
+
+def add_version(
+    pid: str,
+    *,
+    instruction: str,
+    program_state,
+    kind: str,
+    source_version: int | None = None,
+    optimizer: str | None = None,
+    score: float | None = None,
+    train_size: int | None = None,
+    val_size: int | None = None,
+    n_demos: int = 0,
+    metrics_json: dict | None = None,
+    label: str = "",
+    created_by: str | None = None,
+    set_active: bool = True,
+) -> int:
+    """Append a version and (unless told not to) make it the active prompt."""
+    db = _db()
+    latest = db.execute(
+        "SELECT MAX(version) AS m FROM fyndnote_dspy_prompts WHERE project_id = ?",
+        (pid,),
+    ).fetchone()
+    version = int(latest["m"] or 0) + 1
+    db.execute(
+        "INSERT INTO fyndnote_dspy_prompts (project_id, version, instruction,"
+        " program_state, kind, source_version, optimizer, score, train_size,"
+        " val_size, n_demos, metrics_json, label, created_by)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            pid,
+            version,
+            instruction,
+            json.dumps(program_state) if program_state is not None else None,
+            kind,
+            source_version,
+            optimizer,
+            score,
+            train_size,
+            val_size,
+            n_demos,
+            json.dumps(metrics_json) if metrics_json is not None else None,
+            label or "",
+            created_by,
+        ),
+    )
+    if set_active:
+        db.execute(
+            "UPDATE fyndnote_projects SET dspy_active_version = ? WHERE id = ?",
+            (version, pid),
+        )
+    db.commit()
+    db.close()
+    return version
+
+
+def set_pending(
+    pid: str,
+    *,
+    instruction: str,
+    program_state,
+    optimizer: str,
+    score: float,
+    train_size: int,
+    val_size: int,
+    n_demos: int,
+    base_version: int,
+) -> None:
+    db = _db()
+    db.execute(
+        "INSERT OR REPLACE INTO fyndnote_dspy_pending (project_id, instruction,"
+        " program_state, optimizer, score, train_size, val_size, n_demos,"
+        " base_version, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            pid,
+            instruction,
+            json.dumps(program_state) if program_state is not None else None,
+            optimizer,
+            score,
+            train_size,
+            val_size,
+            n_demos,
+            base_version,
+            datetime.now(UTC).isoformat(),
+        ),
+    )
+    db.commit()
+    db.close()
+
+
+def clear_pending(pid: str) -> None:
+    db = _db()
+    db.execute("DELETE FROM fyndnote_dspy_pending WHERE project_id = ?", (pid,))
+    db.commit()
+    db.close()
+
+
+def _pending_of(db, pid) -> dict | None:
+    r = db.execute(
+        "SELECT * FROM fyndnote_dspy_pending WHERE project_id = ?", (pid,)
+    ).fetchone()
+    if r is None:
+        return None
+    return {
+        "instruction": r["instruction"],
+        "program_state": _as_state(r["program_state"]),
+        "optimizer": r["optimizer"],
+        "score": r["score"],
+        "train_size": r["train_size"],
+        "val_size": r["val_size"],
+        "n_demos": r["n_demos"] or 0,
+        "base_version": r["base_version"],
+        "created_at": r["created_at"],
+    }
+
+
+def _ensure_prompt_rows(pid: str, project: dict, legacy: dict | None) -> None:
+    """Create v1 for a project that has no versions yet.
+
+    `legacy` is the pre-versioning JSON payload (instruction + program_state +
+    train_metrics) when one exists — it is imported as v1 so upgraded projects
+    keep whatever prompt they were running.
+    """
+    db = _db()
+    known = db.execute(
+        "SELECT 1 AS one FROM fyndnote_dspy_prompts WHERE project_id = ? LIMIT 1",
+        (pid,),
+    ).fetchone()
+    db.close()
+    if known is not None:
+        return
+    metrics = (legacy or {}).get("train_metrics") or {}
+    state = (legacy or {}).get("program_state")
+    add_version(
+        pid,
+        instruction=(legacy or {}).get("instruction") or DEFAULT_INSTRUCTION,
+        program_state=state,
+        kind="tuned" if state else "derived",
+        optimizer=metrics.get("optimizer"),
+        score=metrics.get("score"),
+        train_size=metrics.get("train_size"),
+        val_size=metrics.get("val_size"),
+        n_demos=(legacy or {}).get("n_demos") or 0,
+        label="imported",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -251,28 +463,101 @@ def _project_or_none(pid: str) -> dict | None:
     return AnnotationService.get_project(pid)
 
 
+def _active_row(pid: str, project: dict, db) -> dict | None:
+    """The version row that predictions currently run from.
+
+    The pointer is read from the DB, not the caller's project dict: mutation
+    handlers re-enter this after bumping dspy_active_version, and a dict read
+    before the bump would report the previous version.
+    """
+    version = db.execute(
+        "SELECT dspy_active_version FROM fyndnote_projects WHERE id = ?", (pid,)
+    ).fetchone()["dspy_active_version"]
+    if version is None:
+        version = db.execute(
+            "SELECT MAX(version) AS m FROM fyndnote_dspy_prompts WHERE project_id = ?",
+            (pid,),
+        ).fetchone()["m"]
+        if version is not None:
+            db.execute(
+                "UPDATE fyndnote_projects SET dspy_active_version = ? WHERE id = ?",
+                (version, pid),
+            )
+            db.commit()
+    if version is None:
+        return None
+    return db.execute(
+        "SELECT * FROM fyndnote_dspy_prompts WHERE project_id = ? AND version = ?",
+        (pid, version),
+    ).fetchone()
+
+
 def _ensure_config(
     pid: str, project: dict | None = None
 ) -> tuple[dict, dict] | tuple[None, None]:
-    """Return (project, cfg), auto-deriving + saving cfg when absent."""
+    """Return (project, cfg), auto-deriving the schema when absent.
+
+    `cfg` is the schema file merged with the active prompt version (instruction
+    + program_state) so callers can build a program without knowing where each
+    half came from.
+    """
     if project is None:
         project = _project_or_none(pid)
     if not project:
         return None, None
-    cfg = DspyProgramStore.get(pid)
-    if cfg is None:
-        # Derivation needs template_id; the caller's dict may be the lean
-        # _get_project_settings shape, so re-read the full row.
-        full = _project_or_none(pid) or project
-        template = TemplateService.get(full["template_id"])
-        source = template["source"] if template else ""
-        try:
-            columns = list(DatasetService._load_ds(full["dataset_id"]).column_names)
-        except Exception:
-            columns = []
-        cfg = derive_config(source, columns)
-        DspyProgramStore.save(pid, cfg)
+    stored = DspyProgramStore.get(pid)
+    legacy = None
+    if stored is None:
+        # First touch: derive the schema from the template + dataset columns.
+        source, columns = _template_and_columns(pid, project)
+        stored = derive_config(source, columns)
+    else:
+        # Pre-versioning files also carry instruction/program_state: import
+        # them as v1 so upgraded projects keep running the same prompt.
+        legacy = stored if "program_state" in stored else None
+    schema = _schema_of(stored)
+    DspyProgramStore.save(pid, schema)
+    _ensure_prompt_rows(pid, project, legacy)
+
+    cfg = dict(schema)
+    db = _db()
+    row = _active_row(pid, project, db)
+    pending = _pending_of(db, pid)
+    db.close()
+    tuned = row is not None and (
+        row["kind"] == "tuned" or row["program_state"] is not None
+    )
+    cfg.update(
+        {
+            "instruction": (row["instruction"] if row else DEFAULT_INSTRUCTION),
+            "program_state": _as_state(row["program_state"]) if row else None,
+            "active_version": row["version"] if row else None,
+            "kind": row["kind"] if row else "derived",
+            "source_version": row["source_version"] if row else None,
+            "tuned_at": row["created_at"] if tuned else None,
+            "train_metrics": {
+                "score": row["score"],
+                "optimizer": row["optimizer"],
+                "train_size": row["train_size"],
+                "val_size": row["val_size"],
+            }
+            if tuned and row["score"] is not None
+            else None,
+            "n_demos": (row["n_demos"] or 0) if row else 0,
+            "pending": pending,
+        }
+    )
     return project, cfg
+
+
+def _template_and_columns(pid: str, project: dict) -> tuple[str, list[str]]:
+    full = _project_or_none(pid) or project
+    template = TemplateService.get(full["template_id"])
+    try:
+        columns = list(DatasetService._load_ds(full["dataset_id"]).column_names)
+    except Exception:
+        columns = []
+    return (template["source"] if template else ""), columns
 
 
 # ---------------------------------------------------------------------------
@@ -579,27 +864,116 @@ def tune(pid: str, optimizer: str = "mipro", max_examples: int = 50) -> dict:
         demos = getattr(compiled, "demos", None) or []
         instruction = _extract_instructions(compiled, cfg.get("instruction"))
 
-    cfg["instruction"] = instruction
-    cfg["program_state"] = state
-    cfg["tuned_at"] = datetime.now(UTC).isoformat()
-    cfg["train_metrics"] = {
-        "score": score,
-        "optimizer": optimizer,
-        "train_size": len(train),
-        "val_size": len(val),
-    }
-    cfg["n_demos"] = len(demos)
-    DspyProgramStore.save(pid, cfg)
-
+    # Tuning never goes live on its own: the result is parked as a pending
+    # candidate until the user accepts it (accept/reject/revert in Prompt
+    # Studio). Predictions keep using the active version meanwhile.
+    base = _active_version_of(pid)
+    set_pending(
+        pid,
+        instruction=instruction,
+        program_state=state,
+        optimizer=optimizer,
+        score=score,
+        train_size=len(train),
+        val_size=len(val),
+        n_demos=len(demos),
+        base_version=base,
+    )
     return {
-        "status": "ok",
+        "status": "pending",
         "score": score,
         "n_demos": len(demos),
         "instruction": instruction,
         "optimizer": optimizer,
         "train_size": len(train),
         "val_size": len(val),
+        "active_version": base,
+        "active_instruction": _active_instruction(pid),
     }
+
+
+def _active_version_of(pid: str) -> int:
+    project = _project_or_none(pid)
+    if not project:
+        return 0
+    db = _db()
+    row = _active_row(pid, project, db)
+    db.close()
+    return row["version"] if row else 0
+
+
+def _active_instruction(pid: str) -> str:
+    project = _project_or_none(pid)
+    if not project:
+        return DEFAULT_INSTRUCTION
+    db = _db()
+    row = _active_row(pid, project, db)
+    db.close()
+    return row["instruction"] if row else DEFAULT_INSTRUCTION
+
+
+def accept_pending(
+    pid: str, user_id: str | None = None, label: str = ""
+) -> dict | None:
+    """Promote the pending tune to a new active version."""
+    db = _db()
+    pending = _pending_of(db, pid)
+    db.close()
+    if pending is None:
+        return None
+    add_version(
+        pid,
+        instruction=pending["instruction"],
+        program_state=pending["program_state"],
+        kind="tuned",
+        source_version=pending["base_version"],
+        optimizer=pending["optimizer"],
+        score=pending["score"],
+        train_size=pending["train_size"],
+        val_size=pending["val_size"],
+        n_demos=pending["n_demos"],
+        label=label,
+        created_by=user_id,
+    )
+    clear_pending(pid)
+    _, cfg = _ensure_config(pid)
+    return cfg
+
+
+def reject_pending(pid: str) -> dict | None:
+    """Discard the pending tune; the active version is untouched."""
+    db = _db()
+    had = _pending_of(db, pid) is not None
+    db.close()
+    if not had:
+        return None
+    clear_pending(pid)
+    _, cfg = _ensure_config(pid)
+    return cfg
+
+
+def revert(pid: str, version: int) -> dict | None:
+    """Point the project back at a historical version (instruction + demos)."""
+    project = _project_or_none(pid)
+    if not project:
+        return None
+    db = _db()
+    known = db.execute(
+        "SELECT 1 AS one FROM fyndnote_dspy_prompts WHERE project_id = ? AND version = ?",
+        (pid, version),
+    ).fetchone()
+    if known is not None:
+        db.execute(
+            "UPDATE fyndnote_projects SET dspy_active_version = ? WHERE id = ?",
+            (version, pid),
+        )
+        db.commit()
+    db.close()
+    if known is None:
+        return None
+    clear_pending(pid)
+    _, cfg = _ensure_config(pid)
+    return cfg
 
 
 def _extract_instructions(compiled, fallback: str) -> str:
@@ -639,39 +1013,121 @@ def rewrite_state(cfg: dict) -> dict:
     if not state:
         return cfg
     try:
-        fields_desc = [
-            f.get("desc") or f["name"] for f in _enabled(cfg, "input_fields")
-        ] + [f.get("desc") or f["name"] for f in _enabled(cfg, "output_fields")]
-        sig = state.get("signature")
-        stored = sig.get("fields") if isinstance(sig, dict) else None
-        if (
-            isinstance(stored, list)
-            and len(stored) == len(fields_desc)
-            and sig.get("instructions") is not None
-        ):
-            sig["instructions"] = cfg.get("instruction") or DEFAULT_INSTRUCTION
-            for entry, desc in zip(stored, fields_desc, strict=True):
-                if isinstance(entry, dict) and "description" in entry:
-                    entry["description"] = desc
-        else:
-            # Shape drifted: rebuild, preserving demos/train/traces.
-            fresh = _build_program({**cfg, "program_state": None}).dump_state()
-            for key in ("demos", "traces", "train"):
-                if key in state:
-                    fresh[key] = state[key]
-            cfg["program_state"] = fresh
+        _sync_state_signature(cfg)
     except Exception:
         cfg["program_state"] = None  # unreadable state → drop rather than lie
     return cfg
 
 
-def reset(pid: str) -> dict | None:
-    """Drop tuning state; user prompt edits survive."""
-    cfg = DspyProgramStore.get(pid)
+def _sync_state_signature(cfg: dict) -> None:
+    """Point a program_state's signature at cfg's own instruction + descs.
+
+    load_state lets stored state override the built signature, so a version
+    must never carry state whose text disagrees with its instruction. Field
+    descs get rewritten when the shape drifted (fields toggled); demos — the
+    actual tuning artifact — are kept either way.
+    """
+    state = cfg["program_state"]
+    sig = state.get("signature")
+    if not isinstance(sig, dict):
+        sig = {"fields": []}
+    sig["instructions"] = cfg.get("instruction") or DEFAULT_INSTRUCTION
+    descs = [
+        f.get("desc") or f["name"]
+        for f in _enabled(cfg, "input_fields") + _enabled(cfg, "output_fields")
+    ]
+    fields = sig.get("fields")
+    if not isinstance(fields, list) or len(fields) != len(descs):
+        sig["fields"] = [{"description": d} for d in descs]
+    else:
+        for entry, desc in zip(fields, descs, strict=True):
+            if isinstance(entry, dict):
+                entry["description"] = desc
+    state["signature"] = sig
+    cfg["program_state"] = state
+
+
+def save_config(
+    pid: str,
+    *,
+    instruction: str | None = None,
+    input_fields=None,
+    output_fields=None,
+    user_id: str | None = None,
+) -> dict | None:
+    """Persist user edits as a new version, keeping demos from the active one.
+
+    load_state lets a stored program_state override the built signature, so
+    an instruction edit is mirrored into that state (rewrite_state) before it
+    is versioned — otherwise the tuned text would silently win.
+    """
+    project, cfg = _ensure_config(pid)
     if cfg is None:
         return None
-    cfg["program_state"] = None
-    cfg["tuned_at"] = None
-    cfg["train_metrics"] = None
-    cfg["n_demos"] = 0
-    return DspyProgramStore.save(pid, cfg)
+    for key, value in (
+        ("input_fields", input_fields),
+        ("output_fields", output_fields),
+    ):
+        if value is not None:
+            cfg[key] = value
+    if instruction is not None:
+        cfg["instruction"] = instruction
+    cfg = rewrite_state(cfg)
+    state = cfg.get("program_state")
+    DspyProgramStore.save(pid, _schema_of(cfg))
+    add_version(
+        pid,
+        instruction=cfg["instruction"],
+        program_state=state,
+        kind="edited",
+        source_version=cfg.get("active_version") or 0,
+        n_demos=len(state.get("demos") or []) if isinstance(state, dict) else 0,
+        created_by=user_id,
+    )
+    _, fresh = _ensure_config(pid, project)
+    return fresh
+
+
+def derive_project(pid: str, user_id: str | None = None) -> dict | None:
+    """Re-derive the field schema from the template, keeping the prompt text.
+
+    The template owns the I/O schema; the prompt belongs to the user or to the
+    last accepted tune. Compiled state cannot survive schema moves, so it is
+    dropped — but discarding the instruction would silently undo tuning.
+    """
+    project, old = _ensure_config(pid)
+    if project is None:
+        return None
+    source, columns = _template_and_columns(pid, project)
+    cfg = derive_config(source, columns)
+    cfg["instruction"] = (old or {}).get("instruction") or DEFAULT_INSTRUCTION
+    DspyProgramStore.save(pid, _schema_of(cfg))
+    add_version(
+        pid,
+        instruction=cfg["instruction"],
+        program_state=None,
+        kind="edited",
+        source_version=(old or {}).get("active_version") or 0,
+        label="re-derived schema",
+        created_by=user_id,
+    )
+    _, fresh = _ensure_config(pid, project)
+    return fresh
+
+
+def reset(pid: str, user_id: str | None = None) -> dict | None:
+    """Drop demos/metrics as a new untuned version, keeping the prompt text."""
+    project, cfg = _ensure_config(pid)
+    if cfg is None:
+        return None
+    add_version(
+        pid,
+        instruction=cfg["instruction"],
+        program_state=None,
+        kind="edited",
+        source_version=cfg.get("active_version") or 0,
+        label="reset tuning",
+        created_by=user_id,
+    )
+    _, fresh = _ensure_config(pid, project)
+    return fresh

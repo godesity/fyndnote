@@ -548,6 +548,8 @@ class AnnotationService:
         db.execute(
             "DELETE FROM fyndnote_project_permissions WHERE project_id = ?", (pid,)
         )
+        db.execute("DELETE FROM fyndnote_dspy_prompts WHERE project_id = ?", (pid,))
+        db.execute("DELETE FROM fyndnote_dspy_pending WHERE project_id = ?", (pid,))
         db.execute("DELETE FROM fyndnote_projects WHERE id = ?", (pid,))
         db.commit()
         db.close()

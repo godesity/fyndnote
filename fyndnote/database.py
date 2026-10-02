@@ -31,6 +31,7 @@ from sqlalchemy import (
     Column,
     ForeignKey,
     Index,
+    Float,
     Integer,
     MetaData,
     PrimaryKeyConstraint,
@@ -158,6 +159,7 @@ fyndnote_projects = Table(
     Column("ml_type", _defaultable_text, server_default=text("'external'")),
     Column("dspy_model", _defaultable_text, server_default=text("''")),
     Column("dspy_api_base", _defaultable_text, server_default=text("''")),
+    Column("dspy_active_version", Integer),
     Column("created_at", _ts_text, server_default=_now()),
 )
 
@@ -228,6 +230,44 @@ dataset_meta = Table(
     Column("created_at", Text, nullable=False),
 )
 
+fyndnote_dspy_prompts = Table(
+    "fyndnote_dspy_prompts",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("project_id", _TEXT, ForeignKey("fyndnote_projects.id"), nullable=False),
+    Column("version", Integer, nullable=False),
+    Column("instruction", Text, nullable=False),
+    Column("program_state", Text),
+    Column("kind", _TEXT, nullable=False),
+    Column("source_version", Integer),
+    Column("optimizer", _TEXT),
+    Column("score", Float),
+    Column("train_size", Integer),
+    Column("val_size", Integer),
+    Column("n_demos", Integer, nullable=False, server_default=text("0")),
+    Column("metrics_json", Text),
+    Column("label", _defaultable_text, server_default=text("''")),
+    Column("created_by", _TEXT),
+    Column("created_at", _ts_text, server_default=_now()),
+    UniqueConstraint("project_id", "version"),
+    CheckConstraint("kind IN ('derived','tuned','edited')"),
+)
+
+fyndnote_dspy_pending = Table(
+    "fyndnote_dspy_pending",
+    metadata,
+    Column("project_id", _TEXT, ForeignKey("fyndnote_projects.id"), primary_key=True),
+    Column("instruction", Text, nullable=False),
+    Column("program_state", Text),
+    Column("optimizer", _TEXT, nullable=False),
+    Column("score", Float, nullable=False),
+    Column("train_size", Integer, nullable=False),
+    Column("val_size", Integer, nullable=False),
+    Column("n_demos", Integer, nullable=False, server_default=text("0")),
+    Column("base_version", Integer, nullable=False),
+    Column("created_at", _ts_text, server_default=_now()),
+)
+
 
 # ---------------------------------------------------------------------------
 # Statement compatibility (SQLite-flavoured SQL -> active dialect)
@@ -238,6 +278,7 @@ _UPSERT_KEYS = {
     "fyndnote_ml_annotations": ["project_id", "row_index"],
     "fyndnote_project_permissions": ["user_id", "project_id"],
     "fyndnote_users": ["id"],
+    "fyndnote_dspy_pending": ["project_id"],
 }
 
 _INSERT_RE = re.compile(
@@ -529,6 +570,7 @@ _MIGRATION_COLUMNS = (
     "ml_type",
     "dspy_model",
     "dspy_api_base",
+    "dspy_active_version",
 )
 
 
