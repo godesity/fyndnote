@@ -60,8 +60,21 @@ services:
       timeout: 3s
       retries: 10
 
+  minio-chown:
+    # One-shot ownership fix: the named volume was written by the old official
+    # image as root, and Chainguard's minio runs as uid 65532.
+    image: cgr.dev/chainguard/minio:latest
+    volumes:
+      - minio-data:/data
+    user: root
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chown -R 65532:65532 /data"]
+    restart: "no"
+
   minio:
-    image: minio/minio:latest
+    # minio/minio and minio/mc are gone from Docker Hub and Quay; Chainguard
+    # publishes the upstream source build. It bundles `mc` and lacks `curl`.
+    image: cgr.dev/chainguard/minio:latest
     network_mode: host
     #ports:
     #  - "9000:9000"
@@ -69,29 +82,29 @@ services:
     environment:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
+    depends_on:
+      minio-chown:
+        condition: service_completed_successfully
     command: server /data --console-address ":9001"
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000"]
       interval: 5s
       timeout: 3s
       retries: 5
     restart: unless-stopped
 
   createbuckets:
-    image: minio/mc:latest
+    image: cgr.dev/chainguard/minio:latest
     network_mode: host
-    entrypoint: >
-      /bin/sh -c "
-      until (/usr/bin/mc alias set myminio http://localhost:9000 minioadmin minioadmin) do
-        echo 'Waiting for minio...';
-        sleep 2;
-      done;
-      /usr/bin/mc mb myminio/label-tool-cache --ignore-existing;
-      echo 'Bucket created';
-      exit 0;
-      "
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        until /usr/bin/mc alias set myminio http://localhost:9000 minioadmin minioadmin; do
+        echo 'Waiting for minio...'; sleep 2; done;
+        /usr/bin/mc mb myminio/label-tool-cache --ignore-existing &&
+        echo 'Bucket created'
     depends_on:
       minio:
         condition: service_healthy

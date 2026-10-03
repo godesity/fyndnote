@@ -94,7 +94,13 @@ docker run -d --name minio \
   -p 9000:9000 -p 9001:9001 \
   -e MINIO_ROOT_USER=minioadmin \
   -e MINIO_ROOT_PASSWORD=minioadmin \
-  minio/minio server /data --console-address ":9001"
+  cgr.dev/chainguard/minio server /data --console-address ":9001"
+
+# Create the cache bucket (mc ships inside the image above).
+docker run --rm --network host --entrypoint /bin/sh \
+  cgr.dev/chainguard/minio \
+  -c "mc alias set myminio http://localhost:9000 minioadmin minioadmin && \
+      mc mb myminio/label-tool-cache --ignore-existing"
 
 docker run -d --name fyndnote \
   -p 8000:8000 \
