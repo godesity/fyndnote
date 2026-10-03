@@ -1,6 +1,6 @@
 # AI Prefill
 
-Projects can optionally be backed by an **AI backend** that suggests annotations automatically. This is configured on the project (enabled flag, AI URL, annotator name, and mode).
+Projects can optionally be backed by an **AI backend** that suggests annotations automatically. This is configured on the project's **Auto-Label** page (enabled flag, AI URL, annotator name, and mode).
 
 ## Endpoints
 
@@ -22,7 +22,7 @@ The `ml_mode` setting (default `on_navigate`) controls when prefill is triggered
 
 Instead of hosting your own model server, a project can use the built-in **DSPy** backend:
 the annotation template is compiled into a DSPy program and run against any OpenAI-compatible
-LLM endpoint. Pick *DSPy LLM* under **ML Backend** on the project settings page.
+LLM endpoint. Pick *DSPy LLM* under **Backend Type** on the project's **Auto-Label** page.
 
 ### Server configuration
 
@@ -38,8 +38,8 @@ holds only the derived field schema.
 
 ### Prompt Studio
 
-On the project settings page, *Prompt Studio* exposes the compiled program so you can
-inspect and edit exactly what runs:
+On the project's **Auto-Label** page, *Prompt Studio* exposes the compiled program so you
+can inspect and edit exactly what runs:
 
 - **Instruction** — the prompt that actually runs; fully transparent and editable.
   Saving creates a new prompt *version* and rewrites its embedded instruction so the
