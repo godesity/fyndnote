@@ -174,12 +174,20 @@ export default function ProjectListView() {
                       Browse
                     </button>
                     {isAdmin && (
-                      <button
-                        onClick={() => window.location.hash = `#/projects/${p.id}/edit`}
-                        className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
-                      >
-                        Settings
-                      </button>
+                      <>
+                        <button
+                          onClick={() => window.location.hash = `#/projects/${p.id}/autolabel`}
+                          className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
+                        >
+                          Auto-Label
+                        </button>
+                        <button
+                          onClick={() => window.location.hash = `#/projects/${p.id}/edit`}
+                          className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
+                        >
+                          Settings
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -242,12 +250,20 @@ export default function ProjectListView() {
                           Browse
                         </button>
                         {isAdmin && (
-                          <button
-                            onClick={() => window.location.hash = `#/projects/${p.id}/edit`}
-                            className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-xs text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
-                          >
-                            Settings
-                          </button>
+                          <>
+                            <button
+                              onClick={() => window.location.hash = `#/projects/${p.id}/autolabel`}
+                              className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-xs text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
+                            >
+                              Auto-Label
+                            </button>
+                            <button
+                              onClick={() => window.location.hash = `#/projects/${p.id}/edit`}
+                              className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-xs text-[var(--color-text)] hover:bg-[var(--color-surface-sunken)] transition-all"
+                            >
+                              Settings
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
