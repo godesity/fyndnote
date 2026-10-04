@@ -11,7 +11,7 @@ from ..schemas import (
 from ..services import dspy_service
 from ..services.annotation_service import AnnotationService
 
-router = APIRouter()
+router = APIRouter(tags=["AI Prefill"])
 
 
 def _project_or_404(pid: str) -> dict:

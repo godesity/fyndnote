@@ -11,12 +11,12 @@ DECLARED = {t["name"] for t in OPENAPI_TAGS}
 EXPECTED_COUNTS = {
     "Auth": 2,
     "SSO": 4,
-    "Datasets": 8,
+    "Datasets": 9,
     "Templates": 4,
     "Projects": 5,
     "Rows & Annotations": 12,
     "Members": 4,
-    "AI Prefill": 6,
+    "AI Prefill": 16,
 }
 
 

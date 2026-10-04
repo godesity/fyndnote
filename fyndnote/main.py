@@ -49,7 +49,7 @@ OPENAPI_TAGS = [
     },
     {
         "name": "AI Prefill",
-        "description": "Optional ML backend: prefill one row or a batch, read and clear generated annotations.",
+        "description": "Optional ML backend: prefill one row or a batch, read and clear generated annotations, and configure the DSPy prompt program (derive/tune/accept/revert).",
     },
 ]
 

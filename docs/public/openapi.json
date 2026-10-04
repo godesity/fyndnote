@@ -109,6 +109,9 @@
     },
     "/api/v1/datasets/name-available": {
       "get": {
+        "tags": [
+          "Datasets"
+        ],
         "summary": "Check Dataset Name",
         "description": "Pre-flight for the load/upload forms: is this display label free?\n\n``source`` is what the UI has typed so far, so the check works before the\nuser picked a name: the derived default is checked instead.",
         "operationId": "check_dataset_name_api_v1_datasets_name_available_get",
@@ -2018,6 +2021,9 @@
     },
     "/api/v1/projects/{pid}/dspy": {
       "get": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Get Config",
         "operationId": "get_config_api_v1_projects__pid__dspy_get",
         "parameters": [
@@ -2053,6 +2059,9 @@
         }
       },
       "put": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Update Config",
         "operationId": "update_config_api_v1_projects__pid__dspy_put",
         "parameters": [
@@ -2100,6 +2109,9 @@
     },
     "/api/v1/projects/{pid}/dspy/derive": {
       "post": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Derive",
         "operationId": "derive_api_v1_projects__pid__dspy_derive_post",
         "parameters": [
@@ -2154,6 +2166,9 @@
     },
     "/api/v1/projects/{pid}/dspy/versions": {
       "get": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Versions",
         "operationId": "versions_api_v1_projects__pid__dspy_versions_get",
         "parameters": [
@@ -2191,6 +2206,9 @@
     },
     "/api/v1/projects/{pid}/dspy/test": {
       "post": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Test",
         "operationId": "test_api_v1_projects__pid__dspy_test_post",
         "parameters": [
@@ -2238,6 +2256,9 @@
     },
     "/api/v1/projects/{pid}/dspy/train": {
       "post": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Train",
         "operationId": "train_api_v1_projects__pid__dspy_train_post",
         "parameters": [
@@ -2285,6 +2306,9 @@
     },
     "/api/v1/projects/{pid}/dspy/accept": {
       "post": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Accept",
         "operationId": "accept_api_v1_projects__pid__dspy_accept_post",
         "parameters": [
@@ -2339,6 +2363,9 @@
     },
     "/api/v1/projects/{pid}/dspy/reject": {
       "post": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Reject",
         "operationId": "reject_api_v1_projects__pid__dspy_reject_post",
         "parameters": [
@@ -2376,6 +2403,9 @@
     },
     "/api/v1/projects/{pid}/dspy/revert": {
       "post": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Revert",
         "operationId": "revert_api_v1_projects__pid__dspy_revert_post",
         "parameters": [
@@ -2423,6 +2453,9 @@
     },
     "/api/v1/projects/{pid}/dspy/reset": {
       "post": {
+        "tags": [
+          "AI Prefill"
+        ],
         "summary": "Reset",
         "operationId": "reset_api_v1_projects__pid__dspy_reset_post",
         "parameters": [
@@ -3184,7 +3217,7 @@
     },
     {
       "name": "AI Prefill",
-      "description": "Optional ML backend: prefill one row or a batch, read and clear generated annotations."
+      "description": "Optional ML backend: prefill one row or a batch, read and clear generated annotations, and configure the DSPy prompt program (derive/tune/accept/revert)."
     }
   ]
 }
